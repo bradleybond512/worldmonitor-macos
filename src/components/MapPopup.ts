@@ -2160,7 +2160,7 @@ export class MapPopup {
         ${vessel.note ? `<p class="popup-description">${vesselNote}</p>` : ''}
         ${vessel.isDark ? `<p class="popup-description alert">${t('popups.militaryVessel.darkDescription')}</p>` : ''}
         ${vessel.usniSource ? `<p class="popup-description" style="opacity:0.7;font-size:0.85em">${t('popups.militaryVessel.approximatePosition')}</p>` : ''}
-        ${vessel.usniArticleUrl ? `<div class="popup-attribution"><a href="${escapeHtml(vessel.usniArticleUrl)}" target="_blank" rel="noopener">${t('popups.militaryVessel.usniSource')}${vessel.usniArticleDate ? ` (${new Date(vessel.usniArticleDate).toLocaleDateString()})` : ''}</a></div>` : ''}
+        ${vessel.usniArticleUrl ? `<div class="popup-attribution"><a href="${sanitizeUrl(vessel.usniArticleUrl)}" target="_blank" rel="noopener">${t('popups.militaryVessel.usniSource')}${vessel.usniArticleDate ? ` (${new Date(vessel.usniArticleDate).toLocaleDateString()})` : ''}</a></div>` : ''}
       </div>
     `;
   }

@@ -1,5 +1,5 @@
 import { Panel } from './Panel';
-import { escapeHtml } from '@/utils/sanitize';
+import { escapeHtml, sanitizeUrl } from '@/utils/sanitize';
 import { t } from '@/services/i18n';
 import { EconomicServiceClient } from '@/generated/client/worldmonitor/economic/v1/service_client';
 import type { GetMacroSignalsResponse } from '@/generated/client/worldmonitor/economic/v1/service_client';
@@ -220,7 +220,7 @@ export class MacroSignalsPanel extends Panel {
     return `
       <div class="signal-card${link ? ' signal-card-linked' : ''}">
         <div class="signal-header">
-          ${link ? `<a href="${escapeHtml(link)}" target="_blank" rel="noopener" class="signal-name signal-card-link">${escapeHtml(name)}</a>` : `<span class="signal-name">${escapeHtml(name)}</span>`}
+          ${link ? `<a href="${sanitizeUrl(link)}" target="_blank" rel="noopener" class="signal-name signal-card-link">${escapeHtml(name)}</a>` : `<span class="signal-name">${escapeHtml(name)}</span>`}
           <span class="signal-badge ${badgeClass}">${escapeHtml(status)}</span>
         </div>
         <div class="signal-body">

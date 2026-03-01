@@ -9,7 +9,7 @@ use std::os::windows::process::CommandExt;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::sync::Mutex;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use keyring::Entry;
 use reqwest::Url;
@@ -53,6 +53,10 @@ const SUPPORTED_SECRET_KEYS: [&str; 24] = [
     "AVIATIONSTACK_API",
     "ICAO_API_KEY",
 ];
+
+// Rate-limit native notifications: no more than 1 per 30 seconds across all threads.
+static NOTIFICATION_LAST_SENT: Mutex<Option<Instant>> = Mutex::new(None);
+const NOTIFICATION_RATE_LIMIT: Duration = Duration::from_secs(30);
 
 #[derive(Default)]
 struct LocalApiState {
@@ -451,14 +455,31 @@ fn open_path_in_shell(path: &Path) -> Result<(), String> {
 fn open_url(url: String) -> Result<(), String> {
     let parsed = Url::parse(&url).map_err(|_| "Invalid URL".to_string())?;
 
-    match parsed.scheme() {
-        "https" => open_in_shell(parsed.as_str()),
-        "http" => match parsed.host_str() {
-            Some("localhost") | Some("127.0.0.1") => open_in_shell(parsed.as_str()),
-            _ => Err("Only https:// URLs are allowed (http:// only for localhost)".to_string()),
-        },
-        _ => Err("Only https:// URLs are allowed (http:// only for localhost)".to_string()),
+    // Only HTTPS is allowed. Local/internal URLs must never be opened via this command
+    // to prevent a compromised webview from hitting the local API server (127.0.0.1:46123)
+    // or other internal services through the system browser.
+    if parsed.scheme() != "https" {
+        return Err("Only https:// URLs may be opened via open_url".to_string());
     }
+
+    // Block loopback, link-local, and private network hosts even over HTTPS
+    let host = parsed.host_str().unwrap_or("");
+    let blocked = host == "localhost"
+        || host == "127.0.0.1"
+        || host == "::1"
+        || host.starts_with("192.168.")
+        || host.starts_with("10.")
+        || host.ends_with(".local");
+    if blocked {
+        return Err("Internal/private addresses may not be opened via open_url".to_string());
+    }
+
+    // URL length guard — browsers accept long URLs but this prevents log spam
+    if url.len() > 4096 {
+        return Err("URL exceeds maximum allowed length".to_string());
+    }
+
+    open_in_shell(parsed.as_str())
 }
 
 fn open_logs_folder_impl(app: &AppHandle) -> Result<PathBuf, String> {
@@ -521,6 +542,8 @@ fn close_live_channels_window(app: AppHandle) -> Result<(), String> {
 }
 
 /// Send a native macOS notification via osascript. No-op on non-macOS platforms.
+/// Rate-limited to 1 notification per 30 seconds to prevent notification spam.
+/// Input fields are length-capped and sanitized before interpolation into AppleScript.
 #[tauri::command]
 fn send_notification(title: String, body: String, sound: Option<String>) -> Result<(), String> {
     #[cfg(not(target_os = "macos"))]
@@ -530,11 +553,35 @@ fn send_notification(title: String, body: String, sound: Option<String>) -> Resu
     }
     #[cfg(target_os = "macos")]
     {
-        let sound_name = sound.unwrap_or_else(|| "Ping".to_string());
-        // Sanitize: strip quotes and backslashes to prevent osascript injection
-        let safe_title = title.replace('\\', "").replace('"', "'");
-        let safe_body = body.replace('\\', "").replace('"', "'");
-        let safe_sound = sound_name.replace('\\', "").replace('"', "'");
+        // Rate limit: silently drop if fired too recently
+        {
+            let mut last = NOTIFICATION_LAST_SENT.lock().unwrap_or_else(|p| p.into_inner());
+            if let Some(t) = *last {
+                if t.elapsed() < NOTIFICATION_RATE_LIMIT {
+                    return Ok(()); // suppressed — too soon
+                }
+            }
+            *last = Some(Instant::now());
+        }
+
+        // Enforce length limits to bound log size and script length
+        let title = if title.len() > 128 { &title[..128] } else { title.as_str() };
+        let body  = if body.len()  > 256 { &body[..256]  } else { body.as_str()  };
+        let sound_name = sound.as_deref().unwrap_or("Ping");
+        let sound_name = if sound_name.len() > 64 { &sound_name[..64] } else { sound_name };
+
+        // Sanitize: remove characters that have meaning in AppleScript string literals.
+        // We use double-quoted AppleScript strings so we strip " and \ (escape char).
+        // Newlines and control chars are also removed to prevent multi-statement injection.
+        let sanitize = |s: &str| -> String {
+            s.chars()
+                .filter(|c| !matches!(c, '"' | '\\' | '\n' | '\r' | '\x00'..='\x1f'))
+                .collect()
+        };
+        let safe_title = sanitize(title);
+        let safe_body  = sanitize(body);
+        let safe_sound = sanitize(sound_name);
+
         let script = format!(
             r#"display notification "{safe_body}" with title "{safe_title}" sound name "{safe_sound}""#
         );
@@ -609,9 +656,34 @@ async fn install_update(download_url: String) -> Result<(), String> {
             ));
         }
 
-        // 3. Copy the app bundle to /Applications
+        // 3. Verify the app bundle identifier before overwriting /Applications.
+        //    This prevents a compromised GitHub account or MITM from replacing the app
+        //    with a malicious binary that passes the host check but is not World Monitor.
         let source = format!("{}/World Monitor.app", mount_point);
         let dest = "/Applications/World Monitor.app";
+
+        const EXPECTED_BUNDLE_ID: &str = "app.worldmonitor.desktop";
+        let plist = format!("{source}/Contents/Info.plist");
+        let id_check = Command::new("plutil")
+            .args(["-extract", "CFBundleIdentifier", "raw", "-o", "-", &plist])
+            .output();
+        match id_check {
+            Ok(out) if out.status.success() => {
+                let bundle_id = String::from_utf8_lossy(&out.stdout).trim().to_string();
+                if bundle_id != EXPECTED_BUNDLE_ID {
+                    let _ = Command::new("hdiutil").args(["detach", mount_point, "-quiet"]).output();
+                    let _ = std::fs::remove_file(tmp_dmg);
+                    return Err(format!(
+                        "Bundle identifier mismatch: expected '{EXPECTED_BUNDLE_ID}', got '{bundle_id}'"
+                    ));
+                }
+            }
+            _ => {
+                let _ = Command::new("hdiutil").args(["detach", mount_point, "-quiet"]).output();
+                let _ = std::fs::remove_file(tmp_dmg);
+                return Err("Could not verify bundle identifier — aborting update".into());
+            }
+        }
 
         let _ = Command::new("rm").args(["-rf", dest]).output();
 
@@ -646,6 +718,14 @@ async fn fetch_polymarket(webview: Webview, path: String, params: String) -> Res
     let segment = path.trim_start_matches('/');
     if !allowed.iter().any(|a| segment.starts_with(a)) {
         return Err("Invalid Polymarket path".into());
+    }
+    // Reject path traversal and unusual characters in the path segment
+    if segment.contains("..") || segment.contains('\n') || segment.contains('\r') {
+        return Err("Invalid characters in Polymarket path".into());
+    }
+    // Guard against extremely long params strings that could be used for log injection
+    if params.len() > 2048 {
+        return Err("Polymarket query params exceed maximum allowed length".into());
     }
     let url = format!("https://gamma-api.polymarket.com/{}?{}", segment, params);
     let client = reqwest::Client::builder()

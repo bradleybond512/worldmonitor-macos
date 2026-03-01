@@ -115,8 +115,10 @@ export class AlertCenterPanel extends Panel {
     const rows = [...breaking, ...signals].map(a => {
       const pill = severityPill(a.severity);
       const ago = timeAgo(a.timestamp);
-      const title = a.link
-        ? `<a href="${a.link}" target="_blank" rel="noopener noreferrer">${escHtml(a.title)}</a>`
+      // Only allow https:// links to prevent javascript: or data: href injection
+      const safeLink = a.link && a.link.startsWith('https://') ? a.link : null;
+      const title = safeLink
+        ? `<a href="${escHtml(safeLink)}" target="_blank" rel="noopener noreferrer">${escHtml(a.title)}</a>`
         : escHtml(a.title);
       return `<tr class="${rowClass(a.severity)}">
         <td class="ac-sev">${pill}</td>

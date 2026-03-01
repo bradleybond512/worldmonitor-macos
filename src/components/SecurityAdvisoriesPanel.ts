@@ -1,5 +1,5 @@
 import { Panel } from './Panel';
-import { escapeHtml } from '@/utils/sanitize';
+import { escapeHtml, sanitizeUrl } from '@/utils/sanitize';
 import { t } from '@/services/i18n';
 import type { SecurityAdvisory } from '@/services/security-advisories';
 
@@ -167,7 +167,7 @@ export class SecurityAdvisoriesPanel extends Panel {
             <span class="sa-badge ${levelCls}">${levelLabel}</span>
             <span class="sa-source">${flag} ${escapeHtml(a.source)}</span>
           </div>
-          <a href="${escapeHtml(a.link)}" target="_blank" rel="noopener" class="sa-title">${escapeHtml(a.title)}</a>
+          <a href="${sanitizeUrl(a.link)}" target="_blank" rel="noopener" class="sa-title">${escapeHtml(a.title)}</a>
           <div class="sa-time">${this.formatTime(a.pubDate)}</div>
         </div>`;
       }).join('');
