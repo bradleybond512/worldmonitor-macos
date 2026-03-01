@@ -156,6 +156,22 @@ const LIGHT_STYLE = SITE_VARIANT === 'happy'
   ? '/map-styles/happy-light.json'
   : 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json';
 
+// Raster basemap styles — Esri services, free to use, no API key required
+const SATELLITE_STYLE = '/map-styles/satellite.json';
+const TERRAIN_STYLE = '/map-styles/terrain.json';
+
+type BaseMapStyle = 'dark' | 'light' | 'satellite' | 'terrain';
+const BASEMAP_STORAGE_KEY = 'wm-basemap';
+
+function getStyleUrl(basemap: BaseMapStyle): string {
+  switch (basemap) {
+    case 'satellite': return SATELLITE_STYLE;
+    case 'terrain': return TERRAIN_STYLE;
+    case 'light': return LIGHT_STYLE;
+    default: return DARK_STYLE;
+  }
+}
+
 // Zoom thresholds for layer visibility and labels (matches old Map.ts)
 // Zoom-dependent layer visibility and labels
 const LAYER_ZOOM_THRESHOLDS: Partial<Record<keyof MapLayers, { minZoom: number; showLabels?: number }>> = {
@@ -256,6 +272,7 @@ export class DeckGLMap {
   private container: HTMLElement;
   private deckOverlay: MapboxOverlay | null = null;
   private maplibreMap: maplibregl.Map | null = null;
+  private activeBaseMap: BaseMapStyle = 'dark';
   private state: DeckMapState;
   private popup: MapPopup;
 
@@ -377,7 +394,10 @@ export class DeckGLMap {
     window.addEventListener('theme-changed', (e: Event) => {
       const theme = (e as CustomEvent).detail?.theme as 'dark' | 'light';
       if (theme) {
-        this.switchBasemap(theme);
+        // Only auto-switch basemap if not using a custom (satellite/terrain) style
+        if (this.activeBaseMap === 'dark' || this.activeBaseMap === 'light') {
+          this.switchBasemap(theme);
+        }
         this.render(); // Rebuilds Deck.GL layers with new theme-aware colors
       }
     });
@@ -447,10 +467,12 @@ export class DeckGLMap {
   private initMapLibre(): void {
     const preset = VIEW_PRESETS[this.state.view];
     const initialTheme = getCurrentTheme();
+    const savedBasemap = localStorage.getItem(BASEMAP_STORAGE_KEY) as BaseMapStyle | null;
+    this.activeBaseMap = savedBasemap ?? (initialTheme === 'light' ? 'light' : 'dark');
 
     this.maplibreMap = new maplibregl.Map({
       container: 'deckgl-basemap',
-      style: initialTheme === 'light' ? LIGHT_STYLE : DARK_STYLE,
+      style: getStyleUrl(this.activeBaseMap),
       center: [preset.longitude, preset.latitude],
       zoom: preset.zoom,
       renderWorldCopies: false,
@@ -3230,11 +3252,21 @@ export class DeckGLMap {
         { key: 'dayNight', label: t('components.deckgl.layers.dayNight'), icon: '&#127763;' },
       ];
 
+    const bm = this.activeBaseMap;
     toggles.innerHTML = `
       <div class="toggle-header">
         <span>${t('components.deckgl.layersTitle')}</span>
         <button class="layer-help-btn" title="${t('components.deckgl.layerGuide')}">?</button>
         <button class="toggle-collapse">&#9660;</button>
+      </div>
+      <div class="basemap-selector">
+        <span class="basemap-label">Base Map</span>
+        <div class="basemap-btns">
+          <button class="basemap-btn${bm === 'dark' ? ' basemap-active' : ''}" data-basemap="dark">Dark</button>
+          <button class="basemap-btn${bm === 'light' ? ' basemap-active' : ''}" data-basemap="light">Light</button>
+          <button class="basemap-btn${bm === 'satellite' ? ' basemap-active' : ''}" data-basemap="satellite">&#127759; Satellite</button>
+          <button class="basemap-btn${bm === 'terrain' ? ' basemap-active' : ''}" data-basemap="terrain">&#9968; Terrain</button>
+        </div>
       </div>
       <div class="toggle-list" style="max-height: 32vh; overflow-y: auto; scrollbar-width: thin;">
         ${layerConfig.map(({ key, label, icon }) => `
@@ -3257,6 +3289,19 @@ export class DeckGLMap {
           this.state.layers[layer] = (input as HTMLInputElement).checked;
           this.render();
           this.onLayerChange?.(layer, (input as HTMLInputElement).checked, 'user');
+        }
+      });
+    });
+
+    // Basemap selector buttons
+    toggles.querySelectorAll('.basemap-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const newBasemap = btn.getAttribute('data-basemap') as BaseMapStyle;
+        if (newBasemap && newBasemap !== this.activeBaseMap) {
+          this.switchBasemap(newBasemap);
+          toggles.querySelectorAll('.basemap-btn').forEach(b =>
+            b.classList.toggle('basemap-active', b.getAttribute('data-basemap') === newBasemap),
+          );
         }
       });
     });
@@ -4486,24 +4531,42 @@ export class DeckGLMap {
     } catch { /* layer not ready */ }
   }
 
-  private switchBasemap(theme: 'dark' | 'light'): void {
+  private switchBasemap(basemap: BaseMapStyle): void {
     if (!this.maplibreMap) return;
-    this.maplibreMap.setStyle(theme === 'light' ? LIGHT_STYLE : DARK_STYLE);
+    this.activeBaseMap = basemap;
+    localStorage.setItem(BASEMAP_STORAGE_KEY, basemap);
+    this.maplibreMap.setStyle(getStyleUrl(basemap));
     // setStyle() replaces all sources/layers — reset guard so country layers are re-added
     this.countryGeoJsonLoaded = false;
+    const themeForPaint: 'dark' | 'light' = basemap === 'light' ? 'light' : 'dark';
     this.maplibreMap.once('style.load', () => {
       this.loadCountryBoundaries();
-      this.updateCountryLayerPaint(theme);
+      this.updateCountryLayerPaint(themeForPaint);
+      this.updateAttribution(basemap);
       // Re-render deck.gl overlay after style swap — interleaved layers need
       // the new MapLibre style to be loaded before they can re-insert.
       this.render();
     });
   }
 
+  private updateAttribution(basemap: BaseMapStyle): void {
+    const el = this.container.querySelector('.map-attribution');
+    if (!el) return;
+    if (basemap === 'satellite') {
+      el.innerHTML = '&copy; <a href="https://www.esri.com" target="_blank" rel="noopener">Esri</a> &mdash; Source: Esri, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN';
+    } else if (basemap === 'terrain') {
+      el.innerHTML = '&copy; <a href="https://www.esri.com" target="_blank" rel="noopener">Esri</a> &mdash; Esri, DeLorme, NAVTEQ, TomTom, Intermap, iPC, USGS, FAO';
+    } else {
+      el.innerHTML = '&copy; <a href="https://carto.com/attributions" target="_blank" rel="noopener">CARTO</a> &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>';
+    }
+  }
+
   private updateCountryLayerPaint(theme: 'dark' | 'light'): void {
     if (!this.maplibreMap || !this.countryGeoJsonLoaded) return;
-    const hoverOpacity = theme === 'light' ? 0.10 : 0.06;
-    const highlightOpacity = theme === 'light' ? 0.18 : 0.12;
+    // Satellite/terrain raster backgrounds need more visible country hover overlays
+    const isRaster = this.activeBaseMap === 'satellite' || this.activeBaseMap === 'terrain';
+    const hoverOpacity = isRaster ? 0.12 : (theme === 'light' ? 0.10 : 0.06);
+    const highlightOpacity = isRaster ? 0.22 : (theme === 'light' ? 0.18 : 0.12);
     try {
       this.maplibreMap.setPaintProperty('country-hover-fill', 'fill-opacity', hoverOpacity);
       this.maplibreMap.setPaintProperty('country-highlight-fill', 'fill-opacity', highlightOpacity);

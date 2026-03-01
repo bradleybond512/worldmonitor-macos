@@ -12245,6 +12245,52 @@ a.prediction-link:hover {
   border-color: rgba(68, 255, 136, 0.2);
 }
 
+/* Basemap selector — sits between toggle header and layer list */
+.basemap-selector {
+  padding: 6px 8px 4px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+.basemap-label {
+  display: block;
+  font-size: 8px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--text-muted, #666);
+  margin-bottom: 4px;
+}
+.basemap-btns {
+  display: flex;
+  gap: 3px;
+  flex-wrap: wrap;
+}
+.basemap-btn {
+  flex: 1;
+  min-width: 0;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--text-dim, #888);
+  font-size: 9px;
+  font-weight: 600;
+  padding: 3px 4px;
+  border-radius: 3px;
+  cursor: pointer;
+  white-space: nowrap;
+  text-align: center;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  letter-spacing: 0.3px;
+}
+.basemap-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text, #e8e8e8);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+.basemap-btn.basemap-active {
+  background: rgba(79, 195, 247, 0.15);
+  border-color: rgba(79, 195, 247, 0.5);
+  color: #4fc3f7;
+}
+
 /* deck.gl Legend - horizontal bar at bottom center */
 .deckgl-legend {
   position: absolute;

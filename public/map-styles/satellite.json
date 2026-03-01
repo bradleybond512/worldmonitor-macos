@@ -1,0 +1,43 @@
+{
+  "version": 8,
+  "name": "Satellite",
+  "sources": {
+    "esri-satellite": {
+      "type": "raster",
+      "tiles": [
+        "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+      ],
+      "tileSize": 256,
+      "maxzoom": 19,
+      "attribution": "Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community"
+    },
+    "esri-labels": {
+      "type": "raster",
+      "tiles": [
+        "https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}"
+      ],
+      "tileSize": 256,
+      "maxzoom": 19,
+      "attribution": "Labels &copy; Esri"
+    }
+  },
+  "layers": [
+    {
+      "id": "satellite-tiles",
+      "type": "raster",
+      "source": "esri-satellite",
+      "minzoom": 0,
+      "maxzoom": 22
+    },
+    {
+      "id": "label-tiles",
+      "type": "raster",
+      "source": "esri-labels",
+      "minzoom": 2,
+      "maxzoom": 22,
+      "paint": {
+        "raster-opacity": 0.85
+      }
+    }
+  ]
+}
