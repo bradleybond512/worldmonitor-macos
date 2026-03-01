@@ -161,7 +161,7 @@ window.addEventListener('unhandledrejection', (e) => {
 
 import { debugGetCells, getCellCount } from '@/services/geo-convergence';
 import { initMetaTags } from '@/services/meta-tags';
-import { installRuntimeFetchPatch, installWebApiRedirect } from '@/services/runtime';
+import { installRuntimeFetchPatch, installWebApiRedirect, isDesktopRuntime } from '@/services/runtime';
 import { loadDesktopSecrets } from '@/services/runtime-config';
 import { initAnalytics, trackApiKeysSnapshot } from '@/services/analytics';
 import { applyStoredTheme } from '@/utils/theme-manager';
@@ -191,6 +191,11 @@ loadDesktopSecrets().then(async () => {
 
 // Apply stored theme preference before app initialization (safety net for inline script)
 applyStoredTheme();
+
+// Mark body with macOS-native class so CSS design system activates on desktop
+if (isDesktopRuntime()) {
+  document.body.classList.add('is-desktop-macos');
+}
 
 // Set data-variant on <html> so CSS theme overrides activate (inline script handles hostname/localStorage,
 // this catches the VITE_VARIANT env var path used during local dev and Vercel deployments)

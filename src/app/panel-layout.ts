@@ -108,50 +108,224 @@ export class PanelLayoutManager implements AppModule {
   }
 
   renderLayout(): void {
-    this.ctx.container.innerHTML = `
+    if (this.ctx.isDesktopApp) {
+      this.ctx.container.innerHTML = this.buildDesktopLayout();
+    } else {
+      this.ctx.container.innerHTML = this.buildWebLayout();
+    }
+    this.createPanels();
+  }
+
+  private buildVariantSwitcherItems(): string {
+    const local = this.ctx.isDesktopApp || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+    const vHref = (v: string, prod: string) => local || SITE_VARIANT === v ? '#' : prod;
+    const vTarget = (v: string) => !local && SITE_VARIANT !== v ? 'target="_blank" rel="noopener"' : '';
+    return `
+      <a href="${vHref('full', 'https://worldmonitor.app')}"
+         class="variant-option ${SITE_VARIANT === 'full' ? 'active' : ''}"
+         data-variant="full"
+         ${vTarget('full')}
+         title="${t('header.world')}${SITE_VARIANT === 'full' ? ` ${t('common.currentVariant')}` : ''}">
+        <span class="variant-icon">🌍</span>
+        <span class="variant-label">${t('header.world')}</span>
+      </a>
+      <span class="variant-divider"></span>
+      <a href="${vHref('tech', 'https://tech.worldmonitor.app')}"
+         class="variant-option ${SITE_VARIANT === 'tech' ? 'active' : ''}"
+         data-variant="tech"
+         ${vTarget('tech')}
+         title="${t('header.tech')}${SITE_VARIANT === 'tech' ? ` ${t('common.currentVariant')}` : ''}">
+        <span class="variant-icon">💻</span>
+        <span class="variant-label">${t('header.tech')}</span>
+      </a>
+      <span class="variant-divider"></span>
+      <a href="${vHref('finance', 'https://finance.worldmonitor.app')}"
+         class="variant-option ${SITE_VARIANT === 'finance' ? 'active' : ''}"
+         data-variant="finance"
+         ${vTarget('finance')}
+         title="${t('header.finance')}${SITE_VARIANT === 'finance' ? ` ${t('common.currentVariant')}` : ''}">
+        <span class="variant-icon">📈</span>
+        <span class="variant-label">${t('header.finance')}</span>
+      </a>
+      ${SITE_VARIANT === 'happy' ? `<span class="variant-divider"></span>
+      <a href="${vHref('happy', 'https://happy.worldmonitor.app')}"
+         class="variant-option active"
+         data-variant="happy"
+         ${vTarget('happy')}
+         title="Good News ${t('common.currentVariant')}">
+        <span class="variant-icon">☀️</span>
+        <span class="variant-label">Good News</span>
+      </a>` : ''}`;
+  }
+
+  private buildMapSection(): string {
+    return `
+      <div class="map-section" id="mapSection">
+        <div class="panel-header">
+          <div class="panel-header-left">
+            <span class="panel-title">${SITE_VARIANT === 'tech' ? t('panels.techMap') : SITE_VARIANT === 'happy' ? 'Good News Map' : t('panels.map')}</span>
+          </div>
+          <span class="header-clock" id="headerClock"></span>
+          <button class="map-pin-btn" id="mapPinBtn" title="${t('header.pinMap')}">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 17v5M9 10.76a2 2 0 01-1.11 1.79l-1.78.9A2 2 0 005 15.24V16a1 1 0 001 1h12a1 1 0 001-1v-.76a2 2 0 00-1.11-1.79l-1.78-.9A2 2 0 0115 10.76V7a1 1 0 011-1 1 1 0 001-1V4a1 1 0 00-1-1H8a1 1 0 00-1 1v1a1 1 0 001 1 1 1 0 011 1v3.76z"/>
+            </svg>
+          </button>
+        </div>
+        <div class="map-container" id="mapContainer"></div>
+        ${SITE_VARIANT === 'happy' ? '<button class="tv-exit-btn" id="tvExitBtn">Exit TV Mode</button>' : ''}
+        <div class="map-resize-handle" id="mapResizeHandle"></div>
+      </div>`;
+  }
+
+  private buildThemeIcon(): string {
+    return getCurrentTheme() === 'dark'
+      ? '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>'
+      : '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>';
+  }
+
+  private buildDesktopLayout(): string {
+    return `
+      <!-- Original header kept for compatibility; hidden via CSS on desktop -->
+      <div class="header" aria-hidden="true" style="display:none">
+        <div class="header-left">
+          <div class="variant-switcher">${this.buildVariantSwitcherItems()}</div>
+          <span class="logo">MONITOR</span><span class="version">v${__APP_VERSION__}</span>
+          <div class="status-indicator"><span class="status-dot"></span><span>${t('header.live')}</span></div>
+          <div class="region-selector" style="display:none">
+            <select id="regionSelect" class="region-select">
+              <option value="global">${t('components.deckgl.views.global')}</option>
+              <option value="america">${t('components.deckgl.views.americas')}</option>
+              <option value="mena">${t('components.deckgl.views.mena')}</option>
+              <option value="eu">${t('components.deckgl.views.europe')}</option>
+              <option value="asia">${t('components.deckgl.views.asia')}</option>
+              <option value="latam">${t('components.deckgl.views.latam')}</option>
+              <option value="africa">${t('components.deckgl.views.africa')}</option>
+              <option value="oceania">${t('components.deckgl.views.oceania')}</option>
+            </select>
+          </div>
+        </div>
+        <div class="header-right">
+          <button class="search-btn" id="searchBtn" style="display:none"><kbd>⌘K</kbd> ${t('header.search')}</button>
+          <button class="theme-toggle-btn" id="headerThemeToggle" style="display:none" title="${t('header.toggleTheme')}">${this.buildThemeIcon()}</button>
+          ${SITE_VARIANT === 'happy' ? '<button class="tv-mode-btn" id="tvModeBtn" style="display:none"></button>' : ''}
+          <span id="unifiedSettingsMount" style="display:none"></span>
+        </div>
+      </div>
+
+      <!-- macOS native shell -->
+      <div class="mac-shell">
+
+        <!-- Sidebar -->
+        <aside class="mac-sidebar">
+          <!-- Drag region / traffic-lights safe area -->
+          <div class="mac-sidebar-drag"></div>
+
+          <!-- Navigation -->
+          <nav class="mac-sidebar-nav">
+            <div class="mac-sidebar-section">
+              <span class="mac-sidebar-section-label">Views</span>
+              <a href="${this.ctx.isDesktopApp ? '#' : 'https://worldmonitor.app'}"
+                 class="mac-sidebar-item ${SITE_VARIANT === 'full' ? 'active' : ''}"
+                 data-variant="full"
+                 title="${t('header.world')}">
+                <span class="mac-sidebar-item-icon">🌍</span>
+                ${t('header.world')}
+              </a>
+              <a href="${this.ctx.isDesktopApp ? '#' : 'https://tech.worldmonitor.app'}"
+                 class="mac-sidebar-item ${SITE_VARIANT === 'tech' ? 'active' : ''}"
+                 data-variant="tech"
+                 title="${t('header.tech')}">
+                <span class="mac-sidebar-item-icon">💻</span>
+                ${t('header.tech')}
+              </a>
+              <a href="${this.ctx.isDesktopApp ? '#' : 'https://finance.worldmonitor.app'}"
+                 class="mac-sidebar-item ${SITE_VARIANT === 'finance' ? 'active' : ''}"
+                 data-variant="finance"
+                 title="${t('header.finance')}">
+                <span class="mac-sidebar-item-icon">📈</span>
+                ${t('header.finance')}
+              </a>
+              ${SITE_VARIANT === 'happy' ? `
+              <a href="#"
+                 class="mac-sidebar-item active"
+                 data-variant="happy"
+                 title="Good News">
+                <span class="mac-sidebar-item-icon">☀️</span>
+                Good News
+              </a>` : ''}
+            </div>
+
+            <div class="mac-sidebar-section">
+              <span class="mac-sidebar-section-label">Map Region</span>
+              <div class="mac-sidebar-item" style="padding: 4px 10px; margin: 1px 8px;">
+                <select id="regionSelect" class="region-select" style="width:100%; background:transparent; border:none; color:inherit; font:inherit; cursor:pointer; padding:2px 0; outline:none;">
+                  <option value="global">${t('components.deckgl.views.global')}</option>
+                  <option value="america">${t('components.deckgl.views.americas')}</option>
+                  <option value="mena">${t('components.deckgl.views.mena')}</option>
+                  <option value="eu">${t('components.deckgl.views.europe')}</option>
+                  <option value="asia">${t('components.deckgl.views.asia')}</option>
+                  <option value="latam">${t('components.deckgl.views.latam')}</option>
+                  <option value="africa">${t('components.deckgl.views.africa')}</option>
+                  <option value="oceania">${t('components.deckgl.views.oceania')}</option>
+                </select>
+              </div>
+            </div>
+
+            ${SITE_VARIANT === 'happy' ? `
+            <div class="mac-sidebar-section">
+              <span class="mac-sidebar-section-label">TV</span>
+              <button class="mac-sidebar-item" id="tvModeBtn" style="width:100%; background:transparent; border:none; text-align:left; cursor:pointer;">
+                <span class="mac-sidebar-item-icon">📺</span>
+                TV Mode
+              </button>
+            </div>` : ''}
+          </nav>
+
+          <!-- Footer: theme, settings, version -->
+          <div class="mac-sidebar-footer">
+            <button class="mac-sidebar-footer-btn theme-toggle-btn" id="headerThemeToggle" title="${t('header.toggleTheme')}">
+              ${this.buildThemeIcon()}
+            </button>
+            <span id="unifiedSettingsMount"></span>
+            <span class="mac-sidebar-version">v${__APP_VERSION__}${BETA_MODE ? ' β' : ''}</span>
+          </div>
+        </aside>
+
+        <!-- Main content: toolbar + map/panels -->
+        <main class="mac-content">
+          <!-- Draggable toolbar (title bar area) -->
+          <div class="mac-content-toolbar" data-tauri-drag-region>
+            <span class="mac-toolbar-title">
+              ${SITE_VARIANT === 'tech' ? 'Tech Monitor' : SITE_VARIANT === 'finance' ? 'Finance Monitor' : SITE_VARIANT === 'happy' ? 'Good News' : 'World Monitor'}
+            </span>
+            <div class="mac-toolbar-status">
+              <span class="status-dot"></span>
+              <span>${t('header.live')}</span>
+            </div>
+            <div class="mac-toolbar-spacer"></div>
+            <span class="header-clock" id="headerClock"></span>
+            <button class="search-btn" id="searchBtn"><kbd>⌘K</kbd> ${t('header.search')}</button>
+          </div>
+
+          <!-- Map + panels -->
+          <div class="mac-content-body">
+            <div class="main-content">
+              ${this.buildMapSection()}
+              <div class="panels-grid" id="panelsGrid"></div>
+            </div>
+          </div>
+        </main>
+
+      </div>
+    `;
+  }
+
+  private buildWebLayout(): string {
+    return `
       <div class="header">
         <div class="header-left">
-          <div class="variant-switcher">${(() => {
-            const local = this.ctx.isDesktopApp || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
-            const vHref = (v: string, prod: string) => local || SITE_VARIANT === v ? '#' : prod;
-            const vTarget = (v: string) => !local && SITE_VARIANT !== v ? 'target="_blank" rel="noopener"' : '';
-            return `
-            <a href="${vHref('full', 'https://worldmonitor.app')}"
-               class="variant-option ${SITE_VARIANT === 'full' ? 'active' : ''}"
-               data-variant="full"
-               ${vTarget('full')}
-               title="${t('header.world')}${SITE_VARIANT === 'full' ? ` ${t('common.currentVariant')}` : ''}">
-              <span class="variant-icon">🌍</span>
-              <span class="variant-label">${t('header.world')}</span>
-            </a>
-            <span class="variant-divider"></span>
-            <a href="${vHref('tech', 'https://tech.worldmonitor.app')}"
-               class="variant-option ${SITE_VARIANT === 'tech' ? 'active' : ''}"
-               data-variant="tech"
-               ${vTarget('tech')}
-               title="${t('header.tech')}${SITE_VARIANT === 'tech' ? ` ${t('common.currentVariant')}` : ''}">
-              <span class="variant-icon">💻</span>
-              <span class="variant-label">${t('header.tech')}</span>
-            </a>
-            <span class="variant-divider"></span>
-            <a href="${vHref('finance', 'https://finance.worldmonitor.app')}"
-               class="variant-option ${SITE_VARIANT === 'finance' ? 'active' : ''}"
-               data-variant="finance"
-               ${vTarget('finance')}
-               title="${t('header.finance')}${SITE_VARIANT === 'finance' ? ` ${t('common.currentVariant')}` : ''}">
-              <span class="variant-icon">📈</span>
-              <span class="variant-label">${t('header.finance')}</span>
-            </a>
-            ${SITE_VARIANT === 'happy' ? `<span class="variant-divider"></span>
-            <a href="${vHref('happy', 'https://happy.worldmonitor.app')}"
-               class="variant-option active"
-               data-variant="happy"
-               ${vTarget('happy')}
-               title="Good News ${t('common.currentVariant')}">
-              <span class="variant-icon">☀️</span>
-              <span class="variant-label">Good News</span>
-            </a>` : ''}`;
-          })()}</div>
+          <div class="variant-switcher">${this.buildVariantSwitcherItems()}</div>
           <span class="logo">MONITOR</span><span class="version">v${__APP_VERSION__}</span>${BETA_MODE ? '<span class="beta-badge">BETA</span>' : ''}
           <a href="https://x.com/eliehabib" target="_blank" rel="noopener" class="credit-link">
             <svg class="x-logo" width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
@@ -182,9 +356,7 @@ export class PanelLayoutManager implements AppModule {
           <button class="search-btn" id="searchBtn"><kbd>⌘K</kbd> ${t('header.search')}</button>
           ${this.ctx.isDesktopApp ? '' : `<button class="copy-link-btn" id="copyLinkBtn">${t('header.copyLink')}</button>`}
           <button class="theme-toggle-btn" id="headerThemeToggle" title="${t('header.toggleTheme')}">
-            ${getCurrentTheme() === 'dark'
-        ? '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>'
-        : '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>'}
+            ${this.buildThemeIcon()}
           </button>
           ${this.ctx.isDesktopApp ? '' : `<button class="fullscreen-btn" id="fullscreenBtn" title="${t('header.fullscreen')}">⛶</button>`}
           ${SITE_VARIANT === 'happy' ? `<button class="tv-mode-btn" id="tvModeBtn" title="TV Mode (Shift+T)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></button>` : ''}
@@ -192,27 +364,10 @@ export class PanelLayoutManager implements AppModule {
         </div>
       </div>
       <div class="main-content">
-        <div class="map-section" id="mapSection">
-          <div class="panel-header">
-            <div class="panel-header-left">
-              <span class="panel-title">${SITE_VARIANT === 'tech' ? t('panels.techMap') : SITE_VARIANT === 'happy' ? 'Good News Map' : t('panels.map')}</span>
-            </div>
-            <span class="header-clock" id="headerClock"></span>
-            <button class="map-pin-btn" id="mapPinBtn" title="${t('header.pinMap')}">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M12 17v5M9 10.76a2 2 0 01-1.11 1.79l-1.78.9A2 2 0 005 15.24V16a1 1 0 001 1h12a1 1 0 001-1v-.76a2 2 0 00-1.11-1.79l-1.78-.9A2 2 0 0115 10.76V7a1 1 0 011-1 1 1 0 001-1V4a1 1 0 00-1-1H8a1 1 0 00-1 1v1a1 1 0 001 1 1 1 0 011 1v3.76z"/>
-              </svg>
-            </button>
-          </div>
-          <div class="map-container" id="mapContainer"></div>
-          ${SITE_VARIANT === 'happy' ? '<button class="tv-exit-btn" id="tvExitBtn">Exit TV Mode</button>' : ''}
-          <div class="map-resize-handle" id="mapResizeHandle"></div>
-        </div>
+        ${this.buildMapSection()}
         <div class="panels-grid" id="panelsGrid"></div>
       </div>
     `;
-
-    this.createPanels();
   }
 
   renderCriticalBanner(postures: TheaterPostureSummary[]): void {

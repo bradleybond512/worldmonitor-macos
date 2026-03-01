@@ -1,0 +1,491 @@
+/* =============================================================
+   macOS Native Design System — World Monitor Desktop
+   Applied via body.is-desktop-macos (set in main.ts on Tauri)
+   ============================================================= */
+
+/* ── Design tokens ─────────────────────────────────────────── */
+body.is-desktop-macos {
+  /* Typography */
+  --mac-font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", system-ui, sans-serif;
+  --mac-font-mono: "SF Mono", ui-monospace, "Cascadia Code", monospace;
+
+  /* Sidebar dimensions */
+  --mac-sidebar-width: 220px;
+  --mac-toolbar-height: 52px;
+  --mac-traffic-lights-height: 52px; /* safe area below traffic lights */
+
+  /* Dark-mode macOS system colors (approximated) */
+  --mac-window-bg: #1c1c1e;
+  --mac-sidebar-bg: rgba(44, 44, 46, 0.72);
+  --mac-surface: #2c2c2e;
+  --mac-surface-hover: #3a3a3c;
+  --mac-surface-active: #48484a;
+  --mac-label: rgba(255, 255, 255, 0.85);
+  --mac-secondary-label: rgba(255, 255, 255, 0.55);
+  --mac-tertiary-label: rgba(255, 255, 255, 0.25);
+  --mac-separator: rgba(255, 255, 255, 0.13);
+  --mac-fill: rgba(255, 255, 255, 0.08);
+
+  /* macOS system accent colors */
+  --mac-accent: #0a84ff;
+  --mac-accent-hover: #409cff;
+  --mac-red: #ff453a;
+  --mac-orange: #ff9f0a;
+  --mac-yellow: #ffd60a;
+  --mac-green: #32d74b;
+  --mac-teal: #5ac8f5;
+  --mac-blue: #0a84ff;
+  --mac-purple: #bf5af2;
+  --mac-pink: #ff375f;
+
+  /* Card / panel appearance */
+  --mac-card-bg: #2c2c2e;
+  --mac-card-border: rgba(255, 255, 255, 0.1);
+  --mac-card-radius: 12px;
+  --mac-card-shadow: 0 2px 12px rgba(0, 0, 0, 0.4), 0 0 0 0.5px rgba(255, 255, 255, 0.07);
+}
+
+/* Light-mode macOS overrides */
+body.is-desktop-macos:where([data-theme="light"], [data-theme="light"] *) {
+  --mac-window-bg: #f2f2f7;
+  --mac-sidebar-bg: rgba(242, 242, 247, 0.72);
+  --mac-surface: #ffffff;
+  --mac-surface-hover: #f0f0f5;
+  --mac-surface-active: #e5e5ea;
+  --mac-label: rgba(0, 0, 0, 0.85);
+  --mac-secondary-label: rgba(0, 0, 0, 0.55);
+  --mac-tertiary-label: rgba(0, 0, 0, 0.25);
+  --mac-separator: rgba(0, 0, 0, 0.12);
+  --mac-fill: rgba(0, 0, 0, 0.05);
+  --mac-card-bg: #ffffff;
+  --mac-card-border: rgba(0, 0, 0, 0.08);
+  --mac-card-shadow: 0 2px 8px rgba(0, 0, 0, 0.1), 0 0 0 0.5px rgba(0, 0, 0, 0.06);
+}
+
+/* ── Root layout ────────────────────────────────────────────── */
+body.is-desktop-macos {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  overflow: hidden;
+  background: var(--mac-window-bg);
+  font-family: var(--mac-font);
+  /* Override base terminal font for the shell */
+  --font-body: var(--mac-font);
+}
+
+/* ── Hide web-only header bar ───────────────────────────────── */
+body.is-desktop-macos .header {
+  display: none !important;
+}
+
+/* ── macOS body (sidebar + content) ────────────────────────── */
+body.is-desktop-macos .mac-shell {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+  min-height: 0;
+}
+
+/* ── Sidebar ────────────────────────────────────────────────── */
+body.is-desktop-macos .mac-sidebar {
+  width: var(--mac-sidebar-width);
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: var(--mac-sidebar-bg);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border-right: 1px solid var(--mac-separator);
+  flex-shrink: 0;
+  overflow: hidden;
+  user-select: none;
+}
+
+/* Traffic-lights safe zone — allows window dragging from sidebar top */
+.mac-sidebar-drag {
+  height: var(--mac-traffic-lights-height);
+  -webkit-app-region: drag;
+  flex-shrink: 0;
+}
+
+/* Sidebar scrollable nav */
+.mac-sidebar-nav {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 4px 0 8px;
+  /* hide scrollbar by default */
+  scrollbar-width: none;
+}
+.mac-sidebar-nav::-webkit-scrollbar { display: none; }
+
+/* Section grouping */
+.mac-sidebar-section {
+  margin-bottom: 16px;
+}
+
+.mac-sidebar-section-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--mac-secondary-label);
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  padding: 0 16px 4px;
+  display: block;
+}
+
+/* Sidebar row items */
+.mac-sidebar-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 6px 10px;
+  margin: 1px 8px;
+  border-radius: 7px;
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--mac-label);
+  cursor: pointer;
+  text-decoration: none;
+  transition: background 0.1s ease, color 0.1s ease;
+  -webkit-app-region: no-drag;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mac-sidebar-item:hover {
+  background: var(--mac-fill);
+}
+
+.mac-sidebar-item.active {
+  background: var(--mac-accent);
+  color: #fff;
+}
+
+.mac-sidebar-item-icon {
+  font-size: 15px;
+  width: 22px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+/* Sidebar footer — settings / theme */
+.mac-sidebar-footer {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 12px;
+  border-top: 1px solid var(--mac-separator);
+  -webkit-app-region: no-drag;
+  flex-shrink: 0;
+}
+
+.mac-sidebar-footer-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 7px;
+  border: none;
+  background: transparent;
+  color: var(--mac-secondary-label);
+  cursor: pointer;
+  padding: 0;
+  transition: background 0.12s ease, color 0.12s ease;
+  font-family: var(--mac-font);
+}
+
+.mac-sidebar-footer-btn:hover {
+  background: var(--mac-fill);
+  color: var(--mac-label);
+}
+
+.mac-sidebar-version {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--mac-tertiary-label);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Content area ───────────────────────────────────────────── */
+body.is-desktop-macos .mac-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-width: 0;
+  background: var(--mac-window-bg);
+}
+
+/* Toolbar strip at the top of content — draggable title bar */
+.mac-content-toolbar {
+  height: var(--mac-toolbar-height);
+  display: flex;
+  align-items: center;
+  padding: 0 14px 0 16px;
+  gap: 10px;
+  background: rgba(28, 28, 30, 0.85);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border-bottom: 1px solid var(--mac-separator);
+  flex-shrink: 0;
+  -webkit-app-region: drag;
+}
+
+body.is-desktop-macos[data-theme="light"] .mac-content-toolbar {
+  background: rgba(242, 242, 247, 0.85);
+}
+
+/* All direct children non-draggable so clicks work */
+.mac-content-toolbar > * {
+  -webkit-app-region: no-drag;
+}
+
+.mac-toolbar-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--mac-label);
+  letter-spacing: -0.01em;
+}
+
+.mac-toolbar-status {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: var(--mac-secondary-label);
+}
+
+.mac-toolbar-status .status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--mac-green);
+  animation: mac-pulse 2s ease-in-out infinite;
+  flex-shrink: 0;
+}
+
+@keyframes mac-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.5; }
+}
+
+.mac-toolbar-spacer {
+  flex: 1;
+}
+
+/* Region selector inside toolbar */
+.mac-content-toolbar .region-selector {
+  display: flex;
+  align-items: center;
+}
+
+.mac-content-toolbar .region-select {
+  font-family: var(--mac-font);
+  font-size: 12px;
+  color: var(--mac-label);
+  background: var(--mac-fill);
+  border: 1px solid var(--mac-separator);
+  border-radius: 6px;
+  padding: 3px 24px 3px 8px;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='rgba(255,255,255,0.4)'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  outline: none;
+}
+
+.mac-content-toolbar .region-select:focus {
+  border-color: var(--mac-accent);
+}
+
+/* Clock in toolbar */
+.mac-content-toolbar .header-clock {
+  font-family: var(--mac-font-mono);
+  font-size: 12px;
+  color: var(--mac-secondary-label);
+  letter-spacing: 0.03em;
+}
+
+/* Toolbar search button */
+.mac-content-toolbar .search-btn {
+  font-family: var(--mac-font);
+  font-size: 12px;
+  color: var(--mac-secondary-label);
+  background: var(--mac-fill);
+  border: 1px solid var(--mac-separator);
+  border-radius: 7px;
+  padding: 4px 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+
+.mac-content-toolbar .search-btn:hover {
+  background: var(--mac-surface-hover);
+  color: var(--mac-label);
+}
+
+.mac-content-toolbar .search-btn kbd {
+  font-family: var(--mac-font);
+  font-size: 11px;
+  opacity: 0.6;
+  background: none;
+  border: none;
+  padding: 0;
+}
+
+/* ── Content body (map + panels) ────────────────────────────── */
+.mac-content-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
+}
+
+body.is-desktop-macos .main-content {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* ── Map section ────────────────────────────────────────────── */
+body.is-desktop-macos .map-section {
+  border-bottom: 1px solid var(--mac-separator);
+}
+
+body.is-desktop-macos .map-section .panel-header {
+  background: rgba(28, 28, 30, 0.6);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--mac-separator);
+  font-family: var(--mac-font);
+}
+
+body.is-desktop-macos[data-theme="light"] .map-section .panel-header {
+  background: rgba(242, 242, 247, 0.6);
+}
+
+body.is-desktop-macos .panel-header .panel-title {
+  font-family: var(--mac-font);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--mac-secondary-label);
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+/* ── Panel cards ─────────────────────────────────────────────── */
+body.is-desktop-macos .panels-grid {
+  gap: 8px;
+  padding: 8px;
+  background: var(--mac-window-bg);
+}
+
+/* Individual panels get macOS card treatment */
+body.is-desktop-macos .panels-grid > * {
+  border-radius: var(--mac-card-radius);
+  background: var(--mac-card-bg);
+  border: 1px solid var(--mac-card-border);
+  box-shadow: var(--mac-card-shadow);
+  overflow: hidden;
+  transition: box-shadow 0.15s ease;
+}
+
+body.is-desktop-macos .panels-grid > *:hover {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5), 0 0 0 0.5px rgba(255, 255, 255, 0.1);
+}
+
+/* Panel header inside cards */
+body.is-desktop-macos .panels-grid .panel-header {
+  font-family: var(--mac-font);
+  background: transparent;
+  border-bottom: 1px solid var(--mac-separator);
+  padding: 10px 14px;
+}
+
+body.is-desktop-macos .panels-grid .panel-header .panel-title {
+  font-family: var(--mac-font);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--mac-secondary-label);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+/* ── Global typography overrides ────────────────────────────── */
+body.is-desktop-macos,
+body.is-desktop-macos input,
+body.is-desktop-macos select,
+body.is-desktop-macos button,
+body.is-desktop-macos textarea {
+  font-family: var(--mac-font);
+}
+
+/* Keep mono font for data/code */
+body.is-desktop-macos .mono,
+body.is-desktop-macos code,
+body.is-desktop-macos pre,
+body.is-desktop-macos .panel-value,
+body.is-desktop-macos .counter-value,
+body.is-desktop-macos td {
+  font-family: var(--mac-font-mono);
+}
+
+/* ── Buttons ─────────────────────────────────────────────────── */
+body.is-desktop-macos button:not(.mac-sidebar-footer-btn):not(.mac-sidebar-item) {
+  border-radius: 7px;
+  font-family: var(--mac-font);
+}
+
+/* ── Scrollbars — macOS overlay style ──────────────────────── */
+body.is-desktop-macos ::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+
+body.is-desktop-macos ::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+body.is-desktop-macos ::-webkit-scrollbar-thumb {
+  background: rgba(128, 128, 128, 0.4);
+  border-radius: 4px;
+  border: 1.5px solid transparent;
+  background-clip: padding-box;
+}
+
+body.is-desktop-macos ::-webkit-scrollbar-thumb:hover {
+  background: rgba(128, 128, 128, 0.65);
+  background-clip: padding-box;
+}
+
+body.is-desktop-macos ::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* ── Focus rings — macOS blue outline ───────────────────────── */
+body.is-desktop-macos *:focus-visible {
+  outline: 2px solid var(--mac-accent);
+  outline-offset: 1px;
+}
+
+/* ── Map pin button ──────────────────────────────────────────── */
+body.is-desktop-macos .map-pin-btn {
+  border-radius: 6px;
+  font-family: var(--mac-font);
+}
+
+/* ── Settings mount — ensure proper positioning ─────────────── */
+body.is-desktop-macos #unifiedSettingsMount {
+  display: contents;
+}

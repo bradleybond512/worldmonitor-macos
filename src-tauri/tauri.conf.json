@@ -20,8 +20,10 @@
         "minHeight": 720,
         "resizable": true,
         "fullscreen": false,
+        "titleBarStyle": "overlay",
+        "hiddenTitle": true,
         "backgroundColor": [
-          26,
+          28,
           28,
           30,
           255
