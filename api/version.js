@@ -1,7 +1,7 @@
 // Non-sebuf: returns XML/HTML, stays as standalone Vercel function
 export const config = { runtime: 'edge' };
 
-const RELEASES_URL = 'https://api.github.com/repos/koala73/worldmonitor/releases/latest';
+const RELEASES_URL = 'https://api.github.com/repos/bradleybond512/worldmonitor-macos/releases/latest';
 
 export default async function handler() {
   try {
