@@ -22,6 +22,8 @@ const DEFAULT_LOCAL_API_PORT: u16 = 46123;
 const KEYRING_SERVICE: &str = "world-monitor";
 const LOCAL_API_LOG_FILE: &str = "local-api.log";
 const DESKTOP_LOG_FILE: &str = "desktop.log";
+const MAX_LOG_BYTES: u64 = 5 * 1024 * 1024; // 5 MB per log file before rotation
+const MAX_LOG_BACKUPS: u32 = 3; // keep .log.1 .log.2 .log.3
 const MENU_FILE_SETTINGS_ID: &str = "file.settings";
 const MENU_HELP_GITHUB_ID: &str = "help.github";
 #[cfg(feature = "devtools")]
@@ -403,12 +405,31 @@ fn desktop_log_path(app: &AppHandle) -> Result<PathBuf, String> {
     Ok(logs_dir_path(app)?.join(DESKTOP_LOG_FILE))
 }
 
+/// Rotate `path` if it exceeds MAX_LOG_BYTES. Keeps MAX_LOG_BACKUPS numbered copies.
+fn rotate_log_if_needed(path: &Path) {
+    let size = path.metadata().map(|m| m.len()).unwrap_or(0);
+    if size < MAX_LOG_BYTES {
+        return;
+    }
+    // Shift existing backups up: .log.2 → .log.3, .log.1 → .log.2, etc.
+    for i in (1..MAX_LOG_BACKUPS).rev() {
+        let from = path.with_extension(format!("log.{i}"));
+        let to = path.with_extension(format!("log.{}", i + 1));
+        let _ = fs::rename(&from, &to);
+    }
+    // Move current log to .log.1
+    let first_backup = path.with_extension("log.1");
+    let _ = fs::rename(path, &first_backup);
+}
+
 fn append_desktop_log(app: &AppHandle, level: &str, message: &str) {
     let Ok(path) = desktop_log_path(app) else {
         return;
     };
 
-    let Ok(mut file) = OpenOptions::new().create(true).append(true).open(path) else {
+    rotate_log_if_needed(&path);
+
+    let Ok(mut file) = OpenOptions::new().create(true).append(true).open(&path) else {
         return;
     };
 
@@ -1125,6 +1146,7 @@ fn start_local_api(app: &AppHandle) -> Result<(), String> {
     let _ = fs::remove_file(&port_file);
 
     let log_path = sidecar_log_path(app)?;
+    rotate_log_if_needed(&log_path);
     let log_file = OpenOptions::new()
         .create(true)
         .append(true)

@@ -247,7 +247,8 @@ function getOverlayColors() {
     ucdpOneSided: [255, 255, 0, 200] as [number, number, number, number],
   };
 }
-// Initialize and refresh on every buildLayers() call
+// Cache theme colors — only recompute when theme actually changes
+let _cachedTheme: string | null = null;
 let COLORS = getOverlayColors();
 
 // SVG icons as data URLs for different marker shapes
@@ -999,8 +1000,12 @@ export class DeckGLMap {
 
   private buildLayers(): LayersList {
     const startTime = performance.now();
-    // Refresh theme-aware overlay colors on each rebuild
-    COLORS = getOverlayColors();
+    // Refresh theme-aware overlay colors only when theme changes
+    const currentTheme = getCurrentTheme();
+    if (currentTheme !== _cachedTheme) {
+      COLORS = getOverlayColors();
+      _cachedTheme = currentTheme;
+    }
     const layers: (Layer | null | false)[] = [];
     const { layers: mapLayers } = this.state;
     const filteredEarthquakes = this.filterByTime(this.earthquakes, (eq) => eq.occurredAt);

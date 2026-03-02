@@ -13248,6 +13248,25 @@ a.prediction-link:hover {
   display: block;
 }
 
+/* API Keys tab: let the embedded RuntimeConfigPanel content scroll */
+.unified-settings-tab-panel[data-panel-id="api-keys"].active {
+  overflow-y: auto;
+  max-height: calc(100% - 8px);
+}
+
+.unified-settings-tab-panel[data-panel-id="api-keys"] .runtime-config-summary {
+  padding: 8px 4px 4px;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.unified-settings-tab-panel[data-panel-id="api-keys"] .runtime-config-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-bottom: 8px;
+}
+
 /* Source region pills */
 .unified-settings-region-wrapper {
   position: relative;
