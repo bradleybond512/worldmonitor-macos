@@ -1194,6 +1194,14 @@ export class DeckGLMap {
       layers.push(...this.createProtestClusterLayers());
     }
 
+    // Military vessel + flight trails (zoom-gated; rendered below dot markers)
+    if (mapLayers.military && (this.maplibreMap?.getZoom() ?? 0) >= 3.5) {
+      const vesselTrails = this.createMilitaryVesselTrailsLayer(filteredMilitaryVessels);
+      if (vesselTrails) layers.push(vesselTrails);
+      const flightTrails = this.createMilitaryFlightTrailsLayer(filteredMilitaryFlights);
+      if (flightTrails) layers.push(flightTrails);
+    }
+
     // Military vessels layer
     if (mapLayers.military && filteredMilitaryVessels.length > 0) {
       layers.push(this.createMilitaryVesselsLayer(filteredMilitaryVessels));
@@ -1965,6 +1973,61 @@ export class DeckGLMap {
       radiusMinPixels: 8,
       radiusMaxPixels: 25,
       pickable: true,
+    });
+  }
+
+  // ── Ghostly trail layers ────────────────────────────────────────────────────
+  // Each track is split into N-1 segments so we can alpha-decay oldest → newest.
+  // Only rendered at zoom ≥ 3.5 to keep GPU load low.
+
+  private createMilitaryFlightTrailsLayer(flights: MilitaryFlight[]): PathLayer | null {
+    interface TrailSeg { path: [[number, number], [number, number]]; alpha: number }
+    const segments: TrailSeg[] = [];
+    for (const f of flights) {
+      const pts = f.track;
+      if (!pts || pts.length < 2) continue;
+      const n = pts.length;
+      for (let i = 0; i < n - 1; i++) {
+        // progress: 0 = oldest gap, 1 = leading edge
+        const progress = (i + 1) / (n - 1);
+        segments.push({ path: [pts[i]!, pts[i + 1]!], alpha: Math.round(15 + progress * 90) });
+      }
+    }
+    if (segments.length === 0) return null;
+    return new PathLayer<TrailSeg>({
+      id: 'military-flight-trails-layer',
+      data: segments,
+      getPath: (d) => d.path,
+      getColor: (d) => [255, 100, 100, d.alpha] as [number, number, number, number],
+      getWidth: 1,
+      widthMinPixels: 1,
+      widthMaxPixels: 2,
+      pickable: false,
+    });
+  }
+
+  private createMilitaryVesselTrailsLayer(vessels: MilitaryVessel[]): PathLayer | null {
+    interface TrailSeg { path: [[number, number], [number, number]]; alpha: number }
+    const segments: TrailSeg[] = [];
+    for (const v of vessels) {
+      const pts = v.track;
+      if (!pts || pts.length < 2) continue;
+      const n = pts.length;
+      for (let i = 0; i < n - 1; i++) {
+        const progress = (i + 1) / (n - 1);
+        segments.push({ path: [pts[i]!, pts[i + 1]!], alpha: Math.round(15 + progress * 80) });
+      }
+    }
+    if (segments.length === 0) return null;
+    return new PathLayer<TrailSeg>({
+      id: 'military-vessel-trails-layer',
+      data: segments,
+      getPath: (d) => d.path,
+      getColor: (d) => [255, 180, 60, d.alpha] as [number, number, number, number],
+      getWidth: 1.5,
+      widthMinPixels: 1,
+      widthMaxPixels: 3,
+      pickable: false,
     });
   }
 
