@@ -2,6 +2,44 @@
 
 All notable changes to World Monitor are documented here.
 
+## [2.5.25] - 2026-03-01
+
+### Highlights
+
+- **API Keys tab in Settings** — Desktop Configuration panel removed from sidebar; all API key management now lives in the gear-icon Settings modal under a new "API Keys" tab (matches original upstream fork design)
+- **AI Summary button** — ✦ button added to every non-video panel header; calls the configured AI provider (Ollama / Groq / Claude) and overlays a contextual summary of current panel data
+- **Finance Mode auto-trigger** — automatically switches from Peace Mode to Finance Mode when S&P 500 moves ≥2.5% or BTC moves ≥5% intraday
+- **Apple-style map controls** — map layer panel, zoom buttons, time slider, and basemap selector redesigned with macOS frosted-glass aesthetic (dark translucent backgrounds, backdrop-filter blur, Apple system blue, rounded corners)
+- **Basemap button layout** — Dark/Light/Satellite/Terrain now displayed in a 2×2 grid (previously 4 buttons in one cramped row)
+- **Performance optimizations** — VirtualList ResizeObserver disconnected on destroy (memory leak fix), DeckGL theme color calculation cached (CPU reduction), 5 MB log rotation for desktop.log and local-api.log
+- **i18n** — `tabApiKeys` translation added to all 18 locale files
+
+### Added
+
+- `src/components/UnifiedSettings.ts` — "API Keys" tab (desktop only); lazy-creates and mounts `RuntimeConfigPanel` in full mode inside the Settings modal
+- `src/components/Panel.ts` — `getContentElement()` public accessor; `_runAiSummary()` / `_extractSummaryText()` methods; AI summary overlay with loading spinner, provider label, and close button; excludes `live-webcams`, `live-news`, `map` from AI button
+- `src/services/mode-manager.ts` — `evaluateFinanceTrigger()`: checks ^GSPC ≥2.5% or BTC ≥5% absolute daily move, calls `setMode('finance')` when in peace mode
+- `src/app/data-loader.ts` — wires `evaluateFinanceTrigger()` after crypto data loads
+- `src/styles/main.css` — AI summary panel CSS (`.panel-ai-btn`, `.panel-ai-overlay`, spinner, result header); API Keys tab overflow scroll; Apple-style map control CSS with backdrop-filter blur and system blue accents
+- All 18 locale files — `header.tabApiKeys` translated (ar, de, el, es, fr, it, ja, ko, nl, pl, pt, ru, sv, th, tr, vi, zh)
+
+### Changed
+
+- `src/App.ts` — removed force-enable block for `runtime-config` panel; added one-time migration to delete `runtime-config` from localStorage (panel moved to Settings modal)
+- `src/app/panel-layout.ts` — removed `RuntimeConfigPanel` import, instantiation, sidebar ordering, and i18n special-case
+- `src/app/event-handlers.ts` — removed `runtime-config` i18n special-case
+- `src/config/variant.ts` — desktop runtime auto-corrects stale `'happy'` variant to `'full'` (prevents sidebar nav and mode buttons disappearing)
+- `src/components/VirtualList.ts` — `ResizeObserver` stored as class field; disconnected in `destroy()` to prevent memory leak
+- `src/components/DeckGLMap.ts` — module-level `_cachedTheme` variable; `getOverlayColors()` only recomputed when theme actually changes
+- `src-tauri/src/main.rs` — `rotate_log_if_needed()` rotates desktop.log and local-api.log at 5 MB (3 backups each)
+- Map basemap buttons layout: `display: flex` → `display: grid; grid-template-columns: 1fr 1fr`
+
+### Removed
+
+- `RuntimeConfigPanel` from sidebar (was position 1 with alert banner on desktop) — accessible via Settings → API Keys
+
+---
+
 ## [2.5.24] - 2026-03-01
 
 ### Highlights
