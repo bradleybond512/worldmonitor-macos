@@ -171,6 +171,133 @@ body.is-desktop-macos .mac-sidebar {
   flex-shrink: 0;
 }
 
+/* ── Mode selector (Peace / Finance / War) ──────────────────── */
+.mac-mode-section {
+  padding: 6px 10px 4px;
+  border-top: 1px solid var(--mac-separator);
+  flex-shrink: 0;
+  -webkit-app-region: no-drag;
+}
+
+.mac-mode-label {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--mac-tertiary-label);
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+.mac-mode-buttons {
+  display: flex;
+  gap: 3px;
+}
+
+.mac-mode-btn {
+  flex: 1;
+  padding: 3px 2px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 5px;
+  background: transparent;
+  color: var(--mac-secondary-label);
+  font-size: 10px;
+  font-weight: 600;
+  font-family: var(--mac-font);
+  cursor: pointer;
+  text-align: center;
+  transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+  white-space: nowrap;
+  position: relative;
+}
+
+.mac-mode-btn:hover {
+  background: var(--mac-fill);
+  color: var(--mac-label);
+}
+
+/* Peace active — blue */
+.mac-mode-btn.mac-mode-active {
+  background: rgba(10, 132, 255, 0.15);
+  border-color: rgba(10, 132, 255, 0.45);
+  color: var(--mac-blue);
+}
+
+/* Finance active — green */
+.mac-mode-btn.mac-mode-finance-active {
+  background: rgba(50, 215, 75, 0.15);
+  border-color: rgba(50, 215, 75, 0.45);
+  color: var(--mac-green);
+}
+
+/* War active — red with pulse */
+.mac-mode-btn.mac-mode-war-active {
+  background: rgba(255, 69, 58, 0.18);
+  border-color: rgba(255, 69, 58, 0.55);
+  color: var(--mac-red);
+  animation: wm-war-pulse 2.5s ease-in-out infinite;
+}
+
+@keyframes wm-war-pulse {
+  0%, 100% { box-shadow: none; }
+  50%       { box-shadow: 0 0 0 2px rgba(255, 69, 58, 0.25); }
+}
+
+/* Threat score badge on the War button */
+.mac-mode-btn[data-war-score]::after {
+  content: attr(data-war-score);
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  background: var(--mac-red);
+  color: #fff;
+  font-size: 8px;
+  font-weight: 700;
+  line-height: 1;
+  padding: 1px 3px;
+  border-radius: 8px;
+  min-width: 12px;
+  text-align: center;
+}
+
+/* Alert Family button */
+.mac-alert-family-btn {
+  display: block;
+  width: 100%;
+  margin-top: 4px;
+  padding: 4px 6px;
+  border: 1px solid rgba(255, 159, 10, 0.45);
+  border-radius: 5px;
+  background: rgba(255, 159, 10, 0.12);
+  color: var(--mac-orange);
+  font-size: 10px;
+  font-weight: 700;
+  font-family: var(--mac-font);
+  cursor: pointer;
+  text-align: center;
+  transition: background 0.12s ease;
+}
+
+.mac-alert-family-btn:hover {
+  background: rgba(255, 159, 10, 0.22);
+}
+
+/* Body-level mode accents for the sidebar chrome */
+body.is-desktop-macos[data-app-mode="war"] .mac-sidebar {
+  border-right-color: rgba(255, 69, 58, 0.35);
+}
+
+body.is-desktop-macos[data-app-mode="war"] .mac-toolbar-title {
+  color: var(--mac-red);
+}
+
+body.is-desktop-macos[data-app-mode="finance"] .mac-sidebar {
+  border-right-color: rgba(50, 215, 75, 0.25);
+}
+
+body.is-desktop-macos[data-app-mode="finance"] .mac-toolbar-title {
+  color: var(--mac-green);
+}
+
 /* Sidebar footer — settings / theme */
 .mac-sidebar-footer {
   display: flex;

@@ -23,20 +23,36 @@ const INDICATORS = [
 
 const profileCache = new Map<string, { profile: WorldBankProfile; fetchedAt: number }>();
 const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
+const CACHE_MAX_ENTRIES = 250;
+
+/** Evict the oldest entries when the cache grows too large. */
+function evictOldCacheEntries(): void {
+  if (profileCache.size <= CACHE_MAX_ENTRIES) return;
+  const cutoff = Date.now() - CACHE_TTL_MS;
+  for (const [k, v] of profileCache) {
+    if (v.fetchedAt < cutoff) profileCache.delete(k);
+    if (profileCache.size <= CACHE_MAX_ENTRIES) break;
+  }
+}
 
 async function fetchIndicator(iso: string, indicator: string): Promise<{ value: number | null; year: number | null }> {
   const url = `https://api.worldbank.org/v2/country/${iso}/indicator/${indicator}?format=json&mrv=3`;
-  const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
-  if (!res.ok) return { value: null, year: null };
-  const json = await res.json() as [unknown, Array<{ value: number | null; date: string }> | null];
-  const rows = json[1];
-  if (!Array.isArray(rows)) return { value: null, year: null };
-  for (const row of rows) {
-    if (row.value != null) {
-      return { value: row.value, year: parseInt(row.date, 10) };
+  try {
+    const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
+    if (!res.ok) return { value: null, year: null };
+    const json = await res.json() as [unknown, Array<{ value: number | null; date: string }> | null];
+    const rows = json[1];
+    if (!Array.isArray(rows)) return { value: null, year: null };
+    for (const row of rows) {
+      if (row.value != null) {
+        return { value: row.value, year: parseInt(row.date, 10) };
+      }
     }
+    return { value: null, year: null };
+  } catch {
+    // Network error or timeout — return nulls so callers degrade gracefully
+    return { value: null, year: null };
   }
-  return { value: null, year: null };
 }
 
 export async function fetchWorldBankProfile(iso: string): Promise<WorldBankProfile> {
@@ -74,6 +90,7 @@ export async function fetchWorldBankProfile(iso: string): Promise<WorldBankProfi
     year,
   };
 
+  evictOldCacheEntries();
   profileCache.set(key, { profile, fetchedAt: Date.now() });
   return profile;
 }

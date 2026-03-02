@@ -89,7 +89,7 @@ export class AlertCenterPanel extends Panel {
 
     this.alerts.unshift(...fresh);
     if (this.alerts.length > 100) {
-      this.alerts = this.alerts.slice(0, 100);
+      this.alerts.splice(100); // drop oldest entries in-place, no re-allocation
     }
 
     const unread = this.alerts.filter(a => a.timestamp.getTime() > this.lastViewedAt).length;

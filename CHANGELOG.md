@@ -2,6 +2,47 @@
 
 All notable changes to World Monitor are documented here.
 
+## [2.5.24] - 2026-03-01
+
+### Highlights
+
+- **App Modes — Peace / Finance / War** — three monitoring lenses accessible from the macOS sidebar; War Mode auto-activates when 3+ conflict correlation signals are detected in a session
+- **Auto War Mode trigger** — `hotspot_escalation`, `military_surge`, and `geo_convergence` signals feed a live threat score; threshold breach fires a native desktop notification and switches the UI to War Mode
+- **Alert Family** — one-tap button in War Mode copies a pre-formatted safety message to the clipboard for sharing with family/friends
+- **Code hardening** — World Bank cache eviction (prevents unbounded memory growth), AlertCenterPanel in-place array truncation, `fetchIndicator` wrapped in try/catch for graceful CORS/network failure handling
+- **Satellite & terrain basemaps** — Esri World Imagery + label overlay and Esri World Topo Map available as base layer alternatives to the default dark/light styles, persisted across sessions
+- **OSINT live channels** — S2 Underground, Task & Purpose, The War Zone, Military Summary added to the Intelligence & OSINT region of the Live News panel
+- **CSS for 5 new panels** — SpaceWeather, DiseaseOutbreaks, AirQuality, CyberThreats, AlertCenter now have full severity-coded styling (previously rendered unstyled)
+- **Dependabot** — weekly automated dependency scanning for npm, Cargo, and GitHub Actions
+
+### Added
+
+- `src/services/mode-manager.ts` — `AppMode` type (`peace | finance | war`), `getMode()`, `setMode()`, `initMode()`, `evaluateWarThreat()`, `alertFamily()`; persists to localStorage; dispatches `wm:mode-changed` and `wm:war-score` custom events
+- Mode selector UI in macOS sidebar (above footer): 🕊 Peace | 💰 Finance | ⚔ War buttons with color-coded active states
+- War Mode: red pulsing button, red sidebar accent border, red toolbar title
+- Finance Mode: green sidebar accent border, green toolbar title
+- Alert Family button appears in War Mode — copies ISO-8601 timestamped safety message to clipboard
+- Threat score badge on War button (shows count/threshold when signals detected but not yet in War Mode)
+- `evaluateWarThreat()` wired into all `addToSignalHistory()` call sites in data-loader.ts
+- Satellite basemap (Esri World Imagery + Esri Reference Labels overlay) — `/map-styles/satellite.json`
+- Terrain basemap (Esri World Topo Map) — `/map-styles/terrain.json`
+- Basemap selector in the map layer panel (Dark / Light / Satellite / Terrain), persisted to localStorage
+- S2 Underground, Task & Purpose, The War Zone, Military Summary YouTube channels with live detection + pinned video fallback
+- Intelligence & OSINT region in Live News panel with `regionOsint` i18n key
+- Full CSS styling for SpaceWeatherPanel, DiseaseOutbreakPanel, AirQualityPanel, CyberThreatPanel, AlertCenterPanel in `panels.css`
+- i18n keys for all 6 new panel titles and OSINT region label
+- `.github/dependabot.yml` — weekly scanning for npm, Cargo, GitHub Actions
+
+### Fixed
+
+- **Live News black screen** — embed URL changed from `http://localhost:PORT` to `http://127.0.0.1:PORT` to match Tauri CSP `frame-src http://127.0.0.1:*` (CSP treats them as different origins in WKWebView)
+- AlertCenterPanel array truncation now mutates in-place (`splice(100)`) instead of creating a new array
+- World Bank `fetchIndicator()` wrapped in try/catch — CORS or network failures now return null values instead of throwing
+- World Bank profile cache evicts expired entries when it exceeds 250 entries (prevents unbounded memory growth)
+- CHANGELOG updated with full release history for v2.5.22 and v2.5.23
+
+---
+
 ## [2.5.23] - 2026-03-01
 
 ### Highlights

@@ -68,6 +68,7 @@ import { BETA_MODE } from '@/config/beta';
 import { t } from '@/services/i18n';
 import { getCurrentTheme } from '@/utils';
 import { trackCriticalBannerAction } from '@/services/analytics';
+import { initMode, setMode, alertFamily, getMode, type AppMode } from '@/services/mode-manager';
 
 export interface PanelLayoutCallbacks {
   openCountryStory: (code: string, name: string) => void;
@@ -250,6 +251,17 @@ export class PanelLayoutManager implements AppModule {
               </button>
             </div>` : ''}
           </nav>
+
+          <!-- Mode Selector: Peace / Finance / War -->
+          ${SITE_VARIANT !== 'happy' ? `<div class="mac-mode-section" id="modeSelectorSection">
+            <div class="mac-mode-label">MODE</div>
+            <div class="mac-mode-buttons">
+              <button class="mac-mode-btn${initMode() === 'peace' ? ' mac-mode-active' : ''}" data-mode="peace" title="Peace Mode — Standard world monitoring">🕊 Peace</button>
+              <button class="mac-mode-btn${getMode() === 'finance' ? ' mac-mode-active mac-mode-finance-active' : ''}" data-mode="finance" title="Finance Mode — Markets &amp; economic focus">💰 Finance</button>
+              <button class="mac-mode-btn${getMode() === 'war' ? ' mac-mode-active mac-mode-war-active' : ''}" data-mode="war" title="War Mode — Conflict escalation monitoring">⚔ War</button>
+            </div>
+            ${getMode() === 'war' ? '<button class="mac-alert-family-btn" id="alertFamilyBtn">⚠ Alert Family</button>' : ''}
+          </div>` : ''}
 
           <!-- Footer: theme, settings, version -->
           <div class="mac-sidebar-footer">
@@ -850,6 +862,9 @@ export class PanelLayoutManager implements AppModule {
           panel?.getElement().scrollIntoView({ behavior: 'smooth', block: 'start' });
         });
       });
+
+      // Wire mode selector buttons
+      this._initModeSelector();
     }
 
     this.ctx.map.onTimeRangeChanged((range) => {
@@ -859,6 +874,79 @@ export class PanelLayoutManager implements AppModule {
 
     this.applyPanelSettings();
     this.applyInitialUrlState();
+  }
+
+  private _initModeSelector(): void {
+    // Apply initial body class for CSS accent theming
+    document.body.dataset.appMode = getMode();
+
+    // Click handlers for the three mode buttons
+    document.querySelectorAll<HTMLElement>('.mac-mode-btn[data-mode]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const mode = btn.dataset.mode as AppMode;
+        if (!mode) return;
+        setMode(mode);
+      });
+    });
+
+    // Alert Family button (only visible in War mode)
+    document.getElementById('alertFamilyBtn')?.addEventListener('click', () => {
+      alertFamily();
+      const btn = document.getElementById('alertFamilyBtn');
+      if (btn) {
+        const orig = btn.textContent;
+        btn.textContent = '✓ Copied to clipboard';
+        setTimeout(() => { btn.textContent = orig; }, 2000);
+      }
+    });
+
+    // React to mode changes: update button states, body class, re-render family button
+    document.addEventListener('wm:mode-changed', ((e: CustomEvent) => {
+      const { mode } = e.detail as { mode: AppMode };
+      document.body.dataset.appMode = mode;
+
+      // Update button active states
+      document.querySelectorAll<HTMLElement>('.mac-mode-btn[data-mode]').forEach(btn => {
+        const btnMode = btn.dataset.mode as AppMode;
+        btn.classList.toggle('mac-mode-active', btnMode === mode);
+        btn.classList.toggle('mac-mode-finance-active', btnMode === 'finance' && mode === 'finance');
+        btn.classList.toggle('mac-mode-war-active', btnMode === 'war' && mode === 'war');
+      });
+
+      // Show / hide Alert Family button
+      const section = document.getElementById('modeSelectorSection');
+      if (!section) return;
+      let familyBtn = document.getElementById('alertFamilyBtn');
+      if (mode === 'war' && !familyBtn) {
+        familyBtn = document.createElement('button');
+        familyBtn.className = 'mac-alert-family-btn';
+        familyBtn.id = 'alertFamilyBtn';
+        familyBtn.textContent = '⚠ Alert Family';
+        familyBtn.addEventListener('click', () => {
+          alertFamily();
+          const orig = familyBtn!.textContent;
+          familyBtn!.textContent = '✓ Copied to clipboard';
+          setTimeout(() => { if (familyBtn) familyBtn.textContent = orig; }, 2000);
+        });
+        section.appendChild(familyBtn);
+      } else if (mode !== 'war' && familyBtn) {
+        familyBtn.remove();
+      }
+    }) as EventListener);
+
+    // War score indicator on War mode button (optional pulse badge)
+    document.addEventListener('wm:war-score', ((e: CustomEvent) => {
+      const { score, threshold } = e.detail as { score: number; threshold: number };
+      const warBtn = document.querySelector<HTMLElement>('.mac-mode-btn[data-mode="war"]');
+      if (!warBtn) return;
+      if (score > 0 && getMode() !== 'war') {
+        warBtn.dataset.warScore = String(score);
+        warBtn.title = `War Mode — ${score}/${threshold} conflict signals detected`;
+      } else {
+        delete warBtn.dataset.warScore;
+        warBtn.title = 'War Mode — Conflict escalation monitoring';
+      }
+    }) as EventListener);
   }
 
   private applyTimeRangeFilterToNewsPanels(): void {

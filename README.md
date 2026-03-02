@@ -46,8 +46,25 @@
 | **Earthquakes panel** | USGS M4.5+ live seismic data with magnitude-color-coded table |
 | **MBP 14" optimized** | Window sizing and sidebar scaling tuned for the 1512×982 display |
 | **Built-in API key** | Zero-config desktop auth — no Keychain prompts or manual key entry |
+| **Security hardened** | Bundle ID verification on auto-update, CSP object-src/base-uri/form-action, href scheme validation, notification rate limiting |
 
 ![World Monitor Dashboard](new-world-monitor.png)
+
+---
+
+## Security
+
+This fork includes several security hardening measures beyond the base project:
+
+| Area | Protection |
+|---|---|
+| **Auto-update** | Bundle identifier verified via `plutil` before any file is replaced — rejects DMGs whose app is not `app.worldmonitor.desktop` |
+| **URL opening** | `open_url` Tauri command blocks loopback/LAN addresses and non-HTTPS schemes — a compromised webview cannot trigger browser access to the local API server |
+| **Notifications** | Input length-capped, control characters stripped, 30-second global rate limit to prevent AppleScript injection and notification spam |
+| **XSS (href)** | All external URLs used in `href` attributes go through `sanitizeUrl()` which validates `https:`/`http:` scheme — blocks `javascript:` and `data:` injection |
+| **Content Security Policy** | `object-src 'none'` (no plugins), `base-uri 'self'` (no `<base>` tag hijacking), `form-action 'self'` (no external form submission), `script-src 'self'` (no inline scripts) |
+| **Keychain** | API keys stored in macOS Keychain via `keyring` crate — never in `localStorage` on the desktop build |
+| **Hardened Runtime** | macOS Hardened Runtime enabled — prevents code injection and library hijacking |
 
 ---
 
