@@ -234,6 +234,14 @@
       "africa": "Afrika",
       "latam": "Lateinamerika",
       "oceania": "Ozeanien"
+    },
+    "tips": {
+      "map": "Geben Sie einen Ländernamen ein, um dorthin auf der Karte zu fliegen",
+      "panel": "Geben Sie einen Panelnamen ein, um dorthin zu scrollen",
+      "brief": "Geben Sie einen Ländernamen für ein Nachrichtenbriefing ein",
+      "layers": "Geben Sie \"military\" oder \"finance\" für Ebenen-Voreinstellungen ein",
+      "time": "Geben Sie \"1h\", \"24h\" oder \"7d\" ein, um nach Zeit zu filtern",
+      "settings": "Geben Sie \"dark mode\", \"settings\" oder \"fullscreen\" ein"
     }
   },
   "modals": {

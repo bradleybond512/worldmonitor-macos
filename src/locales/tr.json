@@ -234,6 +234,14 @@
       "africa": "Afrika",
       "latam": "Latin Amerika",
       "oceania": "Okyanusya"
+    },
+    "tips": {
+      "map": "Haritada o konuma uçmak için bir ülke adı yazın",
+      "panel": "Bir panel adı yazarak o panele gidin",
+      "brief": "Bir ülke adı yazarak istihbarat özeti alın",
+      "layers": "Katman ön ayarları için \"military\" veya \"finance\" yazın",
+      "time": "Zamana göre filtrelemek için \"1h\", \"24h\" veya \"7d\" yazın",
+      "settings": "\"dark mode\", \"settings\" veya \"fullscreen\" yazın"
     }
   },
   "modals": {

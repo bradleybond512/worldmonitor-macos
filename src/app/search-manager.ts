@@ -51,24 +51,12 @@ export class SearchManager implements AppModule {
 
   private setupSearchModal(): void {
     const searchOptions = SITE_VARIANT === 'tech'
-      ? {
-        placeholder: t('modals.search.placeholderTech'),
-        hint: t('modals.search.hintTech'),
-      }
+      ? { placeholder: t('modals.search.placeholderTech') }
       : SITE_VARIANT === 'happy'
-        ? {
-          placeholder: 'Search or type a command...',
-          hint: 'Good News • Countries • Navigation • Settings',
-        }
+        ? { placeholder: 'Search or type a command...' }
         : SITE_VARIANT === 'finance'
-          ? {
-            placeholder: t('modals.search.placeholderFinance'),
-            hint: t('modals.search.hintFinance'),
-          }
-          : {
-            placeholder: t('modals.search.placeholder'),
-            hint: t('modals.search.hint'),
-          };
+          ? { placeholder: t('modals.search.placeholderFinance') }
+          : { placeholder: t('modals.search.placeholder') };
     this.ctx.searchModal = new SearchModal(this.ctx.container, searchOptions);
 
     if (SITE_VARIANT === 'happy') {

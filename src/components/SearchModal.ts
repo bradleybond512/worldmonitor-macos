@@ -70,7 +70,6 @@ const MAX_COMMANDS = 5;
 
 interface SearchModalOptions {
   placeholder?: string;
-  hint?: string;
 }
 
 export class SearchModal {
@@ -86,13 +85,11 @@ export class SearchModal {
   private onSelect?: (result: SearchResult) => void;
   private onCommand?: (command: Command) => void;
   private placeholder: string;
-  private hint: string;
   private activePanelIds: Set<string> = new Set();
 
   constructor(container: HTMLElement, options?: SearchModalOptions) {
     this.container = container;
     this.placeholder = options?.placeholder || t('modals.search.placeholder');
-    this.hint = options?.hint || t('modals.search.hint');
     this.loadRecentSearches();
   }
 
@@ -292,16 +289,40 @@ export class SearchModal {
   private renderEmpty(): void {
     if (!this.resultsList) return;
 
-    this.resultsList.innerHTML = `
-      <div class="search-empty">
-        <div class="search-empty-icon">\u2318</div>
-        <div>${t('modals.search.empty')}</div>
-        <div class="search-empty-hint">${this.hint}</div>
-        <div class="search-empty-examples">
-          <span>Try: <kbd>dark mode</kbd> <kbd>iran</kbd> <kbd>military layers</kbd> <kbd>crypto</kbd></span>
-        </div>
-      </div>
-    `;
+    const tips: { icon: string; key: string; example: string }[] = [
+      { icon: '\u{1F30D}', key: 'commands.tips.map', example: 'iran' },
+      { icon: '\u{1F4CB}', key: 'commands.tips.panel', example: 'news' },
+      { icon: '\u{1F4C4}', key: 'commands.tips.brief', example: 'brief china' },
+      { icon: '\u{1F6E1}\uFE0F', key: 'commands.tips.layers', example: 'military layers' },
+      { icon: '\u23F1\uFE0F', key: 'commands.tips.time', example: '24h' },
+      { icon: '\u2699\uFE0F', key: 'commands.tips.settings', example: 'dark mode' },
+    ];
+
+    const shuffled = tips.sort(() => Math.random() - 0.5).slice(0, 4);
+
+    let html = `<div class="search-section-header">${t('modals.search.empty')}</div>`;
+    shuffled.forEach((tip, i) => {
+      html += `
+        <div class="search-result-item tip-item${i === 0 ? ' selected' : ''}" data-tip-example="${escapeHtml(tip.example)}">
+          <span class="search-result-icon">${tip.icon}</span>
+          <div class="search-result-content">
+            <div class="search-result-title">${escapeHtml(t(tip.key))}</div>
+          </div>
+          <kbd class="search-tip-example">${escapeHtml(tip.example)}</kbd>
+        </div>`;
+    });
+
+    this.resultsList.innerHTML = html;
+
+    this.resultsList.querySelectorAll('.tip-item').forEach((el) => {
+      el.addEventListener('click', () => {
+        const example = (el as HTMLElement).dataset.tipExample || '';
+        if (this.input) {
+          this.input.value = example;
+          this.handleSearch();
+        }
+      });
+    });
   }
 
   private get totalResultCount(): number {

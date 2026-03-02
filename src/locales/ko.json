@@ -236,6 +236,14 @@
       "africa": "아프리카",
       "latam": "라틴 아메리카",
       "oceania": "오세아니아"
+    },
+    "tips": {
+      "map": "국가 이름을 입력하여 지도에서 해당 위치로 이동",
+      "panel": "패널 이름을 입력하여 해당 패널로 스크롤",
+      "brief": "국가 이름을 입력하여 정보 브리핑 확인",
+      "layers": "\"military\" 또는 \"finance\"를 입력하여 레이어 프리셋 적용",
+      "time": "\"1h\", \"24h\" 또는 \"7d\"를 입력하여 시간별 필터링",
+      "settings": "\"dark mode\", \"settings\" 또는 \"fullscreen\"을 입력"
     }
   },
   "modals": {

@@ -91,6 +91,14 @@
       "africa": "Afrika",
       "latam": "Latinamerika",
       "oceania": "Oceanien"
+    },
+    "tips": {
+      "map": "Skriv ett landsnamn för att flyga dit på kartan",
+      "panel": "Skriv ett panelnamn för att scrolla dit",
+      "brief": "Skriv ett landsnamn för en underrättelserapport",
+      "layers": "Skriv \"military\" eller \"finance\" för lagerförinställningar",
+      "time": "Skriv \"1h\", \"24h\" eller \"7d\" för att filtrera efter tid",
+      "settings": "Skriv \"dark mode\", \"settings\" eller \"fullscreen\""
     }
   },
   "modals": {

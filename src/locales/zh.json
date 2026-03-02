@@ -234,6 +234,14 @@
       "africa": "非洲",
       "latam": "拉丁美洲",
       "oceania": "大洋洲"
+    },
+    "tips": {
+      "map": "输入国家名称以在地图上飞往该位置",
+      "panel": "输入面板名称以滚动到该面板",
+      "brief": "输入国家名称以获取情报简报",
+      "layers": "输入 \"military\" 或 \"finance\" 以应用图层预设",
+      "time": "输入 \"1h\"、\"24h\" 或 \"7d\" 按时间筛选",
+      "settings": "输入 \"dark mode\"、\"settings\" 或 \"fullscreen\""
     }
   },
   "modals": {

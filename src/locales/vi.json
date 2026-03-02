@@ -234,6 +234,14 @@
       "africa": "Châu Phi",
       "latam": "Mỹ Latinh",
       "oceania": "Châu Đại Dương"
+    },
+    "tips": {
+      "map": "Nhập tên quốc gia để bay đến vị trí đó trên bản đồ",
+      "panel": "Nhập tên bảng điều khiển để cuộn đến đó",
+      "brief": "Nhập tên quốc gia để xem báo cáo tình báo",
+      "layers": "Nhập \"military\" hoặc \"finance\" để áp dụng bộ lớp có sẵn",
+      "time": "Nhập \"1h\", \"24h\" hoặc \"7d\" để lọc theo thời gian",
+      "settings": "Nhập \"dark mode\", \"settings\" hoặc \"fullscreen\""
     }
   },
   "modals": {

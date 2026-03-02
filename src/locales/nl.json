@@ -91,6 +91,14 @@
       "africa": "Afrika",
       "latam": "Latijns-Amerika",
       "oceania": "Oceanië"
+    },
+    "tips": {
+      "map": "Typ een landnaam om ernaartoe te vliegen op de kaart",
+      "panel": "Typ een paneelnaam om ernaartoe te scrollen",
+      "brief": "Typ een landnaam voor een inlichtingenbriefing",
+      "layers": "Typ \"military\" of \"finance\" voor laagpresets",
+      "time": "Typ \"1h\", \"24h\" of \"7d\" om te filteren op tijd",
+      "settings": "Typ \"dark mode\", \"settings\" of \"fullscreen\""
     }
   },
   "modals": {

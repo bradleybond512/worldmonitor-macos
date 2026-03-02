@@ -242,6 +242,14 @@
       "africa": "Afrika",
       "latam": "Latinská Amerika",
       "oceania": "Oceánie"
+    },
+    "tips": {
+      "map": "Zadejte název země pro přelet na mapě",
+      "panel": "Zadejte název panelu pro posun na něj",
+      "brief": "Zadejte název země pro zpravodajský přehled",
+      "layers": "Zadejte \"military\" nebo \"finance\" pro přednastavení vrstev",
+      "time": "Zadejte \"1h\", \"24h\" nebo \"7d\" pro filtrování podle času",
+      "settings": "Zadejte \"dark mode\", \"settings\" nebo \"fullscreen\""
     }
   },
   "modals": {

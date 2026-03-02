@@ -234,6 +234,14 @@
       "africa": "Afrique",
       "latam": "Amérique latine",
       "oceania": "Océanie"
+    },
+    "tips": {
+      "map": "Saisissez un nom de pays pour y voler sur la carte",
+      "panel": "Saisissez un nom de panneau pour y défiler",
+      "brief": "Saisissez un nom de pays pour un rapport de renseignement",
+      "layers": "Saisissez \"military\" ou \"finance\" pour les préréglages de couches",
+      "time": "Saisissez \"1h\", \"24h\" ou \"7d\" pour filtrer par période",
+      "settings": "Saisissez \"dark mode\", \"settings\" ou \"fullscreen\""
     }
   },
   "modals": {

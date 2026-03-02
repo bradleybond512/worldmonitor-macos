@@ -234,6 +234,14 @@
       "africa": "África",
       "latam": "América Latina",
       "oceania": "Oceanía"
+    },
+    "tips": {
+      "map": "Escribe el nombre de un país para volar allí en el mapa",
+      "panel": "Escribe el nombre de un panel para desplazarte hasta él",
+      "brief": "Escribe el nombre de un país para un informe de inteligencia",
+      "layers": "Escribe \"military\" o \"finance\" para capas predefinidas",
+      "time": "Escribe \"1h\", \"24h\" o \"7d\" para filtrar por tiempo",
+      "settings": "Escribe \"dark mode\", \"settings\" o \"fullscreen\""
     }
   },
   "modals": {

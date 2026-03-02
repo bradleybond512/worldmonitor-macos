@@ -91,6 +91,14 @@
       "africa": "África",
       "latam": "América Latina",
       "oceania": "Oceânia"
+    },
+    "tips": {
+      "map": "Digite o nome de um país para voar até lá no mapa",
+      "panel": "Digite o nome de um painel para rolar até ele",
+      "brief": "Digite o nome de um país para um resumo de inteligência",
+      "layers": "Digite \"military\" ou \"finance\" para predefinições de camadas",
+      "time": "Digite \"1h\", \"24h\" ou \"7d\" para filtrar por tempo",
+      "settings": "Digite \"dark mode\", \"settings\" ou \"fullscreen\""
     }
   },
   "modals": {
