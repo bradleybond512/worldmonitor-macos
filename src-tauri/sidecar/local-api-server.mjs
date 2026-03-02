@@ -939,7 +939,9 @@ async function handleOllamaStream(requestUrl, req, res, context) {
     return;
   }
 
-  const model = process.env.OLLAMA_MODEL || 'llama3.1:8b';
+  // Validate model name: only allow alphanumeric, dash, dot, colon, slash (e.g. 'llama3.1:8b', 'ollama3/8b')
+  const rawModel = process.env.OLLAMA_MODEL || 'llama3.1:8b';
+  const model = /^[a-zA-Z0-9._:/-]{1,80}$/.test(rawModel) ? rawModel : 'llama3.1:8b';
   const headlines = Array.isArray(parsed.headlines) ? parsed.headlines.slice(0, 10) : [];
   const geoContext = typeof parsed.geoContext === 'string' ? parsed.geoContext.slice(0, 500) : '';
   const lang = typeof parsed.lang === 'string' ? parsed.lang : 'en';

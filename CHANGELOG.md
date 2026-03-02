@@ -6,6 +6,30 @@ All notable changes to World Monitor are documented here.
 
 ### Added
 
+- **Arrival Choreography** — canvas overlay for animated world events
+  - Wavefront ripple: ease-out expanding ring (0 → 280 px, 2.6 s, dual trailing rings) triggered on breaking news or geo-convergence via `triggerArrivalEffect()` on DeckGLMap
+  - Corona pulse: looping radial glow on all high-severity hotspots, synced to `setHotspotLevels()`, animated with sinusoidal phase advancement
+  - Global flare: full-screen semi-transparent flash (peak 250 ms, decay 1.4 s) on War/Disaster/Finance mode transitions and war-score threshold crossings
+  - Threat-type color coding: conflict = red, cyber = cyan, economic = gold, natural = orange, generic = purple
+  - Respects `prefers-reduced-motion`; hard caps (20 wavefronts, 5 flares) prevent unbounded memory growth
+  - `destroyArrivalChoreography()` cleans up all listeners + RAF + canvas
+- **Shareable URL state** — `?view=&zoom=&lat=&lon=&layers=&timeRange=` serialized on every map interaction
+  - LZ-string compression when query string exceeds 2 000 bytes (`?z=<compressed>` with decompression bomb guard: max 32 KB decompressed, max 8 KB input)
+  - All `MapLayers` keys now included (added `stockExchanges`, `financialCenters`, `centralBanks`, `commodityHubs`, `gulfInvestments`, `positiveEvents`, `kindness`, `happiness`, `speciesRecovery`, `renewableInstallations`, `dayNight`)
+  - `Cmd+S` keyboard shortcut on desktop copies share URL to clipboard with animated bottom-center toast
+- **Ollama streaming** — real-time typewriter effect for AI panel summaries
+  - `/api/ollama-stream` SSE endpoint in sidecar, bypasses response buffering pipeline
+  - Frontend `_runStreamingDisplay()` method with blinking cursor and Stop button
+  - Falls through to full provider chain (Groq → Claude → OpenRouter → Browser T5) if Ollama is not configured
+
+### Security
+
+- **urlState.ts** — decompression bomb guard: reject `?z=` params > 8 KB; cap decompressed output to 32 KB
+- **local-api-server.mjs** — validate `OLLAMA_MODEL` env var against `^[a-zA-Z0-9._:/-]{1,80}$` before use
+- **arrival-choreography.ts** — stored event listener refs enable proper `removeEventListener` via `destroyArrivalChoreography()`; hard array caps prevent memory exhaustion from rapid event injection
+
+### Added (previous sprint)
+
 - **Natural Disaster Mode** — 4th monitoring mode (`'disaster'`) with amber/orange Apple system orange theme
   - Auto-triggers from Peace Mode on: any GDACS Red alert, 3+ simultaneous GDACS Orange alerts, or M6.5+ earthquake
   - Auto-deescalates to Peace Mode after 30 min with no new disaster events

@@ -59,6 +59,10 @@ const wavefronts: WavefrontParticle[] = [];
 const coronas: CoronaTarget[] = [];
 const flares: FlareParticle[] = [];
 
+// Hard caps to prevent unbounded growth under rapid event injection
+const MAX_WAVEFRONTS = 20;
+const MAX_FLARES = 5;
+
 // ── Canvas setup ────────────────────────────────────────────────────────────
 
 function ensureCanvas(wrapper: HTMLElement): void {
@@ -241,6 +245,7 @@ export function initArrivalChoreography(wrapper: HTMLElement, project: ProjectFn
  */
 export function triggerWavefront(lat: number, lon: number, type: ThreatType = 'generic'): void {
   if (REDUCED_MOTION) return;
+  if (wavefronts.length >= MAX_WAVEFRONTS) wavefronts.shift();
   wavefronts.push({
     lat,
     lon,
@@ -292,6 +297,7 @@ export function setCoronaTargets(hotspots: Pick<Hotspot, 'lat' | 'lon' | 'level'
  */
 export function triggerGlobalFlare(type: ThreatType = 'generic'): void {
   if (REDUCED_MOTION) return;
+  if (flares.length >= MAX_FLARES) flares.shift();
   flares.push({
     color: THREAT_COLORS[type],
     startMs: performance.now(),
@@ -311,29 +317,46 @@ function originToThreatType(origin: BreakingAlert['origin']): ThreatType {
   }
 }
 
+// Stored listener refs for cleanup
+const _breakingNewsListener = ((e: CustomEvent<BreakingAlert>) => {
+  const { threatLevel, origin } = e.detail;
+  const type = originToThreatType(origin);
+  triggerWavefront(currentCenter.lat, currentCenter.lon, type);
+  if (threatLevel === 'critical') triggerGlobalFlare(type);
+}) as EventListener;
+
+const _warScoreListener = ((e: CustomEvent<WarScoreDetail>) => {
+  if (e.detail.score >= e.detail.threshold) triggerGlobalFlare('conflict');
+}) as EventListener;
+
+const _modeChangedListener = ((e: CustomEvent<ModeChangedDetail>) => {
+  const { mode } = e.detail;
+  if (mode === 'war')      triggerGlobalFlare('conflict');
+  if (mode === 'disaster') triggerGlobalFlare('natural');
+  if (mode === 'finance')  triggerGlobalFlare('economic');
+}) as EventListener;
+
 let eventsWired = false;
 function wireEvents(): void {
   if (eventsWired) return;
   eventsWired = true;
+  document.addEventListener('wm:breaking-news', _breakingNewsListener);
+  document.addEventListener('wm:war-score', _warScoreListener);
+  document.addEventListener('wm:mode-changed', _modeChangedListener);
+}
 
-  // Breaking news → wavefront from map center + flare on critical
-  document.addEventListener('wm:breaking-news', ((e: CustomEvent<BreakingAlert>) => {
-    const { threatLevel, origin } = e.detail;
-    const type = originToThreatType(origin);
-    triggerWavefront(currentCenter.lat, currentCenter.lon, type);
-    if (threatLevel === 'critical') triggerGlobalFlare(type);
-  }) as EventListener);
-
-  // War score crossing threshold → global flare
-  document.addEventListener('wm:war-score', ((e: CustomEvent<WarScoreDetail>) => {
-    if (e.detail.score >= e.detail.threshold) triggerGlobalFlare('conflict');
-  }) as EventListener);
-
-  // Mode transition → flare
-  document.addEventListener('wm:mode-changed', ((e: CustomEvent<ModeChangedDetail>) => {
-    const { mode } = e.detail;
-    if (mode === 'war')      triggerGlobalFlare('conflict');
-    if (mode === 'disaster') triggerGlobalFlare('natural');
-    if (mode === 'finance')  triggerGlobalFlare('economic');
-  }) as EventListener);
+/** Remove all event listeners and clear all active animations. */
+export function destroyArrivalChoreography(): void {
+  document.removeEventListener('wm:breaking-news', _breakingNewsListener);
+  document.removeEventListener('wm:war-score', _warScoreListener);
+  document.removeEventListener('wm:mode-changed', _modeChangedListener);
+  eventsWired = false;
+  wavefronts.length = 0;
+  coronas.length = 0;
+  flares.length = 0;
+  if (rafId !== null) { cancelAnimationFrame(rafId); rafId = null; }
+  canvas?.remove();
+  canvas = null;
+  ctx2d = null;
+  projectFn = null;
 }

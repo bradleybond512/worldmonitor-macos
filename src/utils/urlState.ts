@@ -68,17 +68,24 @@ export interface ParsedMapUrlState {
 const clamp = (value: number, min: number, max: number): number =>
   Math.min(max, Math.max(min, value));
 
+// Max decompressed size to guard against decompression bombs
+const MAX_DECOMPRESSED_BYTES = 32_000;
+
 function expandParams(search: string): URLSearchParams {
   const raw = new URLSearchParams(search);
 
   // Detect compressed state: ?z=<lz-compressed>
   const compressed = raw.get('z');
   if (compressed) {
+    // Reject suspiciously large compressed values before decompression
+    if (compressed.length > 8_000) return raw;
     try {
       const decompressed = LZString.decompressFromEncodedURIComponent(compressed);
-      if (decompressed) return new URLSearchParams(decompressed);
+      if (decompressed && decompressed.length <= MAX_DECOMPRESSED_BYTES) {
+        return new URLSearchParams(decompressed);
+      }
     } catch {
-      // fall through to raw params
+      // fall through to raw params on any error
     }
   }
 
