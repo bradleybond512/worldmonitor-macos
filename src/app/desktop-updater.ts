@@ -109,7 +109,47 @@ export class DesktopUpdater implements AppModule {
     return false;
   }
 
-  private async showUpdateToast(version: string, downloadUrl: string): Promise<void> {
+  private mapDesktopDownloadPlatform(os: string, arch: string): string | null {
+    const normalizedOs = os.toLowerCase();
+    const normalizedArch = arch.toLowerCase()
+      .replace('amd64', 'x86_64')
+      .replace('x64', 'x86_64')
+      .replace('arm64', 'aarch64');
+
+    if (normalizedOs === 'windows') {
+      return normalizedArch === 'x86_64' ? 'windows-msi' : null;
+    }
+
+    if (normalizedOs === 'macos' || normalizedOs === 'darwin') {
+      if (normalizedArch === 'aarch64') return 'macos-arm64';
+      if (normalizedArch === 'x86_64') return 'macos-x64';
+      return null;
+    }
+
+    if (normalizedOs === 'linux') {
+      if (normalizedArch === 'x86_64') return 'linux-appimage';
+      if (normalizedArch === 'aarch64') return 'linux-appimage-arm64';
+      return null;
+    }
+
+    return null;
+  }
+
+  private async resolveUpdateDownloadUrl(releaseUrl: string): Promise<string> {
+    try {
+      const runtimeInfo = await invokeTauri<DesktopRuntimeInfo>('get_desktop_runtime_info');
+      const platform = this.mapDesktopDownloadPlatform(runtimeInfo.os, runtimeInfo.arch);
+      if (platform) {
+        const variant = this.getDesktopBuildVariant();
+        return `https://worldmonitor.app/api/download?platform=${platform}&variant=${variant}`;
+      }
+    } catch {
+      // Silent fallback to release page when desktop runtime info is unavailable.
+    }
+    return releaseUrl;
+  }
+
+  private async showUpdateToast(version: string, releaseUrl: string): Promise<void> {
     const existing = document.querySelector<HTMLElement>('.update-toast');
     if (existing?.dataset.version === version) return;
     existing?.remove();

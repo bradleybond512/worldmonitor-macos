@@ -63,7 +63,7 @@ export function allButtons(): DlButton[] {
   return [
     { cls: 'mac', href: '/api/download?platform=macos-arm64', label: `\uF8FF ${t('modals.downloadBanner.macSilicon')}` },
     { cls: 'mac', href: '/api/download?platform=macos-x64', label: `\uF8FF ${t('modals.downloadBanner.macIntel')}` },
-    { cls: 'win', href: '/api/download?platform=windows-exe', label: `\u229E ${t('modals.downloadBanner.windows')}` },
+    { cls: 'win', href: '/api/download?platform=windows-msi', label: `\u229E ${t('modals.downloadBanner.windows')}` },
     { cls: 'linux', href: '/api/download?platform=linux-appimage', label: `\u{1F427} ${t('modals.downloadBanner.linux')} (x64)` },
     { cls: 'linux', href: '/api/download?platform=linux-appimage-arm64', label: `\u{1F427} ${t('modals.downloadBanner.linux')} (ARM64)` },
   ];

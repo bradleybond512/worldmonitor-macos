@@ -869,7 +869,6 @@ canvas,
   flex-direction: column;
   flex-shrink: 0;
   position: relative;
-  overflow: hidden;
 }
 
 .map-section.hidden {
@@ -916,6 +915,7 @@ canvas,
 
 .map-section.resizing {
   user-select: none;
+  overflow: hidden;
 }
 
 .map-section.resizing .map-resize-handle::after {
@@ -16075,7 +16075,6 @@ body.has-breaking-alert .panels-grid {
     height: auto;
     min-height: 0;
     max-height: none;
-    overflow: hidden;
   }
 
   .map-section.pinned {
