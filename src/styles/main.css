@@ -12364,12 +12364,11 @@ a.prediction-link:hover {
   margin-bottom: 4px;
 }
 .basemap-btns {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: 3px;
-  flex-wrap: wrap;
 }
 .basemap-btn {
-  flex: 1;
   min-width: 0;
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.1);

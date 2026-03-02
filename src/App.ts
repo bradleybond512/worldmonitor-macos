@@ -169,16 +169,15 @@ export class App {
       localStorage.setItem(LAYOUT_RESET_MIGRATION_KEY, 'done');
     }
 
-    // Desktop key management panel must always remain accessible in Tauri.
-    if (isDesktopApp) {
-      const runtimePanel = panelSettings['runtime-config'] ?? {
-        name: 'Desktop Configuration',
-        enabled: true,
-        priority: 2,
-      };
-      runtimePanel.enabled = true;
-      panelSettings['runtime-config'] = runtimePanel;
-      saveToStorage(STORAGE_KEYS.panels, panelSettings);
+    // One-time migration: remove runtime-config sidebar panel (moved to Settings → API Keys tab)
+    const RUNTIME_CONFIG_MIGRATION_KEY = 'worldmonitor-runtime-config-removed-v2.5.25';
+    if (!localStorage.getItem(RUNTIME_CONFIG_MIGRATION_KEY)) {
+      if ('runtime-config' in panelSettings) {
+        delete panelSettings['runtime-config'];
+        saveToStorage(STORAGE_KEYS.panels, panelSettings);
+        console.log('[App] Migration: removed runtime-config sidebar panel (now in Settings → API Keys)');
+      }
+      localStorage.setItem(RUNTIME_CONFIG_MIGRATION_KEY, 'done');
     }
 
     let initialUrlState: ParsedMapUrlState | null = parseMapUrlState(window.location.search, mapLayers);
