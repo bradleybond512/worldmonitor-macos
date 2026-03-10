@@ -19,8 +19,6 @@ on:
   push:
     tags:
       - 'v*'
-    branches:
-      - 'claude/continue-project-dWmfX'
 
 concurrency:
   group: desktop-build-${{ github.ref }}
