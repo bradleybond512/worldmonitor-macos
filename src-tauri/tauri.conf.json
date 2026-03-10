@@ -1,51 +1,40 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Crystal Ball",
-  "mainBinaryName": "crystal-ball",
-  "version": "2.5.25",
-  "identifier": "com.bradleybond.crystalball",
+  "productName": "Bloomberg Terminal",
+  "mainBinaryName": "bloomberg-terminal",
+  "version": "1.0.0",
+  "identifier": "com.bradleybond.bloombergterminal",
   "build": {
-    "beforeDevCommand": "npm run build:sidecar-sebuf && npm run dev",
-    "beforeBuildCommand": "npm run build:desktop",
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build",
     "frontendDist": "../dist",
     "devUrl": "http://localhost:3000"
   },
   "app": {
     "windows": [
       {
-        "title": "Crystal Ball",
+        "title": "Bloomberg Terminal",
         "width": 1440,
-        "height": 960,
-        "minWidth": 1200,
-        "minHeight": 720,
+        "height": 900,
+        "minWidth": 900,
+        "minHeight": 600,
         "resizable": true,
         "fullscreen": false,
         "titleBarStyle": "Overlay",
         "hiddenTitle": true,
-        "backgroundColor": [
-          28,
-          28,
-          30,
-          255
-        ]
+        "backgroundColor": [0, 0, 0, 255]
       }
     ],
     "security": {
-      "csp": "default-src 'self'; connect-src 'self' https: http://127.0.0.1:* ws: wss: blob: data:; img-src 'self' data: blob: https:; style-src 'self' 'unsafe-inline'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self' blob:; font-src 'self' data: https:; media-src 'self' data: blob: https:; frame-src 'self' http://127.0.0.1:* https://worldmonitor.app https://tech.worldmonitor.app https://www.youtube.com https://www.youtube-nocookie.com; object-src 'none'; base-uri 'self'; form-action 'self';"
+      "csp": "default-src 'self'; connect-src 'self' https: http://127.0.0.1:* ws: wss:; img-src 'self' data: blob: https:; style-src 'self' 'unsafe-inline'; script-src 'self' 'wasm-unsafe-eval'; font-src 'self' data:; object-src 'none'; base-uri 'self';"
     }
   },
   "bundle": {
     "active": true,
-    "targets": [
-      "app",
-      "dmg",
-      "nsis",
-      "msi",
-      "appimage"
-    ],
-    "category": "Productivity",
-    "shortDescription": "Crystal Ball desktop app — real-time global intelligence (AGPL-3.0, based on World Monitor)",
-    "longDescription": "Crystal Ball is a free, open-source macOS desktop app for real-time global intelligence. Based on World Monitor by Elie Habib. Build with VITE_VARIANT=tech to package Tech Monitor branding and dataset defaults.",
+    "targets": ["app", "dmg"],
+    "category": "Finance",
+    "shortDescription": "Bloomberg-style financial terminal with real-time news and market data",
+    "longDescription": "A Bloomberg Terminal-inspired desktop application providing real-time financial market data, news feeds, crypto prices, and more in a classic terminal interface.",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -53,28 +42,8 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "resources": [
-      "../api",
-      "sidecar/local-api-server.mjs",
-      "sidecar/package.json",
-      "sidecar/node",
-      "../data",
-      "../src/config"
-    ],
-    "windows": {
-      "digestAlgorithm": "sha256",
-      "timestampUrl": "https://timestamp.digicert.com",
-      "nsis": {
-        "installerHooks": "nsis/installer-hooks.nsh"
-      }
-    },
     "macOS": {
       "hardenedRuntime": true
-    },
-    "linux": {
-      "appimage": {
-        "bundleMediaFramework": true
-      }
     }
   }
 }

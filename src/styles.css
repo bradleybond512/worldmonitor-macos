@@ -1,0 +1,342 @@
+/* ============================================================
+   BLOOMBERG TERMINAL - Core Styles
+   ============================================================ */
+
+:root {
+  --bg: #000000;
+  --bg-panel: #0d0d0d;
+  --bg-panel-hover: #141414;
+  --bg-header: #0d0d0d;
+  --border: #2a2a2a;
+  --border-light: #1a1a1a;
+  --text: #c8c8c8;
+  --text-dim: #666666;
+  --text-bright: #ffffff;
+  --accent: #ff6b00;
+  --accent-dim: #cc5500;
+  --accent-bg: rgba(255, 107, 0, 0.08);
+  --positive: #00cc44;
+  --positive-dim: #008822;
+  --negative: #ff3333;
+  --negative-dim: #cc0000;
+  --neutral: #888888;
+  --font: 'Courier New', 'Courier', 'Lucida Console', monospace;
+  --font-size: 12px;
+  --header-h: 42px;
+  --ticker-h: 28px;
+  --status-h: 32px;
+}
+
+/* ---- Reset & Base ---- */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; background: var(--bg); color: var(--text); font-family: var(--font); font-size: var(--font-size); line-height: 1.4; overflow: hidden; }
+#app { height: 100%; display: flex; flex-direction: column; }
+button { font-family: inherit; font-size: inherit; cursor: pointer; background: none; border: none; color: inherit; }
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+/* ---- Color Utilities ---- */
+.positive { color: var(--positive); }
+.negative { color: var(--negative); }
+.neutral { color: var(--neutral); }
+
+/* ============================================================
+   HEADER
+   ============================================================ */
+.terminal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: var(--header-h);
+  padding: 0 16px;
+  background: var(--bg-header);
+  border-bottom: 1px solid var(--accent);
+  flex-shrink: 0;
+  user-select: none;
+}
+.header-left, .header-center, .header-right {
+  display: flex; align-items: center; gap: 10px;
+}
+.header-logo {
+  font-size: 16px; font-weight: bold; color: var(--accent); letter-spacing: 2px;
+}
+.header-subtitle { color: var(--text-dim); font-size: 10px; letter-spacing: 1px; }
+.header-date, .header-time { color: var(--text-bright); font-size: 13px; font-weight: bold; }
+.header-separator { color: var(--border); }
+.header-status { font-size: 11px; letter-spacing: 1px; }
+.status-live { color: var(--positive); }
+.status-loading { color: var(--accent); animation: blink 1s step-end infinite; }
+.status-error { color: var(--negative); }
+.header-build { color: var(--text-dim); font-size: 10px; }
+
+@keyframes blink { 50% { opacity: 0.3; } }
+
+/* ============================================================
+   TICKER TAPE
+   ============================================================ */
+.ticker-container {
+  height: var(--ticker-h);
+  background: #0a0a0a;
+  border-bottom: 1px solid var(--border);
+  overflow: hidden;
+  flex-shrink: 0;
+  position: relative;
+}
+.ticker-track {
+  display: flex;
+  align-items: center;
+  white-space: nowrap;
+  animation: ticker-scroll 60s linear infinite;
+  height: 100%;
+  padding: 0 8px;
+}
+@keyframes ticker-scroll {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+.ticker-item {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 0 16px; height: 100%; font-size: 11px; letter-spacing: 0.5px;
+}
+.ticker-symbol { color: var(--accent); font-weight: bold; }
+.ticker-price { color: var(--text-bright); }
+.ticker-change { font-size: 10px; }
+.ticker-dot { color: var(--accent-dim); padding: 0 8px; }
+
+/* ============================================================
+   MAIN LAYOUT
+   ============================================================ */
+.terminal-main {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.terminal-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-rows: 1fr;
+  gap: 1px;
+  flex: 1;
+  min-height: 0;
+  background: var(--border);
+}
+
+.panel-wrapper {
+  background: var(--bg-panel);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.news-wrapper { grid-column: 1; }
+.markets-wrapper { grid-column: 2; }
+.crypto-wrapper { grid-column: 3; }
+
+/* ============================================================
+   PANELS
+   ============================================================ */
+.panel {
+  display: flex; flex-direction: column; height: 100%; overflow: hidden;
+}
+
+.panel-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 12px;
+  background: #0a0a0a;
+  border-bottom: 1px solid var(--accent);
+  flex-shrink: 0;
+}
+
+.panel-title {
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: bold;
+  letter-spacing: 2px;
+}
+
+.panel-badge {
+  background: var(--accent-bg);
+  color: var(--accent);
+  border: 1px solid var(--accent-dim);
+  padding: 1px 6px;
+  font-size: 10px;
+  border-radius: 2px;
+}
+
+.panel-subtitle {
+  color: var(--text-dim);
+  font-size: 10px;
+  letter-spacing: 1px;
+  margin-left: auto;
+}
+
+.panel-action {
+  margin-left: auto;
+  color: var(--text-dim);
+  font-size: 10px;
+  cursor: pointer;
+  padding: 2px 6px;
+  border: 1px solid var(--border);
+}
+.panel-action:hover { color: var(--accent); border-color: var(--accent); }
+
+.panel-body {
+  flex: 1; overflow-y: auto; overflow-x: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+.panel-body::-webkit-scrollbar { width: 4px; }
+.panel-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+/* ============================================================
+   NEWS PANEL
+   ============================================================ */
+.news-list { display: flex; flex-direction: column; }
+
+.news-item {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border-light);
+  cursor: pointer;
+  transition: background 0.1s;
+}
+.news-item:hover, .news-item.selected { background: var(--bg-panel-hover); }
+
+.news-meta {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 4px;
+}
+.news-source { color: var(--accent); font-size: 10px; font-weight: bold; letter-spacing: 1px; }
+.news-time { color: var(--text-dim); font-size: 10px; }
+.news-title { color: var(--text-bright); font-size: 12px; line-height: 1.4; margin-bottom: 3px; }
+.news-desc { color: var(--text-dim); font-size: 11px; line-height: 1.4; }
+.news-empty { padding: 20px 12px; color: var(--text-dim); text-align: center; }
+
+/* ============================================================
+   MARKETS PANEL
+   ============================================================ */
+.markets-body { display: flex; flex-direction: column; }
+
+.market-section { border-bottom: 1px solid var(--border); }
+.market-section:last-child { border-bottom: none; flex: 1; }
+
+.section-title {
+  padding: 5px 12px;
+  color: var(--text-dim);
+  font-size: 10px;
+  letter-spacing: 2px;
+  background: #080808;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.quote-list { display: flex; flex-direction: column; }
+
+.quote-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 8px;
+  align-items: center;
+  padding: 5px 12px;
+  border-bottom: 1px solid var(--border-light);
+  font-size: 11px;
+}
+.quote-row:hover { background: var(--bg-panel-hover); }
+.quote-row:last-child { border-bottom: none; }
+
+.quote-name { color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.quote-price { color: var(--text-bright); font-weight: bold; text-align: right; white-space: nowrap; }
+.quote-change { text-align: right; font-size: 10px; white-space: nowrap; }
+.quote-empty { padding: 10px 12px; color: var(--text-dim); font-size: 11px; }
+
+/* ============================================================
+   CRYPTO PANEL
+   ============================================================ */
+.crypto-list { display: flex; flex-direction: column; }
+
+.crypto-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 7px 12px;
+  border-bottom: 1px solid var(--border-light);
+  font-size: 11px;
+}
+.crypto-row:hover { background: var(--bg-panel-hover); }
+.crypto-row:last-child { border-bottom: none; }
+
+.crypto-left { display: flex; align-items: baseline; gap: 6px; }
+.crypto-right { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+.crypto-symbol { color: var(--accent); font-weight: bold; font-size: 12px; }
+.crypto-name { color: var(--text-dim); font-size: 10px; }
+.crypto-price { color: var(--text-bright); font-weight: bold; }
+.crypto-change { font-size: 10px; }
+.crypto-mcap { color: var(--text-dim); font-size: 10px; }
+
+/* ============================================================
+   STATUS BAR
+   ============================================================ */
+.status-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: var(--status-h);
+  padding: 0 8px;
+  background: #080808;
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.status-actions { display: flex; gap: 2px; }
+
+.status-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border: 1px solid var(--border);
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.1s;
+}
+.status-btn:hover { background: var(--accent-bg); border-color: var(--accent); color: var(--accent); }
+
+.status-key {
+  color: var(--bg);
+  background: var(--text-dim);
+  padding: 0 3px;
+  font-size: 10px;
+  border-radius: 1px;
+}
+.status-btn:hover .status-key { background: var(--accent); }
+.status-label { color: var(--text-dim); }
+.status-btn:hover .status-label { color: var(--accent); }
+
+.status-info { display: flex; align-items: center; gap: 8px; color: var(--text-dim); font-size: 10px; }
+.status-refresh { color: var(--accent); }
+.status-separator { color: var(--border); }
+
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+@media (max-width: 900px) {
+  .terminal-grid {
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: auto auto;
+  }
+  .news-wrapper { grid-column: 1 / -1; max-height: 40vh; }
+  .markets-wrapper { grid-column: 1; }
+  .crypto-wrapper { grid-column: 2; }
+}
+
+@media (max-width: 600px) {
+  .terminal-grid {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto;
+  }
+  .news-wrapper, .markets-wrapper, .crypto-wrapper { grid-column: 1; }
+  .terminal-main { overflow-y: auto; }
+}
