@@ -312,7 +312,7 @@ export class PanelLayoutManager implements AppModule {
           <!-- Draggable toolbar (title bar area) -->
           <div class="mac-content-toolbar" data-tauri-drag-region>
             <span class="mac-toolbar-title">
-              ${SITE_VARIANT === 'tech' ? 'Tech Monitor' : SITE_VARIANT === 'finance' ? 'Finance Monitor' : SITE_VARIANT === 'happy' ? 'Good News' : 'Crystal Ball'}
+              ${SITE_VARIANT === 'tech' ? 'Tech Monitor' : SITE_VARIANT === 'finance' ? 'Finance Monitor' : SITE_VARIANT === 'happy' ? 'Good News' : 'World Monitor'}
             </span>
             <div class="mac-toolbar-status">
               <span class="status-dot"></span>

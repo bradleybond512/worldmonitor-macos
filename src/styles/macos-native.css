@@ -725,6 +725,7 @@ body.is-desktop-macos[data-theme="light"] .mac-content-toolbar {
 
 .mac-toolbar-spacer {
   flex: 1;
+  -webkit-app-region: drag; /* spacer is the primary drag handle — override parent no-drag */
 }
 
 /* Region selector inside toolbar */
