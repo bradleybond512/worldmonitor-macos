@@ -49,7 +49,11 @@ async function main() {
   console.log('[lockfile:check] package-lock.json version fields look valid.');
 }
 
-main().catch((error) => {
-  console.error(`[lockfile:check] Failed: ${error instanceof Error ? error.message : String(error)}`);
-  process.exit(1);
-});
+const isCli = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+
+if (isCli) {
+  main().catch((error) => {
+    console.error(`[lockfile:check] Failed: ${error instanceof Error ? error.message : String(error)}`);
+    process.exit(1);
+  });
+}

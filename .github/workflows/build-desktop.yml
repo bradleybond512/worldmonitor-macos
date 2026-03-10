@@ -106,7 +106,7 @@ jobs:
             gstreamer1.0-libav \
             gstreamer1.0-gl
 
-      - name: Install frontend dependencies
+      - name: Validate package-lock.json
         run: npm run lockfile:check
 
       - name: Install frontend dependencies
