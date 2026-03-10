@@ -1,5 +1,5 @@
 import type { NewsItem } from '../types/index.js';
-import { timeAgo } from '../utils/format.js';
+import { timeAgo, escapeHtml, safeUrl } from '../utils/format.js';
 
 export class NewsPanel {
   private element: HTMLElement;
@@ -31,22 +31,27 @@ export class NewsPanel {
       return;
     }
 
-    this.listEl.innerHTML = items.map((item, i) => `
-      <div class="news-item ${i === this.selectedIndex ? 'selected' : ''}" data-index="${i}" data-url="${item.url}">
+    this.listEl.innerHTML = items.map((item, i) => {
+      const url = safeUrl(item.url);
+      return `
+      <div class="news-item ${i === this.selectedIndex ? 'selected' : ''}" data-index="${i}" data-url="${escapeHtml(url)}">
         <div class="news-meta">
-          <span class="news-source">[${item.source.toUpperCase()}]</span>
+          <span class="news-source">[${escapeHtml(item.source.toUpperCase())}]</span>
           <span class="news-time">${timeAgo(item.publishedAt)}</span>
         </div>
-        <div class="news-title">${item.title}</div>
-        ${item.description ? `<div class="news-desc">${item.description}</div>` : ''}
+        <div class="news-title">${escapeHtml(item.title)}</div>
+        ${item.description ? `<div class="news-desc">${escapeHtml(item.description)}</div>` : ''}
       </div>
-    `).join('');
+    `;
+    }).join('');
 
-    // Click to open URL
+    // Click to open URL — dataset value is already sanitised via safeUrl+escapeHtml above
     this.listEl.querySelectorAll('.news-item').forEach(el => {
       el.addEventListener('click', () => {
         const url = (el as HTMLElement).dataset['url'];
-        if (url && url !== '#') window.open(url, '_blank', 'noopener,noreferrer');
+        if (url && url !== '#' && (url.startsWith('https://') || url.startsWith('http://'))) {
+          window.open(url, '_blank', 'noopener,noreferrer');
+        }
       });
     });
   }

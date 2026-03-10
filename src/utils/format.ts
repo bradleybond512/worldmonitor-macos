@@ -44,3 +44,20 @@ export function arrowChar(value: number): string {
   if (value < 0) return '▼';
   return '◆';
 }
+
+/** Escape untrusted text before inserting into innerHTML. */
+export function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+/** Return the URL only if it uses an http(s) scheme; otherwise return '#'. */
+export function safeUrl(url: string): string {
+  const trimmed = url.trim();
+  if (trimmed.startsWith('https://') || trimmed.startsWith('http://')) return trimmed;
+  return '#';
+}
