@@ -75,7 +75,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
-          node-version: '22'
+          node-version: '20'
           cache: 'npm'
 
       - name: Install Rust stable
@@ -117,7 +117,7 @@ jobs:
       - name: Bundle Node.js runtime
         shell: bash
         env:
-          NODE_VERSION: '22.14.0'
+          NODE_VERSION: '20.19.0'
           NODE_TARGET: ${{ matrix.node_target }}
         run: bash scripts/download-node.sh --target "$NODE_TARGET"
 
