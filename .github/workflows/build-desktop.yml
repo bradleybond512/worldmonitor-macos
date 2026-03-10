@@ -20,6 +20,9 @@ on:
     tags:
       - 'v*'
 
+permissions:
+  contents: write
+
 concurrency:
   group: desktop-build-${{ github.ref }}
   cancel-in-progress: true
