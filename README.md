@@ -1,8 +1,8 @@
-# Crystal Ball
+# World Monitor
 
 **Real-time global intelligence dashboard** — AI-powered news aggregation, geopolitical monitoring, and infrastructure tracking in a unified situational awareness interface.
 
-> **Crystal Ball** is a free, open-source macOS desktop application built on top of [World Monitor](https://github.com/koala73/worldmonitor) by Elie Habib. It adds SF Pro typography, sidebar navigation, native vibrancy effects, HIG-compliant layout, and macOS-specific intelligence features including a live cyber threat map, persistent alert center, Air Strikes & Drones panel (ACLED), and World Bank economic country profiles.
+> **World Monitor** is a free, open-source macOS desktop application built on top of [World Monitor](https://github.com/koala73/worldmonitor) by Elie Habib. It adds SF Pro typography, sidebar navigation, native vibrancy effects, HIG-compliant layout, and macOS-specific intelligence features including a live cyber threat map, persistent alert center, Air Strikes & Drones panel (ACLED), and World Bank economic country profiles.
 
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 [![GitHub stars](https://img.shields.io/github/stars/bradleybond512/worldmonitor-macos?style=social)](https://github.com/bradleybond512/worldmonitor-macos/stargazers)
@@ -55,7 +55,7 @@
 | **Free & Open Source** | No license key, no paywalls, no paid tiers — AGPL-3.0 licensed |
 | **Security hardened** | Bundle ID verification on auto-update, CSP object-src/base-uri/form-action, href scheme validation, notification rate limiting |
 
-![Crystal Ball Dashboard](new-world-monitor.png)
+![World Monitor Dashboard](new-world-monitor.png)
 
 ---
 
@@ -64,7 +64,7 @@
 ### Installation
 
 1. Download the latest `.dmg` from [GitHub Releases](https://github.com/bradleybond512/worldmonitor-macos/releases/latest)
-2. Open the DMG, drag **Crystal Ball** to `/Applications`
+2. Open the DMG, drag **World Monitor** to `/Applications`
 3. Launch the app — on first run macOS may prompt you to allow it (System Settings → Privacy & Security → Open Anyway)
 
 ### First Steps
@@ -119,7 +119,7 @@ Switch modes with the mode button in the bottom-left sidebar:
 
 ## Attribution
 
-Crystal Ball is based on **[World Monitor](https://github.com/koala73/worldmonitor)** by [Elie Habib](https://github.com/koala73), licensed under AGPL-3.0. All original copyright notices are preserved. Crystal Ball is a modified fork distributed under the same AGPL-3.0 license — see [LICENSE](LICENSE) and [NOTICE.md](NOTICE.md) for full attribution details.
+World Monitor is based on **[World Monitor](https://github.com/koala73/worldmonitor)** by [Elie Habib](https://github.com/koala73), licensed under AGPL-3.0. All original copyright notices are preserved. World Monitor is a modified fork distributed under the same AGPL-3.0 license — see [LICENSE](LICENSE) and [NOTICE.md](NOTICE.md) for full attribution details.
 
 ---
 
@@ -139,7 +139,7 @@ This fork includes several security hardening measures beyond the base project:
 
 ---
 
-## Why Crystal Ball?
+## Why World Monitor?
 
 | Problem                            | Solution                                                                                                   |
 | ---------------------------------- | ---------------------------------------------------------------------------------------------------------- |
@@ -159,7 +159,7 @@ This fork includes several security hardening measures beyond the base project:
 
 ## Live Demos
 
-> These are the **upstream World Monitor web app** variants — Crystal Ball Desktop uses the same codebase and can connect to them as a cloud fallback.
+> These are the **upstream World Monitor web app** variants — World Monitor Desktop uses the same codebase and can connect to them as a cloud fallback.
 
 | Variant             | URL                                                          | Focus                                            |
 | ------------------- | ------------------------------------------------------------ | ------------------------------------------------ |
