@@ -40,13 +40,14 @@ World Monitor is a real-time OSINT dashboard built with **Vanilla TypeScript** (
 
 ### Variant System
 
-The codebase produces three app variants from the same source, each targeting a different audience:
+The codebase produces four app variants from the same source, each targeting a different audience:
 
 | Variant | Command | Focus |
 |---|---|---|
 | `full` | `npm run dev` | Geopolitics, military, conflicts, infrastructure |
 | `tech` | `npm run dev:tech` | Startups, AI/ML, cloud, cybersecurity |
 | `finance` | `npm run dev:finance` | Markets, trading, central banks, commodities |
+| `happy` | `npm run dev:happy` | Positive news, human progress, conservation (web only) |
 
 Variants share all code but differ in default panels, map layers, and RSS feeds. Variant configs live in `src/config/variants/`.
 
@@ -54,7 +55,7 @@ Variants share all code but differ in default panels, map layers, and RSS feeds.
 
 | Directory | Purpose |
 |---|---|
-| `src/components/` | UI components — Panel subclasses, map, modals (~50 panels) |
+| `src/components/` | UI components — Panel subclasses, map, modals (87+ panels) |
 | `src/services/` | Data fetching modules — sebuf client wrappers, AI, signal analysis |
 | `src/config/` | Static data and variant configs (feeds, geo, military, pipelines, ports) |
 | `src/generated/` | Auto-generated sebuf client + server stubs (**do not edit by hand**) |
@@ -279,7 +280,7 @@ When filing a bug report, please include:
 - **Browser/OS** — your environment details
 - **Console errors** — any relevant browser console output
 
-Use the [Bug Report issue template](https://github.com/bradleybond512/crystal-ball/issues/new/choose) when available.
+Use the [Bug Report issue template](https://github.com/bradleybond512/worldmonitor-macos/issues/new/choose) when available.
 
 ## Feature Requests
 
@@ -290,7 +291,7 @@ We welcome feature ideas! When suggesting a feature:
 - **Consider alternatives** you've thought about
 - **Provide context** — who would benefit from this feature?
 
-Use the [Feature Request issue template](https://github.com/bradleybond512/crystal-ball/issues/new/choose) when available.
+Use the [Feature Request issue template](https://github.com/bradleybond512/worldmonitor-macos/issues/new/choose) when available.
 
 ## Code of Conduct
 

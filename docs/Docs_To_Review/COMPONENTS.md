@@ -1,7 +1,7 @@
 # Component Documentation — World Monitor
 
 > Auto-generated reference for all UI components in `src/components/`.
-> Last updated: 2026-02-19
+> Last updated: 2026-03-08
 
 ---
 
@@ -874,6 +874,61 @@ domain-specific markup.
 | **Services** | `formatPopulation` from UNHCR service. |
 | **DOM** | Two tabs: origins / hosts. |
 
+#### GDACSAlertsPanel
+
+| Field | Detail |
+|---|---|
+| **File** | `src/components/GDACSAlertsPanel.ts` |
+| **Panel ID** | `gdacs-alerts` |
+| **Purpose** | Global Disaster Alert Coordination System events — floods, earthquakes, cyclones, tsunamis with Red/Orange/Green severity coding. |
+| **Key methods** | `setEventClickHandler(fn)`, `update(events)` |
+| **Services** | GDACS public API via `/api/gdacs-alerts` |
+| **DOM** | Sortable table with severity badges; click row to fly globe to event. |
+
+#### VolcanoAlertsPanel
+
+| Field | Detail |
+|---|---|
+| **File** | `src/components/VolcanoAlertsPanel.ts` |
+| **Panel ID** | `volcano-alerts` |
+| **Purpose** | USGS Volcano Hazards Program — alert levels (Normal/Advisory/Watch/Warning) for all US volcanoes. |
+| **Key methods** | `setEventClickHandler(fn)`, `update(alerts)` |
+| **Services** | `fetchVolcanoAlerts()` from `src/services/volcano-alerts.ts` |
+| **DOM** | Color-dot + alert-level table; click to fly globe. |
+
+#### NWSAlertsPanel
+
+| Field | Detail |
+|---|---|
+| **File** | `src/components/NWSAlertsPanel.ts` |
+| **Panel ID** | `nws-alerts` |
+| **Purpose** | NOAA National Weather Service active US hazard alerts (tornadoes, floods, blizzards, extreme heat). |
+| **Key methods** | `update(alerts)` |
+| **Services** | `fetchNWSAlerts()` from `src/services/nws-alerts.ts` |
+| **DOM** | Severity-badge table with event type, area, and onset time. |
+
+#### RadiationDecayPanel
+
+| Field | Detail |
+|---|---|
+| **File** | `src/components/RadiationDecayPanel.ts` |
+| **Panel ID** | `radiation-decay` |
+| **Purpose** | Offline radiation decay calculator using standard half-life formulas. No network required. |
+| **Key methods** | None (fully self-contained UI) |
+| **Services** | None — pure offline math |
+| **DOM** | Input form (initial dose, isotope, elapsed time) + calculated output. |
+
+#### ResourceInventoryPanel
+
+| Field | Detail |
+|---|---|
+| **File** | `src/components/ResourceInventoryPanel.ts` |
+| **Panel ID** | `resource-inventory` |
+| **Purpose** | Track survival supplies (water, food, medication) with days-remaining estimates and low-stock desktop alerts. |
+| **Key methods** | None (internally managed via IndexedDB) |
+| **Services** | IndexedDB (`crystal-ball-resources` store); `tryInvokeTauri` for desktop notifications |
+| **DOM** | Add/edit/delete form + table with color-coded days remaining (green >7d, yellow 3–7d, red <3d). Import/export JSON. |
+
 ---
 
 ### Infrastructure & Tech Panels
@@ -1127,6 +1182,11 @@ small UI affordances.
 | SatelliteFiresPanel | ✅ | — | — |
 | PopulationExposurePanel | ✅ | ✅ | — |
 | DisplacementPanel | ✅ | — | — |
+| GDACSAlertsPanel | ✅ | — | — |
+| VolcanoAlertsPanel | ✅ | — | — |
+| NWSAlertsPanel | ✅ | — | — |
+| RadiationDecayPanel | ✅ | — | — |
+| ResourceInventoryPanel | ✅ | — | — |
 | TechEventsPanel | — | ✅ | — |
 | TechHubsPanel | — | ✅ | — |
 | TechReadinessPanel | — | ✅ | — |

@@ -5,15 +5,15 @@
 > **Crystal Ball** is a free, open-source macOS desktop application built on top of [World Monitor](https://github.com/koala73/worldmonitor) by Elie Habib. It adds SF Pro typography, sidebar navigation, native vibrancy effects, HIG-compliant layout, and macOS-specific intelligence features including a live cyber threat map, persistent alert center, Air Strikes & Drones panel (ACLED), and World Bank economic country profiles.
 
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
-[![GitHub stars](https://img.shields.io/github/stars/bradleybond512/crystal-ball?style=social)](https://github.com/bradleybond512/crystal-ball/stargazers)
-[![GitHub forks](https://img.shields.io/github/forks/bradleybond512/crystal-ball?style=social)](https://github.com/bradleybond512/crystal-ball/network/members)
+[![GitHub stars](https://img.shields.io/github/stars/bradleybond512/worldmonitor-macos?style=social)](https://github.com/bradleybond512/worldmonitor-macos/stargazers)
+[![GitHub forks](https://img.shields.io/github/forks/bradleybond512/worldmonitor-macos?style=social)](https://github.com/bradleybond512/worldmonitor-macos/network/members)
 [![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=flat&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Tauri](https://img.shields.io/badge/Tauri-2.x-FFC131?style=flat&logo=tauri&logoColor=white)](https://tauri.app/)
-[![Last commit](https://img.shields.io/github/last-commit/bradleybond512/crystal-ball)](https://github.com/bradleybond512/crystal-ball/commits/main)
-[![Latest release](https://img.shields.io/github/v/release/bradleybond512/crystal-ball?style=flat)](https://github.com/bradleybond512/crystal-ball/releases/latest)
+[![Last commit](https://img.shields.io/github/last-commit/bradleybond512/worldmonitor-macos)](https://github.com/bradleybond512/worldmonitor-macos/commits/main)
+[![Latest release](https://img.shields.io/github/v/release/bradleybond512/worldmonitor-macos?style=flat)](https://github.com/bradleybond512/worldmonitor-macos/releases/latest)
 
 <p align="center">
-  <a href="https://github.com/bradleybond512/crystal-ball/releases/latest"><img src="https://img.shields.io/badge/Download-macOS_Apple_Silicon_(DMG)-000000?style=for-the-badge&logo=apple&logoColor=white" alt="Download macOS Apple Silicon"></a>
+  <a href="https://github.com/bradleybond512/worldmonitor-macos/releases/latest"><img src="https://img.shields.io/badge/Download-macOS_Apple_Silicon_(DMG)-000000?style=for-the-badge&logo=apple&logoColor=white" alt="Download macOS Apple Silicon"></a>
 </p>
 
 <p align="center">
@@ -23,7 +23,7 @@
 
 <p align="center">
   <a href="./docs/DOCUMENTATION.md"><strong>Full Documentation</strong></a> &nbsp;·&nbsp;
-  <a href="https://github.com/bradleybond512/crystal-ball/releases"><strong>All Releases</strong></a> &nbsp;·&nbsp;
+  <a href="https://github.com/bradleybond512/worldmonitor-macos/releases"><strong>All Releases</strong></a> &nbsp;·&nbsp;
   <a href="https://github.com/koala73/worldmonitor"><strong>Upstream: World Monitor</strong></a>
 </p>
 
@@ -47,12 +47,17 @@
 | **Claude AI provider** | Anthropic Claude Haiku in the summarization fallback chain alongside Groq/OpenRouter |
 | **Earthquakes panel** | USGS M4.5+ live seismic data with magnitude-color-coded table |
 | **Air Strikes & Drones panel** | ACLED-sourced air/drone strikes and missile attacks — last 30 days, mapped to globe, click-to-fly |
-| **Monitoring Modes** | Peace / Finance / War modes — Finance auto-triggers on ≥2.5% S&P or ≥5% BTC move; War mode on geopolitical escalation signals |
+| **Monitoring Modes** | Five modes — Peace (default), Finance (auto: ≥2.5% S&P or ≥5% BTC), War (auto: escalation signals), Disaster (auto: GDACS Red alert or M6.5+ quake), Ghost (manual: ×5 slower polling, no notifications, Cmd+Shift+G) |
+| **GDACS Disaster Alerts** | Global Disaster Alert Coordination System — Red/Orange/Green event severity, click-to-fly on globe, auto-triggers Disaster Mode |
+| **Volcano Alerts** | USGS Volcano Hazards Program — real-time alert levels (Normal/Advisory/Watch/Warning) with color-coded threat status for all US volcanoes |
+| **NWS Hazard Alerts** | NOAA National Weather Service — active US hazard alerts (tornadoes, floods, blizzards, extreme heat) with severity badges |
+| **Radiation Decay Calculator** | Offline calculator for estimating radiation levels over time using standard decay formulas — no network required |
+| **Resource Inventory** | Track survival supplies (water, food, medication) with days-remaining estimates; color-coded alerts when stock drops below 3 days; syncs to IndexedDB |
 | **Low Power Mode (⚡)** | Sidebar button disables animations, trail layers, and spatial audio to reduce CPU/GPU load |
 | **Window menu** | Standard macOS Window menu — Minimize, Zoom, Close |
 | **Open Logs Folder** | Help → Open Logs Folder opens the app log directory in Finder for easy debugging |
 | **MBP 14" optimized** | Window sizing and sidebar scaling tuned for the 1512×982 display |
-| **Free & Open Source** | No license key, no paywalls, no paid tiers — fully MIT licensed |
+| **Free & Open Source** | No license key, no paywalls, no paid tiers — AGPL-3.0 licensed |
 | **Security hardened** | Bundle ID verification on auto-update, CSP object-src/base-uri/form-action, href scheme validation, notification rate limiting |
 
 ![Crystal Ball Dashboard](new-world-monitor.png)
@@ -63,7 +68,7 @@
 
 ### Installation
 
-1. Download the latest `.dmg` from [GitHub Releases](https://github.com/bradleybond512/crystal-ball/releases/latest)
+1. Download the latest `.dmg` from [GitHub Releases](https://github.com/bradleybond512/worldmonitor-macos/releases/latest)
 2. Open the DMG, drag **Crystal Ball** to `/Applications`
 3. Launch the app — on first run macOS may prompt you to allow it (System Settings → Privacy & Security → Open Anyway)
 
@@ -84,6 +89,7 @@
 |---|---|
 | **Cmd+K** | Command palette — search news, countries, layers, bases, cables |
 | **Cmd+,** | Open Settings |
+| **Cmd+Shift+G** | Toggle Ghost Mode (slower polling, silent notifications) |
 | **⚡ button** | Toggle Low Power Mode (disables animations + spatial audio) |
 | Click panel tab | Expand/collapse sidebar panel |
 | Click map marker | Open event detail popup |
@@ -104,6 +110,9 @@
 | **Anthropic** | Claude AI for panel summaries | [console.anthropic.com](https://console.anthropic.com/settings/keys) |
 | **FRED** | US economic data | [fred.stlouisfed.org](https://fred.stlouisfed.org/docs/api/api_key.html) |
 | **EIA** | Energy data | [eia.gov](https://www.eia.gov/opendata/register.php) |
+| **ThreatFox** | Malware IOC intelligence (ThreatFox panel) | [abuse.ch](https://abuse.ch/login) |
+| **WTO** | World trade statistics | [wto.org](https://apiportal.wto.org/) |
+| **ICAO** | Aviation safety & NOTAMs | [icao.int](https://www.icao.int/safety/iStars/Pages/API-Data-Service.aspx) |
 
 > **AI without keys**: Install [Ollama](https://ollama.com/download) locally → set the Server URL to `http://localhost:11434` in Settings → General → AI Provider. No API key required.
 
@@ -112,8 +121,10 @@
 Switch modes with the mode button in the bottom-left sidebar:
 
 - **Peace Mode** — Default. All panels visible, balanced view.
-- **Finance Mode** — Auto-triggers when S&P 500 moves ≥2.5% or BTC ≥5% in a day. Prioritizes markets, economy, and trade panels.
-- **War Mode** — Auto-triggers on geopolitical escalation signals (conflict spikes, military surges, threat intelligence). Prioritizes security, military, and intelligence panels.
+- **Finance Mode** — Auto-triggers when S&P 500 moves ≥2.5%, BTC ≥5%, Oil ≥4%, or Gold ≥2% in a day. Prioritizes markets, economy, and trade panels. Auto-deescalates after 60 min of market calm.
+- **War Mode** — Auto-triggers on geopolitical escalation signals (conflict spikes, military surges, threat intelligence, velocity spikes). Prioritizes security, military, and intelligence panels. Auto-deescalates after 20 min of signal quiet.
+- **Disaster Mode** — Auto-triggers on any GDACS Red alert, 3+ simultaneous Orange alerts, or earthquake ≥M6.5. Prioritizes natural disaster, weather, and emergency panels. Auto-deescalates after 30 min.
+- **Ghost Mode** — Manual only. Reduces all polling ×5, suppresses desktop notifications and analytics. Toggle with 👻 button or **Cmd+Shift+G**. Restores your previous mode on exit.
 
 ---
 
@@ -1513,8 +1524,8 @@ Transactions are sampled at 10% to balance observability with cost. Release trac
 
 ```bash
 # Clone and run
-git clone https://github.com/bradleybond512/crystal-ball.git
-cd crystal-ball
+git clone https://github.com/bradleybond512/worldmonitor-macos.git
+cd worldmonitor-macos
 npm install
 vercel dev       # Runs frontend + all 60+ API edge functions
 ```
@@ -1854,9 +1865,9 @@ If you discover a vulnerability, please see our [Security Policy](./SECURITY.md)
 
 ## Star History
 
-<a href="https://api.star-history.com/svg?repos=bradleybond512/crystal-ball&type=Date">
+<a href="https://api.star-history.com/svg?repos=bradleybond512/worldmonitor-macos&type=Date">
  <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=bradleybond512/crystal-ball&type=Date&theme=dark" />
-   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=bradleybond512/crystal-ball&type=Date" />
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=bradleybond512/worldmonitor-macos&type=Date&theme=dark" />
+   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=bradleybond512/worldmonitor-macos&type=Date" />
  </picture>
 </a>

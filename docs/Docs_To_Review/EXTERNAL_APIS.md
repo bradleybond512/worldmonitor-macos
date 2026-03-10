@@ -1,7 +1,7 @@
 # External APIs Catalog
 
 > Comprehensive reference for every external API consumed by World Monitor.
-> Last updated: 2026-02-19
+> Last updated: 2026-03-08
 
 ---
 
@@ -27,7 +27,7 @@
 
 ## 1. Overview
 
-World Monitor integrates **38 distinct external API sources** (plus ~150 RSS feed
+World Monitor integrates **41 distinct external API sources** (plus ~150 RSS feed
 domains) to provide a unified real-time intelligence dashboard across geopolitical,
 financial, military, environmental, humanitarian, and technology domains.
 
@@ -46,7 +46,7 @@ financial, military, environmental, humanitarian, and technology domains.
 
 - **API key in header/query** — ACLED, Finnhub, FRED, Wingbits, AbuseIPDB, NASA FIRMS, Groq, OpenRouter, Cloudflare Radar, EIA
 - **Optional API key** — GitHub, HDX HAPI
-- **No authentication** — UCDP, GDELT, NGA MSI, Yahoo Finance, CoinGecko, Polymarket, alternative.me, blockchain.info, OpenSky, Feodo Tracker, URLhaus, C2IntelFeeds, AlienVault OTX, USGS, NOAA, Status Pages, FAA, UNHCR, WorldPop, World Bank, Hacker News, ArXiv, pizzint.watch, RSS feeds, Tech Events
+- **No authentication** — UCDP, GDELT, NGA MSI, Yahoo Finance, CoinGecko, Polymarket, alternative.me, blockchain.info, OpenSky, Feodo Tracker, URLhaus, C2IntelFeeds, AlienVault OTX, USGS, NOAA, GDACS, USGS Volcano Hazards, NWS Alerts, Status Pages, FAA, UNHCR, WorldPop, World Bank, Hacker News, ArXiv, pizzint.watch, RSS feeds, Tech Events
 - **URL-based auth** — Custom AIS Relay
 
 ---
@@ -764,6 +764,57 @@ technology outlets, and specialized OSINT sources.
 
 ---
 
+#### 39 — GDACS (Global Disaster Alert and Coordination System)
+
+| Field | Value |
+|---|---|
+| **Base URL** | `https://www.gdacs.org/gdacsapi/` |
+| **Authentication** | None |
+| **Env Vars** | — |
+| **Rate Limits** | Public; updated every 6h by GDACS |
+| **Data Format** | JSON |
+| **WM Endpoints** | `/api/gdacs-alerts` |
+| **Frontend Services** | `GDACSAlertsPanel`, Disaster Mode trigger |
+| **Degradation** | 6h cache; stale data served on failure |
+| **Tier Needed** | Public |
+| **Quirks** | Events classified Red/Orange/Green by impact. Red alert auto-triggers Disaster Mode. Click-to-fly on globe. |
+
+---
+
+#### 40 — USGS Volcano Hazards Program
+
+| Field | Value |
+|---|---|
+| **Base URL** | `https://volcanoes.usgs.gov/vhp/` |
+| **Authentication** | None |
+| **Env Vars** | — |
+| **Rate Limits** | Public US government |
+| **Data Format** | JSON |
+| **WM Endpoints** | `/api/volcano-alerts` |
+| **Frontend Services** | `VolcanoAlertsPanel` |
+| **Degradation** | 15 min cache; stale data served on failure |
+| **Tier Needed** | Public |
+| **Quirks** | Alert levels: Normal/Advisory/Watch/Warning. Color coding: Green/Yellow/Orange/Red. US volcanoes only. |
+
+---
+
+#### 41 — NOAA National Weather Service Alerts
+
+| Field | Value |
+|---|---|
+| **Base URL** | `https://api.weather.gov/alerts` |
+| **Authentication** | None |
+| **Env Vars** | — |
+| **Rate Limits** | Public; standard NWS API |
+| **Data Format** | GeoJSON / JSON |
+| **WM Endpoints** | `/api/nws-alerts` |
+| **Frontend Services** | `NWSAlertsPanel` |
+| **Degradation** | 5 min cache; stale data served on failure |
+| **Tier Needed** | Public |
+| **Quirks** | Covers all active US hazard alerts (tornadoes, floods, blizzards, extreme heat, etc.). Severity: Extreme/Severe/Moderate/Minor. US-only. |
+
+---
+
 ## 4. Dependency Chain Diagram
 
 ### 4.1 Overall Architecture
@@ -967,7 +1018,7 @@ How World Monitor behaves when each external API is unavailable:
 
 | Category | APIs |
 |---|---|
-| Fully public (no key) | UCDP, GDELT, NGA MSI, Yahoo Finance, CoinGecko, Polymarket, alternative.me, blockchain.info, OpenSky, Feodo Tracker, URLhaus, C2IntelFeeds, AlienVault OTX, USGS, NOAA, Status Pages, FAA, UNHCR, WorldPop, World Bank, Hacker News, ArXiv, pizzint.watch, RSS Feeds, Tech Events |
+| Fully public (no key) | UCDP, GDELT, NGA MSI, Yahoo Finance, CoinGecko, Polymarket, alternative.me, blockchain.info, OpenSky, Feodo Tracker, URLhaus, C2IntelFeeds, AlienVault OTX, USGS, NOAA, GDACS, USGS Volcano Hazards, NWS Alerts, Status Pages, FAA, UNHCR, WorldPop, World Bank, Hacker News, ArXiv, pizzint.watch, RSS Feeds, Tech Events |
 | Free key required | ACLED (researcher), Finnhub, FRED, NASA FIRMS, AbuseIPDB, Groq (free tier), EIA |
 | Free key optional | GitHub, HDX HAPI |
 | Free with model limits | OpenRouter (select free models) |

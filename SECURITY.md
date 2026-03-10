@@ -14,7 +14,7 @@ Only the latest version on the `main` branch is actively maintained and receives
 
 If you discover a security vulnerability in Crystal Ball, please report it responsibly:
 
-1. **GitHub Private Vulnerability Reporting**: Use [GitHub's private vulnerability reporting](https://github.com/bradleybond512/crystal-ball/security/advisories/new) to submit your report directly through the repository.
+1. **GitHub Private Vulnerability Reporting**: Use [GitHub's private vulnerability reporting](https://github.com/bradleybond512/worldmonitor-macos/security/advisories/new) to submit your report directly through the repository.
 
 2. **Direct Contact**: Alternatively, reach out to the repository owner [@bradleybond512](https://github.com/bradleybond512) directly through GitHub.
 

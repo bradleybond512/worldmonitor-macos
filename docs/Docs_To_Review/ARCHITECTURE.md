@@ -89,9 +89,9 @@ graph TD
 
 | Layer | Technology | Role |
 |---|---|---|
-| **SPA** | TypeScript, Vite 6, no framework | UI rendering via class-based components extending a `Panel` base class. 44 panels in the full variant. |
+| **SPA** | TypeScript, Vite 6, no framework | UI rendering via class-based components extending a `Panel` base class. 42 panels in the full variant. App shell decomposed into `PanelLayoutManager`, `DataLoader`, `RefreshScheduler`, and `EventHandlerManager` modules. |
 | **Vercel Edge Functions** | Plain JS (60+ files in api/) | Proxy, normalise, and cache upstream API calls. Each file exports a default Vercel handler. |
-| **External APIs** | 30+ heterogeneous sources | RSS feeds, conflict databases (ACLED, UCDP), geospatial (GDELT, NASA FIRMS, OpenSky), markets (Finnhub, Yahoo Finance, CoinGecko), LLMs (Groq, OpenRouter), and more. |
+| **External APIs** | 41+ heterogeneous sources | RSS feeds, conflict databases (ACLED, UCDP), geospatial (GDELT, NASA FIRMS, OpenSky, GDACS, USGS Volcano, NWS), markets (Finnhub, Yahoo Finance, CoinGecko), LLMs (Groq, OpenRouter), and more. |
 | **Upstash Redis** | Redis REST API | Server-side response cache with TTL-based expiry. Falls back to in-memory Map in sidecar mode. |
 | **Service Worker** | Workbox | Offline support, runtime caching strategies, background sync. |
 | **IndexedDB** | `worldmonitor_db` | Client-side storage for playback snapshots and temporal baseline data. |
@@ -198,9 +198,10 @@ The same pattern applies to `DEFAULT_MAP_LAYERS` and `MOBILE_DEFAULT_MAP_LAYERS`
 
 | Variant | Panels | Desktop Map Layers | Mobile Map Layers |
 |---|---|---|---|
-| `full` | 44 | 35+ | Reduced subset |
+| `full` | 42 | 35+ | Reduced subset |
 | `tech` | ~20 | Tech-focused layers (cloud regions, startup hubs, accelerators) | Minimal |
 | `finance` | ~18 | Finance-focused layers (stock exchanges, financial centres, central banks) | Minimal |
+| `happy` | 10 | Positive event layers (kindness, species recovery, renewables) | Minimal |
 
 The `MapLayers` interface contains 35+ boolean toggle keys including: `conflicts`, `bases`, `cables`, `pipelines`, `hotspots`, `ais`, `nuclear`, `irradiators`, `sanctions`, `weather`, `economic`, `waterways`, `outages`, `cyberThreats`, `datacenters`, `protests`, `flights`, `military`, `natural`, `spaceports`, `minerals`, `fires`, `ucdpEvents`, `displacement`, `climate`, `startupHubs`, `cloudRegions`, `accelerators`, `techHQs`, `techEvents`, `stockExchanges`, `financialCenters`, `centralBanks`, `commodityHubs`, and `gulfInvestments`.
 
@@ -583,7 +584,32 @@ On desktop, `getPersistentCache()` and `setPersistentCache()` attempt Tauri IPC 
 
 ---
 
-## 7. Desktop Architecture
+## 7. Monitoring Modes
+
+The app supports five operational modes managed by `src/services/mode-manager.ts`. Mode transitions update the UI, panel visibility weights, polling cadence, and notification behavior.
+
+| Mode | Trigger | Auto-deescalate | Effect |
+|---|---|---|---|
+| **Peace** | Default on startup | — | Balanced panel layout, normal refresh rates |
+| **War** | ≥2 correlation signals with confidence ≥0.6 (hotspot escalation, military surge, geo convergence, velocity spike, keyword spike) | 20 min of signal quiet | Prioritizes security, military, and intelligence panels |
+| **Finance** | S&P 500 ≥±2.5%, BTC ≥±5%, Oil ≥±4%, or Gold ≥±2% | 60 min of market calm | Prioritizes market, economy, and trade panels |
+| **Disaster** | Any GDACS Red alert, 3+ simultaneous Orange alerts, or earthquake ≥M6.5 | 30 min with no new events | Prioritizes natural disaster, weather, and emergency panels |
+| **Ghost** | Manual only (👻 button or Cmd+Shift+G) | Never auto (manual toggle off) | Refresh intervals ×5 slower, desktop notifications suppressed, analytics suppressed |
+
+### Mode State Flow
+
+```
+Peace ──(escalation signals)──► War ──(quiet 20m)──► Peace
+Peace ──(market move)──────────► Finance ──(calm 60m)──► Peace
+Peace ──(GDACS/quake)──────────► Disaster ──(quiet 30m)──► Peace
+Any ──(manual)─────────────────► Ghost ──(manual toggle)──► previous mode
+```
+
+Conflict baselines are used for normalized War scoring: Ukraine (4 signals), Palestine (3), Syria/Sudan/Myanmar/Yemen (2 each), Iraq/Ethiopia (1 each). Regions consistently above baseline do not re-trigger War mode until they spike significantly above their own baseline.
+
+---
+
+## 8. Desktop Architecture
 
 The desktop application uses Tauri 2 (Rust) as a native shell around the web SPA, with a Node.js sidecar process providing a local API server.
 

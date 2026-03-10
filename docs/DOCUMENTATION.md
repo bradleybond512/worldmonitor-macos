@@ -7,18 +7,20 @@ AI-powered real-time global intelligence dashboard aggregating news, markets, ge
 ![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=flat&logo=typescript&logoColor=white)
 ![Vite](https://img.shields.io/badge/Vite-646CFF?style=flat&logo=vite&logoColor=white)
 ![D3.js](https://img.shields.io/badge/D3.js-F9A03C?style=flat&logo=d3.js&logoColor=white)
-![Version](https://img.shields.io/badge/version-2.5.1-blue)
+![Version](https://img.shields.io/badge/version-2.5.25-blue)
 
 ![World Monitor Dashboard](../new-world-monitor.png)
 
 ## Platform Variants
 
-World Monitor runs two specialized variants from a single codebase, each optimized for different monitoring needs:
+World Monitor runs four specialized variants from a single codebase, each optimized for different monitoring needs:
 
 | Variant | URL | Focus |
 |---------|-----|-------|
 | **🌍 World Monitor** | [worldmonitor.app](https://worldmonitor.app) | Geopolitical intelligence, military tracking, conflict monitoring, infrastructure security |
 | **💻 Tech Monitor** | [tech.worldmonitor.app](https://tech.worldmonitor.app) | Technology sector intelligence, AI/startup ecosystems, cloud infrastructure, tech events |
+| **📈 Finance Monitor** | [finance.worldmonitor.app](https://finance.worldmonitor.app) | Global markets, trading, central banks, commodities, Gulf FDI |
+| **🌱 Happy Monitor** | [happy.worldmonitor.app](https://happy.worldmonitor.app) | Positive news, human progress, conservation, good stories |
 
 A compact **variant switcher** in the header allows seamless navigation between variants while preserving your map position and panel configuration.
 
@@ -34,8 +36,10 @@ The primary variant focuses on geopolitical intelligence, military tracking, and
 - **Military Intelligence** - 220+ military bases, flight tracking, naval vessel monitoring, surge detection
 - **Infrastructure Security** - Undersea cables, pipelines, datacenters, internet outages
 - **Economic Intelligence** - FRED indicators, oil analytics, government spending, sanctions tracking
-- **Natural Disasters** - Earthquakes, severe weather, NASA EONET events (wildfires, volcanoes, floods)
-- **AI-Powered Analysis** - Focal point detection, country instability scoring, infrastructure cascade analysis
+- **Natural Disasters** - Earthquakes (USGS), GDACS disaster alerts, volcano status (USGS VHP), NWS hazard alerts, NASA EONET events
+- **AI-Powered Analysis** - Focal point detection, country instability scoring, EMA-based threat forecasting, infrastructure cascade analysis
+- **Operational Modes** - Five automatic/manual modes: Peace, War, Finance, Disaster, Ghost
+- **Preparedness Tools** - Radiation Decay Calculator (offline), Resource Inventory with days-remaining estimates
 
 ### Intelligence Panels
 
@@ -47,6 +51,11 @@ The primary variant focuses on geopolitical intelligence, military tracking, and
 | **Strategic Risk Overview** | Composite risk score combining all intelligence modules |
 | **Infrastructure Cascade** | Dependency analysis for cables, pipelines, and chokepoints |
 | **Live Intelligence** | GDELT-powered topic feeds (Military, Cyber, Nuclear, Sanctions) |
+| **GDACS Disaster Alerts** | Global Disaster Alert Coordination System — severity-coded natural disaster events, click-to-fly |
+| **Volcano Alerts** | USGS Volcano Hazards Program — alert levels for all US volcanoes (Normal/Advisory/Watch/Warning) |
+| **NWS Hazard Alerts** | NOAA National Weather Service — active US hazard alerts with severity badges |
+| **Radiation Decay Calculator** | Offline tool for estimating radiation levels over time using decay formulas |
+| **Resource Inventory** | Track survival supplies with days-remaining estimates; IndexedDB persistence; low-stock desktop alerts |
 
 ### News Coverage
 
@@ -3303,8 +3312,8 @@ const header = `World Monitor v${__APP_VERSION__}`;
 
 ```bash
 # Clone the repository
-git clone https://github.com/bradleybond512/crystal-ball.git
-cd crystal-ball
+git clone https://github.com/bradleybond512/worldmonitor-macos.git
+cd worldmonitor-macos
 
 # Install everything (buf, sebuf plugins, npm deps, proto deps)
 make install
