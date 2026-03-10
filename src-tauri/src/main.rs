@@ -684,7 +684,7 @@ async fn install_update(download_url: String) -> Result<(), String> {
 
         // 3. Verify the app bundle identifier before overwriting /Applications.
         //    This prevents a compromised GitHub account or MITM from replacing the app
-        //    with a malicious binary that passes the host check but is not World Monitor.
+        //    with a malicious binary that passes the host check but is not Crystal Ball.
         let source = format!("{}/Crystal Ball.app", mount_point);
         let dest = "/Applications/Crystal Ball.app";
 
@@ -730,7 +730,7 @@ async fn install_update(download_url: String) -> Result<(), String> {
         }
 
         // 5. Relaunch and exit
-        let _ = Command::new("open").args(["-a", "World Monitor"]).spawn();
+        let _ = Command::new("open").args(["-a", "Crystal Ball"]).spawn();
         std::process::exit(0);
     }
 }
@@ -783,7 +783,7 @@ fn open_settings_window(app: &AppHandle) -> Result<(), String> {
     }
 
     let _settings_window = WebviewWindowBuilder::new(app, "settings", WebviewUrl::App("settings.html".into()))
-        .title("World Monitor Settings")
+        .title("Crystal Ball Settings")
         .inner_size(980.0, 760.0)
         .min_inner_size(820.0, 620.0)
         .resizable(true)
@@ -820,7 +820,7 @@ fn open_live_channels_window(app: &AppHandle, base_url: Option<String>) -> Resul
     };
 
     let _live_channels_window = WebviewWindowBuilder::new(app, "live-channels", url)
-    .title("Channel management - World Monitor")
+    .title("Channel management - Crystal Ball")
     .inner_size(680.0, 760.0)
     .min_inner_size(520.0, 600.0)
     .resizable(true)
