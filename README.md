@@ -5,15 +5,15 @@
 > **Crystal Ball** is a free, open-source macOS desktop application built on top of [World Monitor](https://github.com/koala73/worldmonitor) by Elie Habib. It adds SF Pro typography, sidebar navigation, native vibrancy effects, HIG-compliant layout, and macOS-specific intelligence features including a live cyber threat map, persistent alert center, Air Strikes & Drones panel (ACLED), and World Bank economic country profiles.
 
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
-[![GitHub stars](https://img.shields.io/github/stars/bradleybond512/crystal-ball?style=social)](https://github.com/bradleybond512/crystal-ball/stargazers)
-[![GitHub forks](https://img.shields.io/github/forks/bradleybond512/crystal-ball?style=social)](https://github.com/bradleybond512/crystal-ball/network/members)
+[![GitHub stars](https://img.shields.io/github/stars/bradleybond512/worldmonitor-macos?style=social)](https://github.com/bradleybond512/worldmonitor-macos/stargazers)
+[![GitHub forks](https://img.shields.io/github/forks/bradleybond512/worldmonitor-macos?style=social)](https://github.com/bradleybond512/worldmonitor-macos/network/members)
 [![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=flat&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Tauri](https://img.shields.io/badge/Tauri-2.x-FFC131?style=flat&logo=tauri&logoColor=white)](https://tauri.app/)
-[![Last commit](https://img.shields.io/github/last-commit/bradleybond512/crystal-ball)](https://github.com/bradleybond512/crystal-ball/commits/main)
-[![Latest release](https://img.shields.io/github/v/release/bradleybond512/crystal-ball?style=flat)](https://github.com/bradleybond512/crystal-ball/releases/latest)
+[![Last commit](https://img.shields.io/github/last-commit/bradleybond512/worldmonitor-macos)](https://github.com/bradleybond512/worldmonitor-macos/commits/main)
+[![Latest release](https://img.shields.io/github/v/release/bradleybond512/worldmonitor-macos?style=flat)](https://github.com/bradleybond512/worldmonitor-macos/releases/latest)
 
 <p align="center">
-  <a href="https://github.com/bradleybond512/crystal-ball/releases/latest"><img src="https://img.shields.io/badge/Download-macOS_Apple_Silicon_(DMG)-000000?style=for-the-badge&logo=apple&logoColor=white" alt="Download macOS Apple Silicon"></a>
+  <a href="https://github.com/bradleybond512/worldmonitor-macos/releases/latest"><img src="https://img.shields.io/badge/Download-macOS_Apple_Silicon_(DMG)-000000?style=for-the-badge&logo=apple&logoColor=white" alt="Download macOS Apple Silicon"></a>
 </p>
 
 <p align="center">
@@ -23,7 +23,7 @@
 
 <p align="center">
   <a href="./docs/DOCUMENTATION.md"><strong>Full Documentation</strong></a> &nbsp;·&nbsp;
-  <a href="https://github.com/bradleybond512/crystal-ball/releases"><strong>All Releases</strong></a> &nbsp;·&nbsp;
+  <a href="https://github.com/bradleybond512/worldmonitor-macos/releases"><strong>All Releases</strong></a> &nbsp;·&nbsp;
   <a href="https://github.com/koala73/worldmonitor"><strong>Upstream: World Monitor</strong></a>
 </p>
 
@@ -52,7 +52,7 @@
 | **Window menu** | Standard macOS Window menu — Minimize, Zoom, Close |
 | **Open Logs Folder** | Help → Open Logs Folder opens the app log directory in Finder for easy debugging |
 | **MBP 14" optimized** | Window sizing and sidebar scaling tuned for the 1512×982 display |
-| **Free & Open Source** | No license key, no paywalls, no paid tiers — fully MIT licensed |
+| **Free & Open Source** | No license key, no paywalls, no paid tiers — AGPL-3.0 licensed |
 | **Security hardened** | Bundle ID verification on auto-update, CSP object-src/base-uri/form-action, href scheme validation, notification rate limiting |
 
 ![Crystal Ball Dashboard](new-world-monitor.png)
@@ -63,7 +63,7 @@
 
 ### Installation
 
-1. Download the latest `.dmg` from [GitHub Releases](https://github.com/bradleybond512/crystal-ball/releases/latest)
+1. Download the latest `.dmg` from [GitHub Releases](https://github.com/bradleybond512/worldmonitor-macos/releases/latest)
 2. Open the DMG, drag **Crystal Ball** to `/Applications`
 3. Launch the app — on first run macOS may prompt you to allow it (System Settings → Privacy & Security → Open Anyway)
 
@@ -1513,8 +1513,8 @@ Transactions are sampled at 10% to balance observability with cost. Release trac
 
 ```bash
 # Clone and run
-git clone https://github.com/bradleybond512/crystal-ball.git
-cd crystal-ball
+git clone https://github.com/bradleybond512/worldmonitor-macos.git
+cd worldmonitor-macos
 npm install
 vercel dev       # Runs frontend + all 60+ API edge functions
 ```
@@ -1854,9 +1854,9 @@ If you discover a vulnerability, please see our [Security Policy](./SECURITY.md)
 
 ## Star History
 
-<a href="https://api.star-history.com/svg?repos=bradleybond512/crystal-ball&type=Date">
+<a href="https://api.star-history.com/svg?repos=bradleybond512/worldmonitor-macos&type=Date">
  <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=bradleybond512/crystal-ball&type=Date&theme=dark" />
-   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=bradleybond512/crystal-ball&type=Date" />
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=bradleybond512/worldmonitor-macos&type=Date&theme=dark" />
+   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=bradleybond512/worldmonitor-macos&type=Date" />
  </picture>
 </a>
