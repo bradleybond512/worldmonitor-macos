@@ -414,12 +414,12 @@ export function alertFamily(): void {
     '⚠️  CRYSTAL BALL — SAFETY ALERT',
     `Time: ${dateStr}`,
     '',
-    'Crystal Ball has detected elevated conflict or crisis signals.',
+    'World Monitor has detected elevated conflict or crisis signals.',
     'Please stay informed, follow local emergency guidance,',
     'and check in with each other.',
     '',
     'Stay safe,',
-    '— Crystal Ball',
+    '— World Monitor',
   ].join('\n');
 
   navigator.clipboard.writeText(msg).catch(() => {
@@ -461,7 +461,7 @@ export function getGhostRefreshMultiplier(): number {
 function _notifyWarModeActivated(): void {
   try {
     if ('Notification' in window && Notification.permission === 'granted') {
-      new Notification('⚠️ Crystal Ball — War Mode Activated', {
+      new Notification('⚠️ World Monitor — War Mode Activated', {
         body: 'Elevated conflict signals detected. Monitoring has switched to War Mode.',
         tag: 'wm-war-mode',
         requireInteraction: false,
@@ -475,7 +475,7 @@ function _notifyWarModeActivated(): void {
 function _notifyFinanceModeActivated(): void {
   try {
     if ('Notification' in window && Notification.permission === 'granted') {
-      new Notification('📈 Crystal Ball — Finance Mode Activated', {
+      new Notification('📈 World Monitor — Finance Mode Activated', {
         body: 'Significant market movement detected. Monitoring has switched to Finance Mode.',
         tag: 'wm-finance-mode',
         requireInteraction: false,
@@ -489,7 +489,7 @@ function _notifyFinanceModeActivated(): void {
 function _notifyDisasterModeActivated(): void {
   try {
     if ('Notification' in window && Notification.permission === 'granted') {
-      new Notification('🌋 Crystal Ball — Disaster Mode Activated', {
+      new Notification('🌋 World Monitor — Disaster Mode Activated', {
         body: 'Major natural disaster event detected. Monitoring has switched to Disaster Mode.',
         tag: 'wm-disaster-mode',
         requireInteraction: false,

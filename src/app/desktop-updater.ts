@@ -57,7 +57,7 @@ export class DesktopUpdater implements AppModule {
   private async checkForUpdate(manual = false): Promise<void> {
     try {
       const res = await fetch(
-        'https://api.github.com/repos/bradleybond512/crystal-ball/releases/latest',
+        'https://api.github.com/repos/bradleybond512/worldmonitor-macos/releases/latest',
         { headers: { Accept: 'application/vnd.github+json' }, signal: AbortSignal.timeout(10000) }
       );
       if (!res.ok) {
@@ -92,7 +92,7 @@ export class DesktopUpdater implements AppModule {
         Array.isArray(data.assets) ? data.assets : [];
       const dmg = assets.find(a => typeof a.name === 'string' && a.name.endsWith('.dmg'));
       const downloadUrl = dmg?.browser_download_url
-        ?? 'https://github.com/bradleybond512/crystal-ball/releases/latest';
+        ?? 'https://github.com/bradleybond512/worldmonitor-macos/releases/latest';
 
       this.logUpdaterOutcome('update_available', { current, remote, dismissed: false });
       trackUpdateShown(current, remote);
@@ -164,7 +164,7 @@ export class DesktopUpdater implements AppModule {
               if (btn) { btn.textContent = 'Failed — retry?'; btn.disabled = false; }
               // Fall back to opening the releases page
               void invokeTauri<void>('open_url', {
-                url: 'https://github.com/bradleybond512/crystal-ball/releases/latest',
+                url: 'https://github.com/bradleybond512/worldmonitor-macos/releases/latest',
               }).catch(() => {});
             });
         } else {
@@ -198,7 +198,7 @@ export class DesktopUpdater implements AppModule {
     toast.className = 'update-toast update-info-toast';
     toast.innerHTML = `
       <div class="update-toast-body">
-        <div class="update-toast-title">Crystal Ball</div>
+        <div class="update-toast-title">World Monitor</div>
         <div class="update-toast-detail">${escapeHtml(message)}</div>
       </div>
       <button class="update-toast-dismiss" data-action="dismiss" aria-label="Dismiss">\u00d7</button>

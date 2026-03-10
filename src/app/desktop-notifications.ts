@@ -37,7 +37,7 @@ export class DesktopNotifications implements AppModule {
     const body = `[${alert.threatLevel.toUpperCase()}] ${alert.headline} — ${alert.source}`;
 
     await tryInvokeTauri<void>('send_notification', {
-      title: 'Crystal Ball Alert',
+      title: 'World Monitor Alert',
       body,
       sound,
     });

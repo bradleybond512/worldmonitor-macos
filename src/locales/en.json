@@ -1,6 +1,6 @@
 {
   "app": {
-    "title": "Crystal Ball",
+    "title": "World Monitor",
     "description": "Global Situation with AI Insights"
   },
   "countryBrief": {
@@ -417,9 +417,9 @@
       "sidecarUnreachable": "Sidecar not reachable.",
       "logCleared": "Log cleared.",
       "worldMonitor": {
-        "tabLabel": "Crystal Ball",
+        "tabLabel": "World Monitor",
         "heroTitle": "Free & Open Source.",
-        "heroDescription": "Crystal Ball is free and open source. Configure your own free API keys below to unlock all data sources — AI summaries, real-time intelligence, market data, conflict tracking, fire detection, satellite imagery.",
+        "heroDescription": "World Monitor is free and open source. Configure your own free API keys below to unlock all data sources — AI summaries, real-time intelligence, market data, conflict tracking, fire detection, satellite imagery.",
         "byokTitle": "Or bring your own keys",
         "byokDescription": "Prefer full control? Head to the API Keys and LLMs tabs to configure each data source and AI provider individually."
       },

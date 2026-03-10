@@ -71,7 +71,7 @@ export function initLiveChannelsWindow(containerEl?: HTMLElement): void {
   if (!appEl) return;
 
   if (!containerEl) {
-    document.title = `${t('components.liveNews.manage') ?? 'Channel management'} - Crystal Ball`;
+    document.title = `${t('components.liveNews.manage') ?? 'Channel management'} - World Monitor`;
   }
 
   let channels = loadChannelsFromStorage();

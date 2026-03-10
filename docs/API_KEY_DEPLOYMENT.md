@@ -2,7 +2,7 @@
 
 ## Overview
 
-Crystal Ball desktop uses a **local-first** architecture. All API requests go to the sidecar first
+World Monitor desktop uses a **local-first** architecture. All API requests go to the sidecar first
 and fall back to the Vercel cloud only if the sidecar cannot respond.
 
 No application-level API key is required for cloud fallback. Access is controlled purely by

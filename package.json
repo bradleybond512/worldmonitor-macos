@@ -1,5 +1,5 @@
 {
-  "name": "crystal-ball",
+  "name": "worldmonitor-macos",
   "private": true,
   "version": "2.5.25",
   "license": "AGPL-3.0-only",
@@ -102,12 +102,12 @@
     "fast-xml-parser": "^5.3.7"
   },
   "author": "Bradley Bond (https://github.com/bradleybond512)",
-  "homepage": "https://github.com/bradleybond512/crystal-ball#readme",
+  "homepage": "https://github.com/bradleybond512/worldmonitor-macos#readme",
   "repository": {
     "type": "git",
-    "url": "https://github.com/bradleybond512/crystal-ball"
+    "url": "https://github.com/bradleybond512/worldmonitor-macos"
   },
   "bugs": {
-    "url": "https://github.com/bradleybond512/crystal-ball/issues"
+    "url": "https://github.com/bradleybond512/worldmonitor-macos/issues"
   }
 }

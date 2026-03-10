@@ -926,7 +926,7 @@ domain-specific markup.
 | **Panel ID** | `resource-inventory` |
 | **Purpose** | Track survival supplies (water, food, medication) with days-remaining estimates and low-stock desktop alerts. |
 | **Key methods** | None (internally managed via IndexedDB) |
-| **Services** | IndexedDB (`crystal-ball-resources` store); `tryInvokeTauri` for desktop notifications |
+| **Services** | IndexedDB (`worldmonitor-macos-resources` store); `tryInvokeTauri` for desktop notifications |
 | **DOM** | Add/edit/delete form + table with color-coded days remaining (green >7d, yellow 3–7d, red <3d). Import/export JSON. |
 
 ---
