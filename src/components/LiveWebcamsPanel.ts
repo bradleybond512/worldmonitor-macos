@@ -66,12 +66,14 @@ export class LiveWebcamsPanel extends Panel {
   private boundVisibilityHandler!: () => void;
   private readonly IDLE_PAUSE_MS = 5 * 60 * 1000;
   private isIdle = false;
+  private _boundYtMsg!: (e: MessageEvent) => void;
 
   constructor() {
     super({ id: 'live-webcams', title: t('panels.liveWebcams'), className: 'panel-wide' });
     this.createToolbar();
     this.setupIntersectionObserver();
     this.setupIdleDetection();
+    this._setupYtMessageListener();
     subscribeStreamQualityChange(() => this.render());
     this.render();
   }
@@ -314,6 +316,47 @@ export class LiveWebcamsPanel extends Panel {
     this.iframes = [];
   }
 
+  /** Listen for postMessage events from the sidecar YouTube embed and display errors. */
+  private _setupYtMessageListener(): void {
+    this._boundYtMsg = (e: MessageEvent) => {
+      const data = e.data as { type?: string; code?: number } | null;
+      if (!data?.type?.startsWith('yt-')) return;
+
+      const iframe = this.iframes.find(f => f.contentWindow === e.source);
+      if (!iframe) return;
+      const cell = iframe.closest<HTMLElement>('.webcam-cell, .webcam-single');
+      if (!cell) return;
+
+      if (data.type === 'yt-error') {
+        const c = data.code;
+        let msg = `YT error ${c}`;
+        if (c === 2)         msg = 'Bad video ID (2)';
+        else if (c === 5)    msg = 'HTML5 error (5)';
+        else if (c === 100)  msg = 'Video unavailable (100)';
+        else if (c === 101 || c === 150) msg = 'Embed blocked (150)';
+        this._showCellError(cell, msg);
+      } else if (data.type === 'yt-autoplay-failed') {
+        this._showCellError(cell, 'Autoplay blocked — click to play');
+      }
+    };
+    window.addEventListener('message', this._boundYtMsg);
+  }
+
+  private _showCellError(cell: HTMLElement, msg: string): void {
+    let overlay = cell.querySelector<HTMLElement>('.webcam-err-overlay');
+    if (!overlay) {
+      overlay = document.createElement('div');
+      overlay.className = 'webcam-err-overlay';
+      overlay.style.cssText =
+        'position:absolute;inset:0;display:flex;align-items:center;justify-content:center;' +
+        'background:rgba(0,0,0,0.72);color:#ff6b6b;font-size:11px;font-family:monospace;' +
+        'pointer-events:none;z-index:6;padding:8px;text-align:center;';
+      cell.style.position = 'relative';
+      cell.appendChild(overlay);
+    }
+    overlay.textContent = msg;
+  }
+
   private setupIntersectionObserver(): void {
     this.observer = new IntersectionObserver(
       (entries) => {
@@ -381,6 +424,7 @@ export class LiveWebcamsPanel extends Panel {
     });
     this.observer?.disconnect();
     this.destroyIframes();
+    window.removeEventListener('message', this._boundYtMsg);
     super.destroy();
   }
 }
