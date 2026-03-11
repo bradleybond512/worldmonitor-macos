@@ -2,11 +2,11 @@
 
 ## Overview
 
-Crystal Ball desktop uses a **local-first** architecture. All API requests go to the sidecar first
+World Monitor macOS desktop uses a **local-first** architecture. All API requests go to the sidecar first
 and fall back to the Vercel cloud only if the sidecar cannot respond.
 
-No application-level API key is required for cloud fallback. Access is controlled purely by
-**origin-based validation** in `api/_api-key.js`.
+Cloud fallback access is controlled by **origin-based validation** in `api/_api-key.js`.
+Desktop origins require an API key; trusted browser origins do not.
 
 ## Architecture
 
@@ -30,12 +30,12 @@ Desktop App                          Cloud (Vercel)
 
 `api/_api-key.js` (`validateApiKey`) controls access:
 
-- **Desktop origins** (`tauri.localhost`, `tauri://`, `asset://`) — allowed without a key
-- **Web origins** (`worldmonitor.app`, Vercel previews, localhost) — allowed without a key
+- **Desktop origins** (`tauri.localhost`, `tauri://`, `asset://`) — **require an API key** (rejected without one)
+- **Trusted browser origins** (`worldmonitor.app`, Vercel previews, localhost dev) — allowed without a key
 - **Unknown origins without a key** — rejected
 
-The `WORLDMONITOR_VALID_KEYS` environment variable is not used in production. If set, it enables
-optional per-key validation on top of origin checks.
+The `WORLDMONITOR_VALID_KEYS` environment variable must be set in production with the valid key(s)
+for desktop access. Desktop requests that omit or send an invalid key are rejected with a 401.
 
 ## Vercel Environment Variables
 

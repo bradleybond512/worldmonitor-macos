@@ -114,6 +114,7 @@ Switch modes with the mode button in the bottom-left sidebar:
 - **Peace Mode** — Default. All panels visible, balanced view.
 - **Finance Mode** — Auto-triggers when S&P 500 moves ≥2.5% or BTC ≥5% in a day. Prioritizes markets, economy, and trade panels.
 - **War Mode** — Auto-triggers on geopolitical escalation signals (conflict spikes, military surges, threat intelligence). Prioritizes security, military, and intelligence panels.
+- **Disaster Mode** — Amber/orange theme. Auto-activates on GDACS Red alerts or M6.5+ earthquakes. Prioritizes disaster-relevant panels (earthquakes, disease outbreaks, air quality, humanitarian data).
 
 ---
 
@@ -153,7 +154,7 @@ This fork includes several security hardening measures beyond the base project:
 | Web-only dashboards                | **Native desktop app** (Tauri) for macOS, Windows, and Linux + installable PWA with offline map support    |
 | Flat 2D maps                       | **3D WebGL globe** with deck.gl rendering and 40+ toggleable data layers                                   |
 | Siloed financial data              | **Finance variant** with 92 stock exchanges, 19 financial centers, 13 central banks, BIS data, WTO trade policy, and Gulf FDI tracking |
-| Undocumented, fragile APIs         | **Proto-first API contracts** — 20 typed services with auto-generated clients, servers, and OpenAPI docs   |
+| Undocumented, fragile APIs         | **Proto-first API contracts** — 17 typed services with auto-generated clients, servers, and OpenAPI docs   |
 
 ---
 
@@ -196,7 +197,7 @@ All four variants run from a single codebase — switch between them with one cl
 ### AI-Powered Intelligence
 
 - **World Brief** — LLM-synthesized summary of top global developments with a 4-tier provider fallback chain: Ollama (local) → Groq (cloud) → OpenRouter (cloud) → browser-side T5 (Transformers.js). Each tier is attempted with a 5-second timeout before falling through to the next, so the UI is never blocked. Results are Redis-cached (24h TTL) and content-deduplicated so identical headlines across concurrent users trigger exactly one LLM call
-- **Local LLM Support** — Ollama and LM Studio (any OpenAI-compatible endpoint) run AI summarization entirely on local hardware. No API keys required, no data leaves the machine. The desktop app auto-discovers available models from the local instance and populates a selection dropdown, filtering out embedding-only models. Default fallback model: `llama3.1:8b`
+- **Local LLM Support** — Ollama and LM Studio (any OpenAI-compatible endpoint) run AI summarization entirely on local hardware. No API keys required, no data leaves the machine. The desktop app auto-discovers available models from the local instance and populates a selection dropdown, filtering out embedding-only models. Default fallback model: `llama3.1:8b`. Ollama supports real-time streaming responses via SSE, producing a typewriter effect in the AI analysis panel as tokens arrive.
 - **Hybrid Threat Classification** — instant keyword classifier with async LLM override for higher-confidence results
 - **Focal Point Detection** — correlates entities across news, military activity, protests, outages, and markets to identify convergence
 - **Country Instability Index** — real-time stability scores for every country with incoming data using weighted multi-signal blend. 23 curated tier-1 nations have tuned baseline risk profiles; all other countries receive universal scoring with sensible defaults when any event data (protests, conflicts, outages, displacement, climate anomalies) is detected
@@ -1256,7 +1257,7 @@ All three variants run on three platforms that work together:
 ┌─────────────────────────────────────┐
 │          Vercel (Edge)              │
 │  60+ edge functions · static SPA    │
-│  Proto gateway (20 typed services)  │
+│  Proto gateway (17 typed services)  │
 │  CORS allowlist · Redis cache       │
 │  AI pipeline · market analytics     │
 │  CDN caching (s-maxage) · PWA host  │
