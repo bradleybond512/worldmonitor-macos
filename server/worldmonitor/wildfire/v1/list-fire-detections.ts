@@ -1,7 +1,7 @@
 /**
  * ListFireDetections RPC -- proxies the NASA FIRMS CSV API.
  *
- * Fetches active fire detections from all 9 monitored regions in parallel
+ * Fetches active fire detections from all 18 monitored regions in parallel
  * and transforms the FIRMS CSV rows into proto-shaped FireDetection objects.
  *
  * Gracefully degrades to empty results when NASA_FIRMS_API_KEY is not set.
@@ -27,6 +27,7 @@ const FIRMS_SOURCE = 'VIIRS_SNPP_NRT';
 
 /** Bounding boxes as west,south,east,north */
 const MONITORED_REGIONS: Record<string, string> = {
+  // Conflict zones
   'Ukraine': '22,44,40,53',
   'Russia': '20,50,180,82',
   'Iran': '44,25,63,40',
@@ -36,6 +37,16 @@ const MONITORED_REGIONS: Record<string, string> = {
   'North Korea': '124,37,131,43',
   'Saudi Arabia': '34,16,56,32',
   'Turkey': '26,36,45,42',
+  // Global wildfire hotspots
+  'Western USA': '-125,32,-113,49',
+  'Amazon Basin': '-79,-18,-34,6',
+  'Central Africa': '10,-20,40,8',
+  'West Africa': '-20,-5,15,18',
+  'East Africa': '28,-12,52,15',
+  'Southern Africa': '10,-35,40,-15',
+  'Australia': '112,-45,155,-10',
+  'Southeast Asia': '95,-10,145,25',
+  'Southern Europe': '-10,36,30,47',
 };
 
 /** Map VIIRS confidence letters to proto enum values. */

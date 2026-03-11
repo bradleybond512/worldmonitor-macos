@@ -2087,7 +2087,7 @@ export class DataLoaderManager implements AppModule {
     try {
       const fireResult = await fetchAllFires(1);
       if (fireResult.skipped) {
-        this.ctx.panels['satellite-fires']?.showConfigError('NASA_FIRMS_API_KEY not configured — add in Settings');
+        this.ctx.panels['satellite-fires']?.showConfigError('Add NASA FIRMS API key in Settings → API Keys (free at firms.modaps.eosdis.nasa.gov)');
         this.ctx.statusPanel?.updateApi('FIRMS', { status: 'error' });
         return;
       }
