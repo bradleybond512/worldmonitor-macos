@@ -121,9 +121,10 @@ function isPrivateIP(ip) {
   // IPv6 loopback
   if (addr === '::1' || addr === '::') return true;
 
-  // IPv6 link-local / unique-local
-  if (/^f[cd][0-9a-f]{2}:/i.test(addr)) return true; // fc00::/7 (ULA)
-  if (/^fe[89ab][0-9a-f]:/i.test(addr)) return true;  // fe80::/10 (link-local)
+  // IPv6 unique-local (fc00::/7 — covers fc** and fd**)
+  if (/^f[cd]/i.test(addr)) return true;
+  // IPv6 link-local (fe80::/10 — covers fe80–febf)
+  if (/^fe[89ab]/i.test(addr)) return true;
 
   const parts = addr.split('.').map(Number);
   if (parts.length !== 4 || parts.some(p => isNaN(p))) return false; // not an IPv4

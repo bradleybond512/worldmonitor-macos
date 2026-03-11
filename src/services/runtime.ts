@@ -253,6 +253,23 @@ export function installRuntimeFetchPatch(): void {
   const nativeFetch = window.fetch.bind(window);
   let localApiToken: string | null = null;
   let tokenFetchedAt = 0;
+  // Serialise concurrent token refreshes so parallel 401s don't each trigger a fresh IPC call.
+  let tokenRefreshPromise: Promise<void> | null = null;
+
+  async function refreshToken(): Promise<void> {
+    if (tokenRefreshPromise) return tokenRefreshPromise;
+    tokenRefreshPromise = (async () => {
+      try {
+        const { tryInvokeTauri } = await import('@/services/tauri-bridge');
+        localApiToken = await tryInvokeTauri<string>('get_local_api_token');
+        tokenFetchedAt = Date.now();
+      } catch {
+        localApiToken = null;
+        tokenFetchedAt = 0;
+      }
+    })().finally(() => { tokenRefreshPromise = null; });
+    return tokenRefreshPromise;
+  }
 
   window.fetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
     const target = getApiTargetFromRequestInput(input);
@@ -273,14 +290,7 @@ export function installRuntimeFetchPatch(): void {
 
     const tokenExpired = localApiToken && (Date.now() - tokenFetchedAt > TOKEN_TTL_MS);
     if (!localApiToken || tokenExpired) {
-      try {
-        const { tryInvokeTauri } = await import('@/services/tauri-bridge');
-        localApiToken = await tryInvokeTauri<string>('get_local_api_token');
-        tokenFetchedAt = Date.now();
-      } catch {
-        localApiToken = null;
-        tokenFetchedAt = 0;
-      }
+      await refreshToken();
     }
 
     const headers = new Headers(init?.headers);
@@ -311,14 +321,7 @@ export function installRuntimeFetchPatch(): void {
       // Token may be stale after a sidecar restart — refresh and retry once.
       if (response.status === 401 && localApiToken) {
         if (debug) console.log(`[fetch] 401 from sidecar, refreshing token and retrying`);
-        try {
-          const { tryInvokeTauri } = await import('@/services/tauri-bridge');
-          localApiToken = await tryInvokeTauri<string>('get_local_api_token');
-          tokenFetchedAt = Date.now();
-        } catch {
-          localApiToken = null;
-          tokenFetchedAt = 0;
-        }
+        await refreshToken();
         if (localApiToken) {
           const retryHeaders = new Headers(init?.headers);
           retryHeaders.set('Authorization', `Bearer ${localApiToken}`);

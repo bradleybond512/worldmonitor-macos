@@ -86,6 +86,20 @@ type MLWorkerMessage =
 const loadedPipelines = new Map<string, any>();
 const loadingPromises = new Map<string, Promise<void>>();
 
+// Keep at most this many loaded pipelines in memory. When exceeded, the
+// least-recently-loaded (Map insertion order) is evicted to bound memory use.
+const MAX_LOADED_PIPELINES = 3;
+
+function evictOldestPipelineIfNeeded(): void {
+  if (loadedPipelines.size >= MAX_LOADED_PIPELINES) {
+    const oldest = loadedPipelines.keys().next().value;
+    if (oldest !== undefined) {
+      loadedPipelines.delete(oldest);
+      console.log(`[MLWorker] Evicted model ${oldest} to stay within memory limit`);
+    }
+  }
+}
+
 function getModelConfig(modelId: string): ModelConfig | undefined {
   return MODEL_CONFIGS.find(m => m.id === modelId);
 }
@@ -122,6 +136,7 @@ async function loadModel(modelId: string): Promise<void> {
         },
       });
 
+      evictOldestPipelineIfNeeded();
       loadedPipelines.set(modelId, pipe);
       console.log(`[MLWorker] Model loaded in ${Date.now() - startTime}ms: ${modelId}`);
 

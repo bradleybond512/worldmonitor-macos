@@ -61,9 +61,10 @@ export default async function handler(req) {
     const requestUrl = new URL(req.url);
     // Whitelist only the known bounding-box params — never forward raw query strings to the relay.
     const safeParams = new URLSearchParams();
-    for (const key of ['lamin', 'lamax', 'lomin', 'lomax']) {
+    for (const [key, min, max] of [['lamin', -90, 90], ['lamax', -90, 90], ['lomin', -180, 180], ['lomax', -180, 180]]) {
       const val = requestUrl.searchParams.get(key);
-      if (val !== null && isFinite(Number(val))) safeParams.set(key, String(Number(val)));
+      const num = val !== null ? Number(val) : NaN;
+      if (isFinite(num) && num >= min && num <= max) safeParams.set(key, String(num));
     }
     const safeSearch = safeParams.toString() ? `?${safeParams.toString()}` : '';
     const relayUrl = `${relayBaseUrl}/opensky${safeSearch}`;

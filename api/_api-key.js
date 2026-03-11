@@ -37,15 +37,19 @@ function safeEqual(a, b) {
 }
 
 /**
- * Check if the given key matches any entry in the valid-keys list,
- * comparing against every entry to avoid a timing oracle on position.
+ * Check if the given key matches any entry in the valid-keys list.
+ * Always performs at least one comparison so that an empty list is
+ * indistinguishable from a single-entry list in timing — prevents a
+ * side-channel revealing "no keys configured" vs "wrong key".
  */
 function isValidKey(key, validKeys) {
+  // Ensure a minimum of one safeEqual call regardless of list length.
+  const candidates = validKeys.length > 0 ? validKeys : ['\x00'];
   let matched = false;
-  for (const k of validKeys) {
+  for (const k of candidates) {
     if (safeEqual(k.trim(), key)) matched = true; // no break — always check all
   }
-  return matched;
+  return matched && validKeys.length > 0;
 }
 
 function extractOriginFromReferer(referer) {

@@ -143,16 +143,25 @@ function sanitizeProps(event: string, raw: Record<string, unknown>): Record<stri
 
 const API_KEY_PREFIXES = /^(sk-|gsk_|or-|Bearer )/;
 
-function deepStripSecrets(props: Record<string, unknown>): Record<string, unknown> {
-  const cleaned: Record<string, unknown> = {};
-  for (const [k, v] of Object.entries(props)) {
-    if (typeof v === 'string' && API_KEY_PREFIXES.test(v)) {
-      cleaned[k] = '[REDACTED]';
-    } else {
-      cleaned[k] = v;
-    }
+function stripSecretsValue(value: unknown): unknown {
+  if (typeof value === 'string') {
+    return API_KEY_PREFIXES.test(value) ? '[REDACTED]' : value;
   }
-  return cleaned;
+  if (Array.isArray(value)) {
+    return value.map(stripSecretsValue);
+  }
+  if (value !== null && typeof value === 'object') {
+    const cleaned: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+      cleaned[k] = stripSecretsValue(v);
+    }
+    return cleaned;
+  }
+  return value;
+}
+
+function deepStripSecrets(props: Record<string, unknown>): Record<string, unknown> {
+  return stripSecretsValue(props) as Record<string, unknown>;
 }
 
 // ── PostHog instance management ──
