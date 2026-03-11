@@ -68,9 +68,13 @@ export function applyStoredTheme(): void {
   if (hasExplicitPreference) {
     // User made an explicit choice — respect it regardless of variant
     effective = raw as Theme;
+  } else if (variant === 'happy') {
+    // happy variant defaults to light
+    effective = 'light';
   } else {
-    // No stored preference: happy defaults to light, others to dark
-    effective = variant === 'happy' ? 'light' : DEFAULT_THEME;
+    // No stored preference: follow the OS dark/light setting
+    const prefersDark = window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? true;
+    effective = prefersDark ? 'dark' : 'light';
   }
 
   document.documentElement.dataset.theme = effective;
@@ -82,4 +86,26 @@ export function applyStoredTheme(): void {
       meta.content = variant === 'happy' ? '#FAFAF5' : '#f8f9fa';
     }
   }
+}
+
+/**
+ * Watch for OS-level dark/light mode changes and sync the app theme
+ * when the user has no explicit stored preference.
+ * Call once after applyStoredTheme() during app bootstrap.
+ */
+export function watchSystemTheme(): void {
+  const mq = window.matchMedia?.('(prefers-color-scheme: dark)');
+  if (!mq) return;
+
+  mq.addEventListener('change', (e) => {
+    let raw: string | null = null;
+    try { raw = localStorage.getItem(STORAGE_KEY); } catch { /* noop */ }
+    const hasExplicitPreference = raw === 'dark' || raw === 'light';
+    const variant = document.documentElement.dataset.variant;
+
+    // Only follow OS if no explicit user preference and not the happy variant
+    if (!hasExplicitPreference && variant !== 'happy') {
+      setTheme(e.matches ? 'dark' : 'light');
+    }
+  });
 }
