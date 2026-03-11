@@ -40,26 +40,32 @@ body.is-desktop-macos {
 
   /* Card / panel appearance */
   --mac-card-bg: #2c2c2e;
-  --mac-card-border: rgba(255, 255, 255, 0.1);
-  --mac-card-radius: 12px;
-  --mac-card-shadow: 0 2px 12px rgba(0, 0, 0, 0.4), 0 0 0 0.5px rgba(255, 255, 255, 0.07);
+  --mac-card-border: rgba(255, 255, 255, 0.08);
+  --mac-card-radius: 14px;
+  --mac-card-shadow:
+    0 2px 16px rgba(0, 0, 0, 0.45),
+    0 0 0 0.5px rgba(255, 255, 255, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
 /* Light-mode macOS overrides */
 body.is-desktop-macos:where([data-theme="light"], [data-theme="light"] *) {
   --mac-window-bg: #f2f2f7;
-  --mac-sidebar-bg: rgba(242, 242, 247, 0.72);
+  --mac-sidebar-bg: rgba(242, 242, 247, 0.68);
   --mac-surface: #ffffff;
   --mac-surface-hover: #f0f0f5;
   --mac-surface-active: #e5e5ea;
   --mac-label: rgba(0, 0, 0, 0.85);
   --mac-secondary-label: rgba(0, 0, 0, 0.55);
   --mac-tertiary-label: rgba(0, 0, 0, 0.25);
-  --mac-separator: rgba(0, 0, 0, 0.12);
-  --mac-fill: rgba(0, 0, 0, 0.05);
-  --mac-card-bg: #ffffff;
-  --mac-card-border: rgba(0, 0, 0, 0.08);
-  --mac-card-shadow: 0 2px 8px rgba(0, 0, 0, 0.1), 0 0 0 0.5px rgba(0, 0, 0, 0.06);
+  --mac-separator: rgba(0, 0, 0, 0.10);
+  --mac-fill: rgba(0, 0, 0, 0.04);
+  --mac-card-bg: rgba(255, 255, 255, 0.92);
+  --mac-card-border: rgba(0, 0, 0, 0.07);
+  --mac-card-shadow:
+    0 2px 12px rgba(0, 0, 0, 0.09),
+    0 0 0 0.5px rgba(0, 0, 0, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
 }
 
 /* ── Root layout ────────────────────────────────────────────── */
@@ -94,9 +100,11 @@ body.is-desktop-macos .mac-sidebar {
   display: flex;
   flex-direction: column;
   background: var(--mac-sidebar-bg);
-  backdrop-filter: blur(24px) saturate(180%);
-  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  backdrop-filter: blur(32px) saturate(185%);
+  -webkit-backdrop-filter: blur(32px) saturate(185%);
   border-right: 1px solid var(--mac-separator);
+  /* Subtle inner-right highlight — matches macOS window chrome edge */
+  box-shadow: inset -0.5px 0 0 rgba(255, 255, 255, 0.06);
   flex-shrink: 0;
   overflow: hidden;
   user-select: none;
@@ -126,11 +134,11 @@ body.is-desktop-macos .mac-sidebar {
 }
 
 .mac-sidebar-section-label {
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 600;
   color: var(--mac-secondary-label);
   text-transform: uppercase;
-  letter-spacing: 0.07em;
+  letter-spacing: 0.08em;
   padding: 0 12px 3px;
   display: block;
 }
@@ -160,8 +168,10 @@ body.is-desktop-macos .mac-sidebar {
 }
 
 .mac-sidebar-item.active {
-  background: var(--mac-accent);
-  color: #fff;
+  background: rgba(10, 132, 255, 0.18);
+  color: var(--mac-blue);
+  border: 0.5px solid rgba(10, 132, 255, 0.38);
+  box-shadow: inset 0 1px 0 rgba(10, 132, 255, 0.12);
 }
 
 .mac-sidebar-item-icon {
@@ -196,9 +206,9 @@ body.is-desktop-macos .mac-sidebar {
 .mac-mode-btn {
   flex: 1;
   padding: 3px 2px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 5px;
-  background: transparent;
+  border: 0.5px solid rgba(255, 255, 255, 0.10);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.04);
   color: var(--mac-secondary-label);
   font-size: 10px;
   font-weight: 600;
@@ -208,11 +218,13 @@ body.is-desktop-macos .mac-sidebar {
   transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
   white-space: nowrap;
   position: relative;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
 .mac-mode-btn:hover {
-  background: var(--mac-fill);
+  background: rgba(255, 255, 255, 0.08);
   color: var(--mac-label);
+  border-color: rgba(255, 255, 255, 0.16);
 }
 
 /* Peace active — blue */
@@ -677,16 +689,19 @@ body.is-desktop-macos .mac-content {
   align-items: center;
   padding: 0 14px 0 16px;
   gap: 10px;
-  background: rgba(28, 28, 30, 0.85);
-  backdrop-filter: blur(24px) saturate(180%);
-  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  background: rgba(28, 28, 30, 0.82);
+  backdrop-filter: blur(32px) saturate(185%);
+  -webkit-backdrop-filter: blur(32px) saturate(185%);
   border-bottom: 1px solid var(--mac-separator);
+  /* Top highlight line — matches macOS title bar chrome */
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
   flex-shrink: 0;
   -webkit-app-region: drag;
 }
 
 body.is-desktop-macos[data-theme="light"] .mac-content-toolbar {
-  background: rgba(242, 242, 247, 0.85);
+  background: rgba(242, 242, 247, 0.82);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8), inset 0 -0.5px 0 rgba(0, 0, 0, 0.08);
 }
 
 /* All direct children non-draggable so clicks work */
@@ -767,9 +782,9 @@ body.is-desktop-macos[data-theme="light"] .mac-content-toolbar {
   font-family: var(--mac-font);
   font-size: 12px;
   color: var(--mac-secondary-label);
-  background: var(--mac-fill);
-  border: 1px solid var(--mac-separator);
-  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.07);
+  border: 0.5px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
   padding: 4px 10px;
   cursor: pointer;
   display: flex;
@@ -777,11 +792,13 @@ body.is-desktop-macos[data-theme="light"] .mac-content-toolbar {
   gap: 6px;
   white-space: nowrap;
   transition: background 0.12s ease, color 0.12s ease;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
 .mac-content-toolbar .search-btn:hover {
-  background: var(--mac-surface-hover);
+  background: rgba(255, 255, 255, 0.12);
   color: var(--mac-label);
+  border-color: rgba(255, 255, 255, 0.2);
 }
 
 .mac-content-toolbar .search-btn kbd {
@@ -846,21 +863,29 @@ body.is-desktop-macos .panels-grid {
 body.is-desktop-macos .panels-grid > * {
   border-radius: var(--mac-card-radius);
   background: var(--mac-card-bg);
-  border: 1px solid var(--mac-card-border);
+  border: 0.5px solid var(--mac-card-border);
   box-shadow: var(--mac-card-shadow);
   overflow: hidden;
-  transition: box-shadow 0.15s ease;
+  transition: box-shadow 0.18s ease, transform 0.18s ease;
 }
 
 body.is-desktop-macos .panels-grid > *:hover {
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5), 0 0 0 0.5px rgba(255, 255, 255, 0.1);
+  box-shadow:
+    0 6px 20px rgba(0, 0, 0, 0.52),
+    0 0 0 0.5px rgba(255, 255, 255, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
 /* Panel header inside cards */
 body.is-desktop-macos .panels-grid .panel-header {
   font-family: var(--mac-font);
-  background: transparent;
-  border-bottom: 1px solid var(--mac-separator);
+  /* Subtle top-to-transparent vibrancy band — matches macOS section headers */
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.035) 0%,
+    transparent 100%
+  );
+  border-bottom: 0.5px solid var(--mac-separator);
   padding: 10px 14px;
 }
 
@@ -900,8 +925,8 @@ body.is-desktop-macos button:not(.mac-sidebar-footer-btn):not(.mac-sidebar-item)
 
 /* ── Scrollbars — macOS overlay style ──────────────────────── */
 body.is-desktop-macos ::-webkit-scrollbar {
-  width: 7px;
-  height: 7px;
+  width: 5px;
+  height: 5px;
 }
 
 body.is-desktop-macos ::-webkit-scrollbar-track {
@@ -909,14 +934,14 @@ body.is-desktop-macos ::-webkit-scrollbar-track {
 }
 
 body.is-desktop-macos ::-webkit-scrollbar-thumb {
-  background: rgba(128, 128, 128, 0.4);
-  border-radius: 4px;
-  border: 1.5px solid transparent;
+  background: rgba(128, 128, 128, 0.28);
+  border-radius: 3px;
+  border: 1px solid transparent;
   background-clip: padding-box;
 }
 
 body.is-desktop-macos ::-webkit-scrollbar-thumb:hover {
-  background: rgba(128, 128, 128, 0.65);
+  background: rgba(128, 128, 128, 0.50);
   background-clip: padding-box;
 }
 
@@ -928,6 +953,16 @@ body.is-desktop-macos ::-webkit-scrollbar-corner {
 body.is-desktop-macos *:focus-visible {
   outline: 2px solid var(--mac-accent);
   outline-offset: 1px;
+}
+
+/* ── Reduced motion — remove animations, keep glass blur ───── */
+@media (prefers-reduced-motion: reduce) {
+  body.is-desktop-macos .mac-toolbar-status .status-dot,
+  body.is-desktop-macos .mac-mode-btn.mac-mode-war-active,
+  body.is-desktop-macos .mac-mode-btn.mac-mode-disaster-active,
+  body.is-desktop-macos .mac-sidebar::before {
+    animation: none !important;
+  }
 }
 
 /* ── Map pin button ──────────────────────────────────────────── */
