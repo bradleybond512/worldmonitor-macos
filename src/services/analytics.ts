@@ -259,6 +259,7 @@ export function trackEvent(name: string, props?: Record<string, unknown>): void 
 
 /** Use sendBeacon transport for events fired just before page reload. */
 export function trackEventBeforeUnload(name: string, props?: Record<string, unknown>): void {
+  if (isGhostMode()) return;  // Ghost Mode: analytics suppressed
   if (!posthogInstance) return;
   const safeProps = props ? sanitizeProps(name, props) : {};
   posthogInstance.capture(name, safeProps, { transport: 'sendBeacon' });

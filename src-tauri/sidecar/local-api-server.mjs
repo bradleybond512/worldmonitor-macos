@@ -366,12 +366,19 @@ function toHeaders(nodeHeaders, options = {}) {
 async function proxyToCloud(requestUrl, req, remoteBase) {
   const target = `${remoteBase}${requestUrl.pathname}${requestUrl.search}`;
   const body = ['GET', 'HEAD'].includes(req.method) ? undefined : await readBody(req);
-  return fetch(target, {
-    method: req.method,
-    // Strip browser-origin headers for server-to-server parity.
-    headers: toHeaders(req.headers, { stripOrigin: true }),
-    body,
-  });
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 15000);
+  try {
+    return await fetch(target, {
+      method: req.method,
+      // Strip browser-origin headers for server-to-server parity.
+      headers: toHeaders(req.headers, { stripOrigin: true }),
+      body,
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 function pickModule(pathname, routes) {

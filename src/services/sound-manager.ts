@@ -423,18 +423,25 @@ function _stopDrone(): void {
     _droneGainNode.gain.cancelScheduledValues(ctx.currentTime);
     _droneGainNode.gain.setTargetAtTime(0, ctx.currentTime, 0.5);
   }
+  // Capture refs before nulling so the deferred cleanup can use them
   const osc  = _droneOsc;
   const osc2 = _droneOsc2;
   const lfo  = _droneLfo;
-  _droneOsc     = null;
-  _droneOsc2    = null;
-  _droneLfo     = null;
-  _droneLfoGain = null;
+  const lfoG = _droneLfoGain;
+  const dG   = _droneGainNode;
+  _droneOsc      = null;
+  _droneOsc2     = null;
+  _droneLfo      = null;
+  _droneLfoGain  = null;
   _droneGainNode = null;
+  // Disconnect + stop after the gain has faded (2 s) so there's no click on cut.
+  // Disconnecting severs AudioGraph references so nodes can be GC'd.
   setTimeout(() => {
-    try { osc?.stop();  } catch { /* already stopped */ }
-    try { osc2?.stop(); } catch { /* already stopped */ }
-    try { lfo?.stop();  } catch { /* already stopped */ }
+    try { osc?.disconnect();  osc?.stop();  } catch { /* already stopped */ }
+    try { osc2?.disconnect(); osc2?.stop(); } catch { /* already stopped */ }
+    try { lfo?.disconnect();  lfo?.stop();  } catch { /* already stopped */ }
+    try { lfoG?.disconnect(); } catch { /* already disconnected */ }
+    try { dG?.disconnect();   } catch { /* already disconnected */ }
   }, 2000);
 }
 
