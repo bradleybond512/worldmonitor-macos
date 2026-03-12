@@ -344,12 +344,22 @@ export class EventHandlerManager implements AppModule {
   }
 
   private setupIdleDetection(): void {
+    // Throttle the timer-reset path: clearTimeout + setTimeout are cheap but
+    // mousemove fires at frame-rate (60 fps). The DOM class update runs
+    // immediately on first call so idle → active transition stays instant.
+    let _lastReset = 0;
     this.boundIdleResetHandler = () => {
+      // Always run the DOM update — ensures the user is marked active instantly.
       if (this.ctx.isIdle) {
         this.ctx.isIdle = false;
         document.body.classList.remove('animations-paused');
       }
-      this.resetIdleTimer();
+      // Throttle the timer reset to at most once every 250 ms.
+      const now = Date.now();
+      if (now - _lastReset > 250) {
+        _lastReset = now;
+        this.resetIdleTimer();
+      }
     };
 
     ['mousedown', 'keydown', 'scroll', 'touchstart', 'mousemove'].forEach(event => {

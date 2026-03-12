@@ -113,13 +113,36 @@ function sanitizeProps(event: string, raw: Record<string, unknown>): Record<stri
 }
 
 // ── Defense-in-depth: strip values that look like API keys ──
+//
+// Two-axis check — a property is redacted if EITHER:
+//   (a) its KEY name looks secret-like (contains key/secret/token/auth etc.), OR
+//   (b) its STRING VALUE matches a known API-key format:
+//       • Known prefix patterns  — sk-, gsk_, or-, Bearer, Basic, Token
+//       • 32–128 char hex string — covers SHA-256 tokens, many REST API keys
+//       • 36 char UUID v4        — covers AISStream, some SaaS keys
+//       • 40+ char base64url     — covers GitHub PATs, some OAuth tokens
+//
+// This runs AFTER sanitizeProps already allowlist-filters properties against
+// EVENT_SCHEMAS, so the chance of a real key reaching PostHog is near-zero.
+// deepStripSecrets is pure defense-in-depth.
 
-const API_KEY_PREFIXES = /^(sk-|gsk_|or-|Bearer )/;
+const _SECRET_KEY_NAMES  = /key|secret|token|password|credential|auth/i;
+const _SECRET_VALUE_PATTERNS: RegExp[] = [
+  /^(sk-|gsk_|or-|Bearer\s|Basic\s|Token\s)/i,  // known prefixes (any case)
+  /^[0-9a-f]{32,128}$/i,                          // hex strings 32–128 chars
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,  // UUID v4
+  /^[A-Za-z0-9_-]{40,}$/,                         // base64url 40+ chars (GitHub PAT etc.)
+];
+
+function _looksLikeSecret(key: string, value: string): boolean {
+  if (_SECRET_KEY_NAMES.test(key)) return true;
+  return _SECRET_VALUE_PATTERNS.some(p => p.test(value));
+}
 
 function deepStripSecrets(props: Record<string, unknown>): Record<string, unknown> {
   const cleaned: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(props)) {
-    if (typeof v === 'string' && API_KEY_PREFIXES.test(v)) {
+    if (typeof v === 'string' && _looksLikeSecret(k, v)) {
       cleaned[k] = '[REDACTED]';
     } else {
       cleaned[k] = v;

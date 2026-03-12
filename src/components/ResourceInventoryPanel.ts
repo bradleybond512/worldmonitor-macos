@@ -46,11 +46,15 @@ async function openDB(): Promise<IDBDatabase> {
   });
 }
 
+const MAX_ITEMS = 5_000; // hard cap — prevents OOM on runaway imports
+
 async function getAllItems(): Promise<ResourceItem[]> {
   const db = await openDB();
   return new Promise((resolve, reject) => {
     const tx = db.transaction(STORE_NAME, 'readonly');
-    const req = tx.objectStore(STORE_NAME).getAll();
+    // Pass undefined as the key query (no filter) and MAX_ITEMS as count cap.
+    // IDBObjectStore.getAll(query?, count?) — count prevents unbounded memory load.
+    const req = tx.objectStore(STORE_NAME).getAll(undefined, MAX_ITEMS);
     req.onsuccess = () => resolve(req.result as ResourceItem[]);
     req.onerror = () => reject(req.error);
   });

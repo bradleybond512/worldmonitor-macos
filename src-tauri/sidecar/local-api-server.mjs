@@ -919,8 +919,17 @@ async function validateSecretAgainstProvider(key, rawValue, context = {}) {
       return ok('OpenSky credentials verified');
     }
 
-    case 'AISSTREAM_API_KEY':
-      return ok('AISSTREAM key stored (live verification not available in sidecar)');
+    case 'AISSTREAM_API_KEY': {
+      // AISStream is WebSocket-only — no REST probe available. Validate format instead.
+      // Valid keys are UUID v4 (e.g. 8fa3b1f0-c68d-4a9a-a7c5-d12345678abc)
+      // or a 32–64 char hex string depending on plan tier.
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
+      const isHex  = /^[0-9a-f]{32,64}$/i.test(value);
+      if (!isUuid && !isHex) {
+        return fail('AISStream key should be a UUID (xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx) or 32–64 char hex string — verify your key at aisstream.io');
+      }
+      return ok('AISStream key stored — format valid (live test requires WebSocket)');
+    }
 
     case 'WTO_API_KEY':
       return ok('WTO API key stored (live verification not available in sidecar)');
