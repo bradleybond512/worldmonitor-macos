@@ -50,7 +50,7 @@ body.is-desktop-macos {
   /* Card / panel appearance */
   --mac-card-bg: #222224;
   --mac-card-border: rgba(255, 255, 255, 0.10);
-  --mac-card-radius: 14px;
+  --mac-card-radius: 12px;
   --mac-card-shadow:
     0 2px 16px rgba(0, 0, 0, 0.60),
     0 0 0 0.5px rgba(255, 255, 255, 0.10),
@@ -143,7 +143,7 @@ body.is-desktop-macos .mac-sidebar {
 }
 
 .mac-sidebar-section-label {
-  font-size: 10.5px;
+  font-size: 11px;
   font-weight: 600;
   color: var(--mac-secondary-label);
   text-transform: uppercase;
@@ -722,7 +722,7 @@ body.is-desktop-macos[data-theme="light"] .mac-content-toolbar {
   font-size: 13px;
   font-weight: 600;
   color: var(--mac-label);
-  letter-spacing: -0.01em;
+  letter-spacing: -0.02em;
 }
 
 .mac-toolbar-status {
@@ -823,7 +823,7 @@ body.is-desktop-macos kbd {
   background: rgba(255, 255, 255, 0.07);
   border: 0.5px solid rgba(255, 255, 255, 0.14);
   border-radius: 4px;
-  padding: 2px 4px;
+  padding: 3px 6px;
   min-width: 16px;
   box-shadow:
     0 1px 0 rgba(0, 0, 0, 0.3),
@@ -903,13 +903,13 @@ body.is-desktop-macos .panels-grid > * {
   border: 0.5px solid var(--mac-card-border);
   box-shadow: var(--mac-card-shadow);
   overflow: hidden;
-  transition: box-shadow 0.18s var(--mac-ease-interactive), transform 0.18s var(--mac-ease-interactive);
+  transition: box-shadow 0.2s var(--mac-ease-spring-out), transform 0.2s var(--mac-ease-spring-out);
 }
 
 body.is-desktop-macos .panels-grid > *:hover {
   box-shadow:
-    0 6px 20px rgba(0, 0, 0, 0.52),
-    0 0 0 0.5px rgba(255, 255, 255, 0.12),
+    0 8px 24px rgba(0, 0, 0, 0.40),
+    0 0 0 0.5px rgba(255, 255, 255, 0.10),
     inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
@@ -971,14 +971,14 @@ body.is-desktop-macos ::-webkit-scrollbar-track {
 }
 
 body.is-desktop-macos ::-webkit-scrollbar-thumb {
-  background: rgba(128, 128, 128, 0.28);
-  border-radius: 3px;
+  background: rgba(200, 200, 200, 0.30);
+  border-radius: 4px;
   border: 1px solid transparent;
   background-clip: padding-box;
 }
 
 body.is-desktop-macos ::-webkit-scrollbar-thumb:hover {
-  background: rgba(128, 128, 128, 0.50);
+  background: rgba(150, 150, 150, 0.45);
   background-clip: padding-box;
 }
 
@@ -986,10 +986,11 @@ body.is-desktop-macos ::-webkit-scrollbar-corner {
   background: transparent;
 }
 
-/* ── Focus rings — macOS blue outline ───────────────────────── */
+/* ── Focus rings — macOS blue outline + glow ────────────────── */
 body.is-desktop-macos *:focus-visible {
   outline: 2px solid var(--mac-accent);
-  outline-offset: 1px;
+  outline-offset: 3px;
+  box-shadow: 0 0 0 4px rgba(10, 132, 255, 0.15);
 }
 
 /* ── Reduced motion — remove animations, keep glass blur ───── */
@@ -1100,11 +1101,11 @@ body.is-desktop-macos #unifiedSettingsMount {
 
 .mac-content-toolbar .region-select {
   font-family: var(--mac-font);
-  font-size: 11.5px;
+  font-size: 12px;
   color: var(--mac-secondary-label);
   background: var(--mac-fill);
   border: 1px solid var(--mac-separator);
-  border-radius: 5px;
+  border-radius: 6px;
   padding: 3px 20px 3px 7px;
   cursor: pointer;
   appearance: none;
@@ -1129,7 +1130,7 @@ body.is-desktop-macos .mac-checkbox-wrap input[type="checkbox"] {
   height: 14px;
   min-width: 14px;
   border-radius: 4px;
-  border: 0.5px solid rgba(255, 255, 255, 0.22);
+  border: 1px solid rgba(255, 255, 255, 0.18);
   background: rgba(255, 255, 255, 0.08);
   box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.25);
   cursor: pointer;
@@ -1158,16 +1159,23 @@ body.is-desktop-macos .mac-checkbox-wrap input[type="checkbox"]:checked {
   background-repeat: no-repeat;
 }
 
+body.is-desktop-macos input[type="checkbox"].mac-checkbox:hover,
+body.is-desktop-macos .mac-checkbox-wrap input[type="checkbox"]:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.30);
+}
+
 body.is-desktop-macos input[type="checkbox"].mac-checkbox:focus-visible,
 body.is-desktop-macos .mac-checkbox-wrap input[type="checkbox"]:focus-visible {
   outline: 2px solid var(--mac-accent);
-  outline-offset: 1px;
+  outline-offset: 3px;
+  box-shadow: 0 0 0 4px rgba(10, 132, 255, 0.15);
 }
 
 /* Light mode */
 body.is-desktop-macos:where([data-theme="light"], [data-theme="light"] *) input[type="checkbox"].mac-checkbox,
 body.is-desktop-macos:where([data-theme="light"], [data-theme="light"] *) .mac-checkbox-wrap input[type="checkbox"] {
-  border-color: rgba(0, 0, 0, 0.2);
+  border-color: rgba(0, 0, 0, 0.25);
   background: rgba(0, 0, 0, 0.04);
   box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.06);
 }
@@ -1188,8 +1196,8 @@ body.is-desktop-macos .mac-segmented-control {
   align-items: center;
   background: rgba(255, 255, 255, 0.07);
   border: 0.5px solid rgba(255, 255, 255, 0.12);
-  border-radius: 9px;
-  padding: 2px;
+  border-radius: 8px;
+  padding: 3px;
   gap: 1px;
   box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.2);
 }
@@ -1222,16 +1230,16 @@ body.is-desktop-macos .mac-seg-btn.mac-seg-active {
   background: rgba(255, 255, 255, 0.14);
   color: var(--mac-label);
   box-shadow:
-    0 1px 4px rgba(0, 0, 0, 0.35),
-    0 0 0 0.5px rgba(255, 255, 255, 0.14),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    0 2px 6px rgba(0, 0, 0, 0.30),
+    0 0 0 0.5px rgba(255, 255, 255, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
 }
 
 /* Light mode */
 body.is-desktop-macos:where([data-theme="light"], [data-theme="light"] *) .mac-segmented-control {
-  background: rgba(0, 0, 0, 0.05);
-  border-color: rgba(0, 0, 0, 0.08);
-  box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.04);
+  background: rgba(0, 0, 0, 0.06);
+  border-color: rgba(0, 0, 0, 0.10);
+  box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.05);
 }
 
 body.is-desktop-macos:where([data-theme="light"], [data-theme="light"] *) .mac-seg-btn {
