@@ -25,7 +25,7 @@
 </p>
 
 <p align="center">
-  <a href="https://worldmonitor.app"><img src="https://img.shields.io/badge/Upstream_Web_App-worldmonitor.app-blue?style=for-the-badge&logo=googlechrome&logoColor=white" alt="Upstream Web App"></a>&nbsp;
+  <a href="https://bradleybond512.github.io/worldmonitor-macos/"><img src="https://img.shields.io/badge/Live_Web_App-Try_It_Now-0a84ff?style=for-the-badge&logo=googlechrome&logoColor=white" alt="Live Web App"></a>&nbsp;
   <a href="https://github.com/koala73/worldmonitor"><img src="https://img.shields.io/badge/Upstream_Repo-World_Monitor-gray?style=for-the-badge&logo=github&logoColor=white" alt="Upstream Repo"></a>
 </p>
 
