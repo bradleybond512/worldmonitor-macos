@@ -100,21 +100,27 @@ body.is-desktop-macos .mac-shell {
   flex: 1;
   overflow: hidden;
   min-height: 0;
+  position: relative; /* anchor for absolutely-positioned sidebar */
 }
 
-/* ── Sidebar ────────────────────────────────────────────────── */
+/* ── Sidebar — floats over content so backdrop-filter blurs the map ── */
 body.is-desktop-macos .mac-sidebar {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
   width: var(--mac-sidebar-width);
-  height: 100%;
+  z-index: 100;
   display: flex;
   flex-direction: column;
   background: var(--mac-sidebar-bg);
   backdrop-filter: blur(32px) saturate(185%);
   -webkit-backdrop-filter: blur(32px) saturate(185%);
   border-right: 1px solid var(--mac-separator);
-  /* Subtle inner-right highlight — matches macOS window chrome edge */
-  box-shadow: inset -0.5px 0 0 rgba(255, 255, 255, 0.06);
-  flex-shrink: 0;
+  /* Inner-right highlight + depth shadow cast onto the map */
+  box-shadow:
+    inset -0.5px 0 0 rgba(255, 255, 255, 0.06),
+    2px 0 12px rgba(0, 0, 0, 0.35);
   overflow: hidden;
   user-select: none;
 }
@@ -696,7 +702,7 @@ body.is-desktop-macos .mac-content {
   height: var(--mac-toolbar-height);
   display: flex;
   align-items: center;
-  padding: 0 14px 0 16px;
+  padding: 0 14px 0 calc(var(--mac-sidebar-width) + 16px);
   gap: 10px;
   background: rgba(22, 22, 24, 0.95);
   backdrop-filter: blur(32px) saturate(185%);
@@ -892,7 +898,7 @@ body.is-desktop-macos .panel-header .panel-title {
 /* ── Panel cards ─────────────────────────────────────────────── */
 body.is-desktop-macos .panels-grid {
   gap: 8px;
-  padding: 8px;
+  padding: 8px 8px 8px calc(var(--mac-sidebar-width) + 8px);
   background: var(--mac-window-bg);
 }
 
