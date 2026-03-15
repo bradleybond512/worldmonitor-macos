@@ -33,6 +33,7 @@ jobs:
       - name: Build web app (full variant)
         env:
           VITE_VARIANT: full
+          VITE_WS_API_URL: ${{ secrets.VITE_WS_API_URL }}
           CONVEX_URL: ${{ secrets.CONVEX_URL }}
         run: npm run build:full
 
