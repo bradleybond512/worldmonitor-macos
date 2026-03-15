@@ -1544,7 +1544,7 @@ body.panel-resize-active iframe {
 }
 
 .panel-content::-webkit-scrollbar {
-  width: 4px;
+  width: 8px;
 }
 
 .panel-content::-webkit-scrollbar-track {
@@ -1552,8 +1552,15 @@ body.panel-resize-active iframe {
 }
 
 .panel-content::-webkit-scrollbar-thumb {
-  background: var(--border);
-  border-radius: 2px;
+  background: rgba(120, 120, 120, 0.55);
+  border-radius: 100px;
+  border: 1px solid transparent;
+  background-clip: padding-box;
+}
+
+.panel-content::-webkit-scrollbar-thumb:hover {
+  background: rgba(100, 100, 100, 0.80);
+  background-clip: padding-box;
 }
 
 /* Wide panel (spans 2 columns and 2 rows for video content) */
@@ -12717,7 +12724,7 @@ a.prediction-link:hover {
 
 /* Scrollbar styling for layer toggles */
 .deckgl-layer-toggles::-webkit-scrollbar {
-  width: 4px;
+  width: 8px;
 }
 
 .deckgl-layer-toggles::-webkit-scrollbar-track {
@@ -12725,12 +12732,15 @@ a.prediction-link:hover {
 }
 
 .deckgl-layer-toggles::-webkit-scrollbar-thumb {
-  background: var(--border);
-  border-radius: 2px;
+  background: rgba(120, 120, 120, 0.55);
+  border-radius: 100px;
+  border: 1px solid transparent;
+  background-clip: padding-box;
 }
 
 .deckgl-layer-toggles::-webkit-scrollbar-thumb:hover {
-  background: var(--text-dim);
+  background: rgba(100, 100, 100, 0.80);
+  background-clip: padding-box;
 }
 
 /* ============================================

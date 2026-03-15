@@ -900,10 +900,12 @@ body.is-desktop-macos button:not(.mac-sidebar-footer-btn):not(.mac-sidebar-item)
   font-family: var(--mac-font);
 }
 
-/* ── Scrollbars — macOS overlay style ──────────────────────── */
+/* ── Scrollbars — macOS overlay style (matches Safari / Finder) ── */
+/* Track: 8 px wide, transparent. Thumb floats inside with 1 px        */
+/* transparent gutter on each side → visible thumb ≈ 6 px, pill-shaped */
 body.is-desktop-macos ::-webkit-scrollbar {
-  width: 7px;
-  height: 7px;
+  width: 8px;
+  height: 8px;
 }
 
 body.is-desktop-macos ::-webkit-scrollbar-track {
@@ -911,19 +913,34 @@ body.is-desktop-macos ::-webkit-scrollbar-track {
 }
 
 body.is-desktop-macos ::-webkit-scrollbar-thumb {
-  background: rgba(128, 128, 128, 0.4);
-  border-radius: 4px;
-  border: 1.5px solid transparent;
+  background: rgba(120, 120, 120, 0.55);
+  border-radius: 100px;           /* full pill — matches Safari/Finder */
+  border: 1px solid transparent;  /* 1 px transparent gutter each side */
   background-clip: padding-box;
 }
 
 body.is-desktop-macos ::-webkit-scrollbar-thumb:hover {
-  background: rgba(128, 128, 128, 0.65);
+  background: rgba(100, 100, 100, 0.80);
+  background-clip: padding-box;
+}
+
+body.is-desktop-macos ::-webkit-scrollbar-thumb:active {
+  background: rgba(80, 80, 80, 0.90);
   background-clip: padding-box;
 }
 
 body.is-desktop-macos ::-webkit-scrollbar-corner {
   background: transparent;
+}
+
+/* Light-mode thumb — darker against light backgrounds */
+body.is-desktop-macos[data-theme="light"] ::-webkit-scrollbar-thumb,
+body.is-desktop-macos [data-theme="light"] ::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.28);
+}
+body.is-desktop-macos[data-theme="light"] ::-webkit-scrollbar-thumb:hover,
+body.is-desktop-macos [data-theme="light"] ::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.50);
 }
 
 /* ── Focus rings — macOS blue outline ───────────────────────── */
