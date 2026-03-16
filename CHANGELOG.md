@@ -4,6 +4,10 @@ All notable changes to World Monitor are documented here.
 
 ## [Unreleased]
 
+### Added
+
+- **Claude Intelligence Agent panel** — new agentic panel powered by Anthropic's tool-use API. Ask natural-language questions; Claude autonomously calls live-data tools (news headlines via GDELT, country risk scores, market data, cyber threat IOCs) and synthesizes a structured intelligence brief. Accessible via the Intelligence category in the panel picker. Requires `ANTHROPIC_API_KEY`. Four preset queries provided for quick situational awareness.
+
 ### Changed
 
 - **Claude AI model upgraded to Sonnet 4.6** — Anthropic provider now uses `claude-sonnet-4-6` (released February 2026), replacing Haiku 4.5. Sonnet 4.6 offers improved reasoning, advanced coding assistance, and a 1M-token context window, making AI intelligence briefs and panel summaries significantly more capable.

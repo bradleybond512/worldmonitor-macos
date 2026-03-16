@@ -222,7 +222,8 @@
     "spaceWeather": "Space Weather",
     "diseaseOutbreaks": "Disease Outbreaks",
     "airQuality": "Air Quality",
-    "airstrikes": "Air Strikes & Drones"
+    "airstrikes": "Air Strikes & Drones",
+    "claudeAgent": "Claude Intelligence Agent"
   },
   "commands": {
     "prefixes": {

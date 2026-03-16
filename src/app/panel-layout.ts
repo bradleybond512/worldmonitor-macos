@@ -35,6 +35,7 @@ import {
   SecurityAdvisoriesPanel,
   OrefSirensPanel,
   TelegramIntelPanel,
+  ClaudeAgentPanel,
 } from '@/components';
 import { SatelliteFiresPanel } from '@/components/SatelliteFiresPanel';
 import { EarthquakesPanel } from '@/components/EarthquakesPanel';
@@ -713,6 +714,9 @@ export class PanelLayoutManager implements AppModule {
     if (SITE_VARIANT === 'full') {
       const gdeltIntelPanel = new GdeltIntelPanel();
       this.ctx.panels['gdelt-intel'] = gdeltIntelPanel;
+
+      const claudeAgentPanel = new ClaudeAgentPanel();
+      this.ctx.panels['claude-agent'] = claudeAgentPanel;
 
       const ciiPanel = new CIIPanel();
       ciiPanel.setShareStoryHandler((code, name) => {
