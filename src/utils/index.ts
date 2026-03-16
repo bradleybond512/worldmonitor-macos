@@ -173,5 +173,8 @@ export * from './analysis-constants';
 export { getCSSColor, invalidateColorCache } from './theme-colors';
 export { getStoredTheme, getCurrentTheme, setTheme, applyStoredTheme } from './theme-manager';
 export type { Theme } from './theme-manager';
+export { createConcurrencyLimiter } from './concurrency-limiter';
+export type { ConcurrencyLimiter } from './concurrency-limiter';
+export { escapeHtml, sanitizeUrl, escapeAttr } from './sanitize';
 
 import { getCurrentLanguage } from '../services/i18n';

@@ -265,6 +265,12 @@ export class BreakingNewsBanner {
     this.mutationObserver?.disconnect();
     this.resizeObserver?.disconnect();
 
+    if (this.audio) {
+      this.audio.pause();
+      this.audio.removeAttribute('src');
+      this.audio = null;
+    }
+
     for (const active of this.activeAlerts) {
       if (active.timer) clearTimeout(active.timer);
     }
