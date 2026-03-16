@@ -140,7 +140,7 @@ This fork includes several security hardening measures beyond the base project:
 
 | Area | Protection |
 |---|---|
-| **Auto-update** | Bundle identifier verified via `plutil` before any file is replaced — rejects DMGs whose app is not `com.bradleybond.crystalball` |
+| **Auto-update** | Bundle identifier verified via `plutil` before any file is replaced — rejects DMGs whose app is not `com.bradleybond.worldmonitor` |
 | **URL opening** | `open_url` Tauri command blocks loopback/LAN addresses and non-HTTPS schemes — a compromised webview cannot trigger browser access to the local API server |
 | **Notifications** | Input length-capped, control characters stripped, 30-second global rate limit to prevent AppleScript injection and notification spam |
 | **XSS (href)** | All external URLs used in `href` attributes go through `sanitizeUrl()` which validates `https:`/`http:` scheme — blocks `javascript:` and `data:` injection |

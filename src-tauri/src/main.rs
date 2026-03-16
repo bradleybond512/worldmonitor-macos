@@ -691,7 +691,7 @@ async fn install_update(download_url: String) -> Result<(), String> {
         let source = format!("{}/World Monitor.app", mount_point);
         let dest = "/Applications/World Monitor.app";
 
-        const EXPECTED_BUNDLE_ID: &str = "com.bradleybond.crystalball";
+        const EXPECTED_BUNDLE_ID: &str = "com.bradleybond.worldmonitor";
         let plist = format!("{source}/Contents/Info.plist");
         let id_check = Command::new("plutil")
             .args(["-extract", "CFBundleIdentifier", "raw", "-o", "-", &plist])

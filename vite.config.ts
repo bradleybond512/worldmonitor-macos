@@ -149,7 +149,13 @@ const activeMeta = VARIANT_META[activeVariant] || VARIANT_META.full;
 function htmlVariantPlugin(): Plugin {
   return {
     name: 'html-variant',
-    transformIndexHtml(html) {
+    transformIndexHtml(html, ctx) {
+      const fileName = ctx.filename.replace(/\\/g, '/');
+      const isAuxiliaryWindow = fileName.endsWith('/settings.html') || fileName.endsWith('/live-channels.html');
+      if (isAuxiliaryWindow) {
+        return html;
+      }
+
       let result = html
         .replace(/<title>.*?<\/title>/, `<title>${activeMeta.title}</title>`)
         .replace(/<meta name="title" content=".*?" \/>/, `<meta name="title" content="${activeMeta.title}" />`)

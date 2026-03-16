@@ -2,7 +2,7 @@
  * Resource Inventory Panel
  *
  * Tracks survival supplies with days-remaining estimates.
- * Data persists via IndexedDB (`crystal-ball-resources` store).
+ * Data persists via IndexedDB (`worldmonitor-resources` store).
  *
  * Color coding:
  *  - Green  (>7 days)
@@ -16,7 +16,7 @@ import { Panel } from '@/components/Panel';
 import { tryInvokeTauri } from '@/services/tauri-bridge';
 import { isDesktopRuntime } from '@/services/runtime';
 
-const DB_NAME = 'crystal-ball-resources';
+const DB_NAME = 'worldmonitor-resources';
 const STORE_NAME = 'items';
 const DB_VERSION = 1;
 
@@ -238,7 +238,7 @@ export class ResourceInventoryPanel extends Panel {
       const blob = new Blob([json], { type: 'application/json' });
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
-      a.download = `crystal-ball-resources-${new Date().toISOString().slice(0, 10)}.json`;
+      a.download = `worldmonitor-resources-${new Date().toISOString().slice(0, 10)}.json`;
       a.click();
       URL.revokeObjectURL(a.href);
     });

@@ -3,7 +3,7 @@
   "productName": "World Monitor",
   "mainBinaryName": "worldmonitor",
   "version": "2.6.0",
-  "identifier": "com.bradleybond.crystalball",
+  "identifier": "com.bradleybond.worldmonitor",
   "build": {
     "beforeDevCommand": "npm run build:sidecar-sebuf && npm run dev",
     "beforeBuildCommand": "npm run build:desktop",

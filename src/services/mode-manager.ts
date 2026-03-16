@@ -54,7 +54,7 @@ const WAR_QUIET_RESTORE_MS = 20 * 60 * 1000; // 20 minutes
  * Regions with consistent conflict signals require 2× the base threshold to trigger.
  * E.g. Ukraine normally generates 4 signals; we only escalate if it goes to 8+.
  *
- * User can override via `crystalball-conflict-baselines` localStorage key (JSON).
+ * User can override via `worldmonitor-conflict-baselines` localStorage key (JSON).
  */
 const DEFAULT_CONFLICT_BASELINES: Record<string, number> = {
   UKR: 4, // Russia-Ukraine ongoing conflict
@@ -67,7 +67,7 @@ const DEFAULT_CONFLICT_BASELINES: Record<string, number> = {
   ETH: 1, // Tigray/Ethiopia conflict
 };
 
-const BASELINE_STORAGE_KEY = 'crystalball-conflict-baselines';
+const BASELINE_STORAGE_KEY = 'worldmonitor-conflict-baselines';
 
 function _loadConflictBaselines(): Record<string, number> {
   try {
@@ -411,7 +411,7 @@ export function alertFamily(): void {
   });
 
   const msg = [
-    '⚠️  CRYSTAL BALL — SAFETY ALERT',
+    '⚠️  WORLD MONITOR — SAFETY ALERT',
     `Time: ${dateStr}`,
     '',
     'World Monitor has detected elevated conflict or crisis signals.',
