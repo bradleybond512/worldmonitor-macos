@@ -192,6 +192,7 @@ Claude (Anthropic Claude Sonnet) is already built in as one of the AI summarizat
 4. Click the ✦ button on any panel — Claude Sonnet will analyze and summarize the live data
 
 **Want a completely free AI option instead?** Two alternatives cost nothing:
+
 - **Groq** (free tier: 14,400 requests/day) — register at [console.groq.com](https://console.groq.com/keys) and enter the key in **Settings → API Keys → Groq**
 - **Ollama** (fully local, no internet required) — install [Ollama](https://ollama.com/download), then in **Settings → General → AI Provider** enter your Ollama server URL (e.g. `http://localhost:11434`) and model name; your data never leaves your machine
 
