@@ -68,7 +68,6 @@ import {
   CLOUD_REGIONS,
   PORTS,
   SPACEPORTS,
-  APT_GROUPS,
   CRITICAL_MINERALS,
   STOCK_EXCHANGES,
   FINANCIAL_CENTERS,
@@ -297,6 +296,8 @@ export class DeckGLMap {
   private weatherAlerts: WeatherAlert[] = [];
   private outages: InternetOutage[] = [];
   private cyberThreats: CyberThreat[] = [];
+  private aptGroups: import('@/types').APTGroup[] = [];
+  private aptGroupsLoaded = false;
   private iranEvents: IranEvent[] = [];
   private aisDisruptions: AisDisruptionEvent[] = [];
   private aisDensity: AisDensityZone[] = [];
@@ -1260,8 +1261,8 @@ export class DeckGLMap {
       layers.push(this.createMineralsLayer());
     }
 
-    // APT Groups layer (geopolitical variant only - always shown, no toggle)
-    if (SITE_VARIANT !== 'tech' && SITE_VARIANT !== 'happy') {
+    // APT Groups layer — loaded lazily when cyberThreats layer is enabled
+    if (mapLayers.cyberThreats && SITE_VARIANT !== 'tech' && SITE_VARIANT !== 'happy' && this.aptGroups.length > 0) {
       layers.push(this.createAPTGroupsLayer());
     }
 
@@ -2144,19 +2145,26 @@ export class DeckGLMap {
     });
   }
 
+  private async loadAptGroups(): Promise<void> {
+    const { APT_GROUPS } = await import('@/config/apt-groups');
+    this.aptGroups = APT_GROUPS;
+    this.aptGroupsLoaded = true;
+    this.render();
+  }
+
   private createAPTGroupsLayer(): ScatterplotLayer {
     // APT Groups - cyber threat actor markers (geopolitical variant only)
     // Made subtle to avoid visual clutter - small orange dots
     return new ScatterplotLayer({
       id: 'apt-groups-layer',
-      data: APT_GROUPS,
+      data: this.aptGroups,
       getPosition: (d) => [d.lon, d.lat],
       getRadius: 6000,
-      getFillColor: [255, 140, 0, 140] as [number, number, number, number], // Subtle orange
+      getFillColor: [255, 140, 0, 140] as [number, number, number, number],
       radiusMinPixels: 4,
       radiusMaxPixels: 8,
       pickable: true,
-      stroked: false, // No outline - cleaner look
+      stroked: false,
     });
   }
 
@@ -3852,7 +3860,9 @@ export class DeckGLMap {
   }
 
   public setLayers(layers: MapLayers): void {
-    this.state.layers = layers;
+    const prevCyber = this.state.layers.cyberThreats;
+    this.state.layers = { ...layers };
+    if (this.state.layers.cyberThreats && !prevCyber && !this.aptGroupsLoaded) this.loadAptGroups();
     this.render(); // Debounced
 
     // Start/stop cable pulse animation when cables layer is toggled
