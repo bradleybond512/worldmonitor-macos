@@ -6,48 +6,48 @@ import path from 'node:path';
 const repoRoot = path.resolve(import.meta.dirname, '..');
 const src = readFileSync(path.join(repoRoot, 'src', 'app', 'vault-intro.ts'), 'utf8');
 
-test('vault intro overlay builds a dedicated WebGL scene and stores refs needed for opening choreography', () => {
+test('vault intro overlay builds a video scene with scanner and status controls', () => {
   assert.match(
     src,
-    /type OverlayRefs = \{\s+overlay:  HTMLDivElement;[\s\S]*vault:    VaultScene;/m,
-    'overlay refs should include the vault scene handle used by the runtime animation loop',
+    /interface VideoScene \{[\s\S]*idleVideo:\s+HTMLVideoElement;[\s\S]*openVideo:\s+HTMLVideoElement;[\s\S]*fpCanvas:\s+HTMLCanvasElement;/m,
+    'video scene should keep references to idle/open footage and the scanner overlay canvas',
   );
   assert.match(
     src,
-    /const threeCanvas = document\.createElement\('canvas'\);[\s\S]*overlay\.appendChild\(threeCanvas\);/m,
-    'overlay should mount a dedicated canvas for the Three.js vault scene',
+    /const idleVideo = makeVideo\('vault-idle\.mp4', true\);[\s\S]*const openVideo = makeVideo\('vault-open\.mp4', false\);/m,
+    'scene should preload both idle and open vault videos',
   );
   assert.match(
     src,
-    /const interiorLight = new THREE\.PointLight\(0xa0c0ff, 0, 22\);[\s\S]*scene\.add\(interiorLight\);/m,
-    'vault scene should include an interior light that starts dark and ramps during open',
+    /container\.append\(idleVideo, openVideo, fpCanvas, scanBtn, statusEl, quitBtn, flashEl\);/m,
+    'scene should mount scanner controls and status UI on top of the video stack',
   );
   assert.match(
     src,
-    /const vault = buildVaultScene\(threeCanvas, pbr\);[\s\S]*vault\.overlayEl = overlay;[\s\S]*return \{ overlay, scanBtn, quitBtn, statusEl, flashEl, state, vault \};/m,
-    'overlay builder should wire DOM refs and the vault scene together for lifecycle control',
+    /return \{ container, idleVideo, openVideo, fpCanvas, statusEl, scanBtn, quitBtn, flashEl \};/m,
+    'overlay builder should return the full scene refs used by the intro lifecycle',
   );
 });
 
-test('vault intro open sequence animates the full 3D choreography', () => {
+test('vault intro open sequence swaps to open footage, fades scanner overlay, and exits cleanly', () => {
   assert.match(
     src,
-    /refs\.state\.boltRetractStart = performance\.now\(\);[\s\S]*refs\.state\.openStartTime = performance\.now\(\);/m,
-    'open sequence should time-gate the bolt retract phase before triggering door opening',
+    /scene\.openVideo\.currentTime = 0;[\s\S]*void scene\.openVideo\.play\(\);[\s\S]*scene\.openVideo\.style\.opacity = '1';[\s\S]*scene\.idleVideo\.style\.opacity = '0';/m,
+    'open sequence should swap from idle to open footage immediately after success',
   );
   assert.match(
     src,
-    /vs\.doorLeft\.position\.x\s*=\s*-ease \* 6\.0;[\s\S]*vs\.doorRight\.position\.x\s*=\s*ease \* 6\.0;/m,
-    'render loop should split left and right door halves apart during open',
+    /const fpFadeStart = Date\.now\(\);[\s\S]*ctx\.globalAlpha = 1 - t;[\s\S]*drawFrame\(canvas, st, Date\.now\(\)\);/m,
+    'fingerprint overlay should fade while the open footage plays',
   );
   assert.match(
     src,
-    /vs\.camera\.position\.z = vs\.cameraStartZ - ease \* 5\.0;/m,
-    'camera should push forward through the opening',
+    /await sleep\(2800\);[\s\S]*scene\.flashEl\.style\.opacity = '0\.75';[\s\S]*scene\.container\.style\.transition = 'opacity 0\.55s ease';/m,
+    'open sequence should respect timing gates, flash, and then fade the full overlay',
   );
   assert.match(
     src,
-    /interiorLight\.intensity = ease \* 28;[\s\S]*vs\.overlayEl\.style\.transition = 'opacity 1\.2s ease';[\s\S]*vs\.overlayEl\.style\.opacity = '0';/m,
-    'interior lighting and overlay fade should be driven by the open-progress curve',
+    /appReady\(\);[\s\S]*scene\.container\.remove\(\);/m,
+    'open sequence should notify readiness and remove the intro container at completion',
   );
 });
