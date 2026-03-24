@@ -112,10 +112,21 @@ export async function hashDirectory(dirPath) {
   return hash.digest('hex');
 }
 
+export function getInfoPlistPath(appPath) {
+  return path.join(appPath, 'Contents', 'Info.plist');
+}
+
 export async function verifyAppBundle(appPath, expectedSha256 = '') {
   await stat(appPath);
   runCommand('codesign', ['--verify', '--deep', '--strict', '--verbose=2', appPath]);
-  const bundleId = runCommand('defaults', ['read', path.join(appPath, 'Contents', 'Info'), 'CFBundleIdentifier']);
+  const bundleId = runCommand('plutil', [
+    '-extract',
+    'CFBundleIdentifier',
+    'raw',
+    '-o',
+    '-',
+    getInfoPlistPath(appPath),
+  ]);
   if (bundleId !== EXPECTED_BUNDLE_ID) {
     throw new Error(`Unexpected bundle identifier: ${bundleId}`);
   }
