@@ -41,6 +41,9 @@ for desktop access. Desktop requests that omit or send an invalid key are reject
 
 | Variable | Description | Required |
 |----------|-------------|----------|
+| `WORLDMONITOR_VALID_KEYS` | Comma-separated API keys trusted by `validateApiKey` (`X-WorldMonitor-Key`) | Yes (production) |
+| `UPSTASH_REDIS_REST_URL` | Upstash Redis URL used by rate limiting and shared cache paths | Recommended |
+| `UPSTASH_REDIS_REST_TOKEN` | Upstash Redis token used by rate limiting and shared cache paths | Recommended |
 | `CONVEX_URL` | Convex deployment URL | No (optional, for future use) |
 
 ## Files Reference
