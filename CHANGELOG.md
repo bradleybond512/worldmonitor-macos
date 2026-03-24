@@ -4,6 +4,17 @@ All notable changes to World Monitor are documented here.
 
 ## [Unreleased]
 
+### Changed
+
+- Removed the Claude agent surface from desktop/web runtime configuration, UI exports, and API routes to avoid direct Anthropic API-cost exposure in default app flows.
+- Summarization provider chain now uses `Ollama -> Groq -> OpenRouter -> browser` without Anthropic dependencies in runtime settings or sidecar secret validation.
+
+### Security
+
+- Tightened API key policy for trusted browser origins: keyless access now applies to read-only requests only; non-read requests require `X-WorldMonitor-Key`.
+- Hardened RSS proxy ingress with explicit origin rejection, method allowlisting (`GET/OPTIONS`), and per-IP Upstash rate limiting.
+- Release workflow now hard-fails publish builds on macOS when Apple signing secrets are missing.
+
 ---
 
 ## [2.7.2] - 2026-03-24

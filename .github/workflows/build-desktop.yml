@@ -173,6 +173,10 @@ jobs:
             echo "available=true" >> "$GITHUB_OUTPUT"
           else
             echo "available=false" >> "$GITHUB_OUTPUT"
+            if [ "${{ needs.release-context.outputs.publish }}" = "true" ]; then
+              echo "::error::Missing Apple signing secrets for publish workflow. Refusing unsigned release build."
+              exit 1
+            fi
           fi
 
       - name: Import Apple Developer Certificate

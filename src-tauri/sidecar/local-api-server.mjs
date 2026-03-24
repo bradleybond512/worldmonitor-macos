@@ -100,7 +100,7 @@ globalThis.fetch = async function ipv4Fetch(input, init) {
 
 const ALLOWED_ENV_KEYS = new Set([
   'WORLDMONITOR_API_KEY',
-  'ANTHROPIC_API_KEY', 'GROQ_API_KEY', 'OPENROUTER_API_KEY', 'FRED_API_KEY', 'EIA_API_KEY',
+  'GROQ_API_KEY', 'OPENROUTER_API_KEY', 'FRED_API_KEY', 'EIA_API_KEY',
   'CLOUDFLARE_API_TOKEN', 'ACLED_ACCESS_TOKEN', 'ACLED_EMAIL', 'URLHAUS_AUTH_KEY',
   'OTX_API_KEY', 'ABUSEIPDB_API_KEY', 'WINGBITS_API_KEY', 'WS_RELAY_URL',
   'VITE_OPENSKY_RELAY_URL', 'OPENSKY_CLIENT_ID', 'OPENSKY_CLIENT_SECRET',
@@ -705,22 +705,6 @@ async function validateSecretAgainstProvider(key, rawValue, context = {}) {
 
   try {
     switch (key) {
-    case 'ANTHROPIC_API_KEY': {
-      const response = await fetchWithTimeout('https://api.anthropic.com/v1/models', {
-        headers: {
-          'x-api-key': value,
-          'anthropic-version': '2023-06-01',
-          Accept: 'application/json',
-          'User-Agent': CHROME_UA,
-        },
-      });
-      const text = await response.text();
-      if (isCloudflareChallenge403(response, text)) return ok('Anthropic key stored (Cloudflare blocked verification)');
-      if (isAuthFailure(response.status, text)) return fail('Anthropic rejected this key');
-      if (!response.ok) return fail(`Anthropic probe failed (${response.status})`);
-      return ok('Anthropic key verified');
-    }
-
     case 'GROQ_API_KEY': {
       const response = await fetchWithTimeout('https://api.groq.com/openai/v1/models', {
         headers: { Authorization: `Bearer ${value}`, 'User-Agent': CHROME_UA },

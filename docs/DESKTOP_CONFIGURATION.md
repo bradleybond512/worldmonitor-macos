@@ -6,7 +6,7 @@ World Monitor desktop uses a runtime configuration schema with per-feature toggl
 
 The desktop vault schema (Rust `SUPPORTED_SECRET_KEYS`) supports the following 26 keys:
 
-- `ANTHROPIC_API_KEY`
+- `WORLDMONITOR_API_KEY`
 - `GROQ_API_KEY`
 - `OPENROUTER_API_KEY`
 - `FRED_API_KEY`
@@ -57,7 +57,7 @@ Secrets are **not stored in plaintext files** by the frontend.
 
 If required secrets are missing or disabled:
 
-- Summarization: provider-specific hosted paths are skipped and the app continues down the configured fallback chain, ending at the browser model if needed.
+- Summarization: provider-specific hosted paths (Groq/OpenRouter) are skipped and the app continues down the configured fallback chain, ending at the browser model if needed.
 - FRED / EIA / Finnhub: economic, oil analytics, and stock data return empty state.
 - Cloudflare / ACLED: outages/conflicts return empty state.
 - Cyber threat feeds (URLhaus, OTX, AbuseIPDB): cyber threat layer returns empty state.

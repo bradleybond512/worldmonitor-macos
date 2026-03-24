@@ -61,7 +61,6 @@ function getOrCreateInstallationId(): string {
 
 const SECRET_ANALYTICS_NAMES: Record<RuntimeSecretKey, string> = {
   WORLDMONITOR_API_KEY: 'worldmonitor_cloud',
-  ANTHROPIC_API_KEY: 'anthropic',
   GROQ_API_KEY: 'groq',
   OPENROUTER_API_KEY: 'openrouter',
   FRED_API_KEY: 'fred',

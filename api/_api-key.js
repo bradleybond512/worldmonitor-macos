@@ -8,7 +8,7 @@ const DESKTOP_ORIGIN_PATTERNS = [
 const BROWSER_ORIGIN_PATTERNS = [
   /^https:\/\/worldmonitor\.app$/,
   /^https:\/\/(tech|finance|happy|api)\.worldmonitor\.app$/,
-  /^https:\/\/worldmonitor-[a-z0-9-]+\.vercel\.app$/,
+  /^https:\/\/worldmonitor-[a-z0-9-]+-elie-[a-z0-9]+\.vercel\.app$/,
   ...(process.env.NODE_ENV === 'production' ? [] : [
     /^https?:\/\/localhost(:\d+)?$/,
     /^https?:\/\/127\.0\.0\.1(:\d+)?$/,
@@ -66,6 +66,11 @@ function isTrustedBrowserRequest(req, origin) {
   return hasTrustedBrowserFetchMetadata(req);
 }
 
+function isReadMethod(method) {
+  const normalized = (method || 'GET').toUpperCase();
+  return normalized === 'GET' || normalized === 'HEAD' || normalized === 'OPTIONS';
+}
+
 export function validateApiKey(req) {
   const key = req.headers.get('X-WorldMonitor-Key');
   const origin = req.headers.get('Origin') || '';
@@ -82,6 +87,9 @@ export function validateApiKey(req) {
 
   // Trusted browser origin requests can skip the key when browser fetch metadata is present.
   if (isTrustedBrowserRequest(req, origin)) {
+    if (!key && !isReadMethod(req.method)) {
+      return { valid: false, required: true, error: 'API key required for non-read requests' };
+    }
     if (key && !isValidKey(key, validKeys)) return { valid: false, required: true, error: 'Invalid API key' };
     return { valid: true, required: false };
   }

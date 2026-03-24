@@ -41,7 +41,7 @@
 
 | Feature | Detail |
 |---|---|
-| **AI Panel Summaries** | ✦ button on every data panel generates an on-demand AI summary of current panel content using your configured provider (Ollama · Groq · Claude · OpenRouter) |
+| **AI Panel Summaries** | ✦ button on every data panel generates an on-demand AI summary of current panel content using your configured provider (Ollama · Groq · OpenRouter) |
 | **Native sidebar** | SF Pro, vibrancy-backed, collapsible, HIG-compliant panel navigation |
 | **API Keys in Settings** | All data-source API keys managed in the gear-icon Settings modal (API Keys tab) — no prominent config panel cluttering the sidebar |
 | **Auto-update** | GitHub Releases API polling — "Update Now" downloads DMG, mounts, replaces app, relaunches. Manual check via Help → Check for Updates… |
@@ -52,11 +52,11 @@
 | **Disease Outbreaks panel** | WHO Disease Outbreak News + ReliefWeb health situation reports — 15-min refresh |
 | **Air Quality panel** | Open-Meteo global AQI for 18 major cities — PM2.5, ozone, NO₂, US AQI scale |
 | **World Bank profiles** | GDP, military spend %, trade %, population injected into every country brief AI context |
-| **Claude AI provider** | Anthropic Claude Haiku in the summarization fallback chain alongside Groq/OpenRouter |
+| **Hosted AI providers** | Groq + OpenRouter cloud providers in the summarization fallback chain |
 | **Earthquakes panel** | USGS M4.5+ live seismic data with magnitude-color-coded table |
 | **Air Strikes & Drones panel** | ACLED-sourced air/drone strikes and missile attacks — last 30 days, mapped to globe, click-to-fly |
 | **Monitoring Modes** | Peace / Finance / War / Disaster modes — Finance auto-triggers on ≥2.5% S&P or ≥5% BTC move; War mode on geopolitical escalation signals; Disaster mode on GDACS Red alerts or M6.5+ earthquakes |
-| **Ollama Streaming** | Real-time typewriter effect for AI panel summaries via SSE — Stop button mid-stream; falls through to Groq → Claude → OpenRouter → browser T5 if Ollama unavailable |
+| **Ollama Streaming** | Real-time typewriter effect for AI panel summaries via SSE — Stop button mid-stream; falls through to Groq → OpenRouter → browser T5 if Ollama unavailable |
 | **Shareable Map URLs** | `Cmd+S` encodes map center, zoom, active layers, and time range into a shareable URL — LZ-string compressed when > 2 000 bytes |
 | **Arrival Choreography** | Canvas overlay animations on breaking news: wavefront ripple, corona pulse on hotspots, full-screen flare on mode transitions — threat-type color-coded (conflict=red, cyber=cyan, economic=gold, natural=orange) |
 | **Low Power Mode (⚡)** | Sidebar button disables animations, trail layers, and spatial audio to reduce CPU/GPU load |
@@ -86,7 +86,7 @@
 | **Enable Panels** | Settings → Panels tab — toggle on the intelligence panels you want |
 | **Configure Map Layers** | Settings → Sources tab — enable/disable map overlays (military bases, conflicts, fires, etc.) |
 | **Add API Keys** | Settings → API Keys tab — add free keys for ACLED, NASA FIRMS, Finnhub, OpenSky, etc. |
-| **Set Up AI** | Settings → General tab → AI Provider — configure Ollama (local/free), Groq, or Anthropic Claude |
+| **Set Up AI** | Settings → General tab → AI Provider — configure Ollama (local/free), Groq, or OpenRouter |
 | **Check Help** | Settings → Help tab — in-app guide with tips and API key sign-up links |
 
 ### Key Shortcuts
@@ -112,7 +112,6 @@
 | **AbuseIPDB** | Threat intelligence IOCs | [abuseipdb.com](https://www.abuseipdb.com/) |
 | **AlienVault OTX** | Threat intelligence IOCs | [otx.alienvault.com](https://otx.alienvault.com/) |
 | **Groq** | Fast cloud AI for panel summaries | [console.groq.com](https://console.groq.com/keys) |
-| **Anthropic** | Claude AI for panel summaries | [console.anthropic.com](https://console.anthropic.com/settings/keys) |
 | **FRED** | US economic data | [fred.stlouisfed.org](https://fred.stlouisfed.org/docs/api/api_key.html) |
 | **EIA** | Energy data | [eia.gov](https://www.eia.gov/opendata/register.php) |
 

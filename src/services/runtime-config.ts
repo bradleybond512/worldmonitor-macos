@@ -3,7 +3,6 @@ import { invokeTauri } from './tauri-bridge';
 
 export type RuntimeSecretKey =
   | 'WORLDMONITOR_API_KEY'
-  | 'ANTHROPIC_API_KEY'
   | 'GROQ_API_KEY'
   | 'OPENROUTER_API_KEY'
   | 'FRED_API_KEY'
@@ -32,7 +31,6 @@ export type RuntimeSecretKey =
 
 export type RuntimeFeatureId =
   | 'cloudApiFallbackAuth'
-  | 'aiClaude'
   | 'aiGroq'
   | 'aiOpenRouter'
   | 'economicFred'
@@ -87,7 +85,6 @@ function getSidecarSecretValidateUrl(): string {
 
 const defaultToggles: Record<RuntimeFeatureId, boolean> = {
   cloudApiFallbackAuth: true,
-  aiClaude: true,
   aiGroq: true,
   aiOpenRouter: true,
   economicFred: true,
@@ -131,20 +128,12 @@ export const RUNTIME_FEATURES: RuntimeFeatureDefinition[] = [
     fallback: 'Falls back to Groq, then OpenRouter, then local browser model.',
   },
   {
-    id: 'aiClaude',
-    name: 'Claude AI summarization',
-    description: 'Anthropic Claude Sonnet 4.6 — high-quality AI analysis with advanced reasoning and coding.',
-    requiredSecrets: ['ANTHROPIC_API_KEY'],
-    desktopRequiredSecrets: [],
-    fallback: 'Falls back to OpenRouter, then local browser model.',
-  },
-  {
     id: 'aiGroq',
     name: 'Groq summarization',
     description: 'Primary fast LLM provider used for AI summary generation.',
     requiredSecrets: ['GROQ_API_KEY'],
     desktopRequiredSecrets: [],
-    fallback: 'Falls back to Claude, then OpenRouter, then local browser model.',
+    fallback: 'Falls back to OpenRouter, then local browser model.',
   },
   {
     id: 'aiOpenRouter',

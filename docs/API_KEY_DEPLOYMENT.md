@@ -6,7 +6,7 @@ World Monitor macOS desktop uses a **local-first** architecture. All API request
 and fall back to the Vercel cloud only if the sidecar cannot respond.
 
 Cloud fallback access is controlled by **origin + browser fetch metadata validation** in `api/_api-key.js`.
-Desktop origins require an API key; trusted browser origins do not.
+Desktop origins always require an API key. Trusted browser origins can use keyless access for read-only requests; non-read requests require `X-WorldMonitor-Key`.
 
 ## Architecture
 
@@ -31,7 +31,7 @@ Desktop App                          Cloud (Vercel)
 `api/_api-key.js` (`validateApiKey`) controls access:
 
 - **Desktop origins** (`tauri.localhost`, `tauri://`, `asset://`) — **require an API key** (rejected without one)
-- **Trusted browser origins** (`worldmonitor.app`, Vercel previews, localhost dev) — allowed without a key only with explicit trusted `Origin` and browser `Sec-Fetch-*` metadata
+- **Trusted browser origins** (`worldmonitor.app`, project Vercel previews, localhost dev) — allowed without a key only with explicit trusted `Origin` and browser `Sec-Fetch-*` metadata, and only for read-only methods
 - **Unknown origins without a key** — rejected
 
 The `WORLDMONITOR_VALID_KEYS` environment variable must be set in production with the valid key(s)
