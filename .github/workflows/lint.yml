@@ -4,10 +4,18 @@ on:
   pull_request:
     paths:
       - '**/*.md'
+      - '**/*.json'
+      - '**/*.yml'
+      - '**/*.yaml'
+      - '**/*.sh'
+      - '.husky/**'
+      - 'scripts/lint-*.mjs'
       - '.markdownlint-cli2.jsonc'
+      - 'package.json'
+      - 'package-lock.json'
 
 jobs:
-  markdown:
+  static-lint:
     if: github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     steps:
@@ -17,4 +25,4 @@ jobs:
           node-version: '22'
           cache: 'npm'
       - run: npm ci
-      - run: npm run lint:md
+      - run: npm run lint:strict

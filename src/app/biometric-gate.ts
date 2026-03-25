@@ -33,6 +33,13 @@ type BiometricIdentity = {
   flag: string;
 };
 
+type BiometricGate3DScene = {
+  setAuthenticating: (active: boolean) => void;
+  setAccessGranted: () => void;
+  setDoorOpenProgress: (progress: number) => void;
+  destroy: () => void;
+};
+
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -55,6 +62,10 @@ type OverlayElements = {
   centerBeam: HTMLDivElement;
   visibleAt: number;
   releasePresentation: () => void;
+  set3DAuthenticating: (active: boolean) => void;
+  set3DAccessGranted: () => void;
+  set3DDoorProgress: (progress: number) => void;
+  destroy3D: () => void;
 };
 
 async function waitForInvokeBridge(): Promise<void> {
@@ -181,25 +192,7 @@ async function resolveBiometricIdentity(): Promise<BiometricIdentity> {
   };
 }
 
-function ensureOverlay(biometricIdentity: BiometricIdentity): {
-  container: HTMLDivElement;
-  stage: HTMLDivElement;
-  portalGlow: HTMLDivElement;
-  message: HTMLParagraphElement;
-  button: HTMLButtonElement;
-  quit: HTMLButtonElement;
-  panel: HTMLDivElement;
-  title: HTMLHeadingElement;
-  statusPill: HTMLDivElement;
-  biometricHero: HTMLDivElement;
-  biometricCaption: HTMLDivElement;
-  scanLine: HTMLDivElement;
-  leftDoor: HTMLDivElement;
-  rightDoor: HTMLDivElement;
-  centerBeam: HTMLDivElement;
-  visibleAt: number;
-  releasePresentation: () => void;
-} {
+function ensureOverlay(biometricIdentity: BiometricIdentity): OverlayElements {
   const existing = document.getElementById('biometry-gate');
   if (existing) existing.remove();
 
@@ -997,6 +990,68 @@ function ensureOverlay(biometricIdentity: BiometricIdentity): {
   stage.appendChild(panel);
   container.appendChild(stage);
   document.body.appendChild(container);
+
+  let scene3D: BiometricGate3DScene | null = null;
+  let scene3DDisposed = false;
+
+  const destroy3D = () => {
+    if (scene3DDisposed) return;
+    scene3DDisposed = true;
+    scene3D?.destroy();
+    scene3D = null;
+  };
+
+  const set3DAuthenticating = (active: boolean) => {
+    if (scene3DDisposed) return;
+    scene3D?.setAuthenticating(active);
+  };
+
+  const set3DAccessGranted = () => {
+    if (scene3DDisposed) return;
+    scene3D?.setAccessGranted();
+  };
+
+  const set3DDoorProgress = (progress: number) => {
+    if (scene3DDisposed) return;
+    scene3D?.setDoorOpenProgress(progress);
+  };
+
+  void (async () => {
+    try {
+      const {
+        detectBiometricGate3DCapability,
+        shouldEnableBiometricGate3D,
+        mountBiometricGate3D,
+      } = await import('./biometric-gate-3d');
+
+      const capability = detectBiometricGate3DCapability();
+      if (!shouldEnableBiometricGate3D(capability)) return;
+
+      const mountedScene = await mountBiometricGate3D(stage);
+      if (scene3DDisposed) {
+        mountedScene.destroy();
+        return;
+      }
+
+      scene3D = mountedScene;
+      stage.style.background = `
+        radial-gradient(circle at 50% 8%, rgba(255,255,255,0.08), rgba(255,255,255,0) 24%),
+        linear-gradient(180deg, rgba(6,8,10,0.5), rgba(2,3,4,0.88))
+      `;
+      stage.style.boxShadow = `
+        0 52px 180px rgba(0,0,0,0.7),
+        inset 0 1px 0 rgba(255,255,255,0.18),
+        inset 0 -18px 36px rgba(0,0,0,0.26)
+      `;
+      portalGlow.style.opacity = '0.62';
+      airlockDepth.style.opacity = '0.34';
+      ambientGrid.style.opacity = '0.14';
+      lockFrame.style.borderColor = 'rgba(176, 208, 255, 0.2)';
+    } catch (error) {
+      console.warn('[BiometricGate] 3D intro fallback active:', error);
+    }
+  })();
+
   return {
     container,
     stage,
@@ -1015,6 +1070,10 @@ function ensureOverlay(biometricIdentity: BiometricIdentity): {
     centerBeam,
     visibleAt: Date.now(),
     releasePresentation,
+    set3DAuthenticating,
+    set3DAccessGranted,
+    set3DDoorProgress,
+    destroy3D,
   };
 }
 
@@ -1258,6 +1317,34 @@ function playUnlockSound(): void {
   void sleep(2300).then(() => ctx.close().catch(() => {}));
 }
 
+function animate3DDoorProgress(overlay: OverlayElements): () => void {
+  let cancelled = false;
+  let rafId = 0;
+  const startMs = performance.now();
+  const travelDuration = Math.max(1, UNLOCK_DOOR_OPEN_MS - UNLOCK_SEAL_BREAK_MS);
+  overlay.set3DDoorProgress(0);
+
+  const tick = (nowMs: number) => {
+    if (cancelled) return;
+    const elapsed = nowMs - startMs;
+    const progress = elapsed <= UNLOCK_SEAL_BREAK_MS
+      ? 0
+      : Math.min((elapsed - UNLOCK_SEAL_BREAK_MS) / travelDuration, 1);
+    overlay.set3DDoorProgress(progress);
+    if (elapsed < UNLOCK_DOOR_OPEN_MS) {
+      rafId = window.requestAnimationFrame(tick);
+    }
+  };
+
+  rafId = window.requestAnimationFrame(tick);
+  return () => {
+    cancelled = true;
+    if (rafId) {
+      window.cancelAnimationFrame(rafId);
+    }
+  };
+}
+
 async function playUnlockCelebration(overlay: OverlayElements): Promise<void> {
   const {
     container,
@@ -1277,6 +1364,9 @@ async function playUnlockCelebration(overlay: OverlayElements): Promise<void> {
     quit,
     visibleAt,
     releasePresentation,
+    set3DAccessGranted,
+    set3DDoorProgress,
+    destroy3D,
   } = overlay;
 
   statusPill.textContent = 'ACCESS GRANTED';
@@ -1311,6 +1401,8 @@ async function playUnlockCelebration(overlay: OverlayElements): Promise<void> {
   portalGlow.style.opacity = '0.92';
   portalGlow.style.filter = 'blur(26px)';
   portalGlow.style.transform = 'translate(-50%, -50%) scale(1.03)';
+  set3DAccessGranted();
+  set3DDoorProgress(0);
 
   const elapsed = Date.now() - visibleAt;
   if (elapsed < MIN_OVERLAY_VISIBLE_MS) {
@@ -1333,6 +1425,7 @@ async function playUnlockCelebration(overlay: OverlayElements): Promise<void> {
 
   await sleep(UNLOCK_PANEL_SETTLE_MS);
 
+  const stopDoorProgressAnimation = animate3DDoorProgress(overlay);
   await new Promise<void>((resolve) => {
     requestAnimationFrame(() => {
       centerBeam.style.animation = `wm-biometry-seal-break ${UNLOCK_SEAL_BREAK_MS}ms cubic-bezier(0.24, 0.84, 0.28, 1) forwards`;
@@ -1368,10 +1461,15 @@ async function playUnlockCelebration(overlay: OverlayElements): Promise<void> {
       window.setTimeout(() => {
         container.style.opacity = '0';
       }, UNLOCK_DOOR_OPEN_MS - UNLOCK_EXIT_FADE_MS);
-      window.setTimeout(resolve, UNLOCK_DOOR_OPEN_MS);
+      window.setTimeout(() => {
+        stopDoorProgressAnimation();
+        set3DDoorProgress(1);
+        resolve();
+      }, UNLOCK_DOOR_OPEN_MS);
     });
   });
 
+  destroy3D();
   releasePresentation();
   container.remove();
 }
@@ -1385,6 +1483,7 @@ export async function ensureBiometricUnlock(): Promise<boolean> {
   const setBusy = (busy: boolean) => {
     button.disabled = busy;
     button.textContent = busy ? 'Authenticating…' : 'Authenticate';
+    overlay.set3DAuthenticating(busy);
   };
 
   return new Promise<boolean>((resolve) => {
@@ -1394,7 +1493,11 @@ export async function ensureBiometricUnlock(): Promise<boolean> {
     const settle = (value: boolean) => {
       if (settled) return;
       settled = true;
+      overlay.destroy3D();
       overlay.releasePresentation();
+      if (!value) {
+        overlay.container.remove();
+      }
       resolve(value);
     };
 
@@ -1425,6 +1528,7 @@ export async function ensureBiometricUnlock(): Promise<boolean> {
               : 'Authentication failed. Click Authenticate to try again.',
           );
           setBusy(false);
+          overlay.set3DDoorProgress(0);
           return false;
         } finally {
           inFlight = null;
@@ -1439,7 +1543,7 @@ export async function ensureBiometricUnlock(): Promise<boolean> {
       window.close();
     };
 
-      button.onclick = () => {
+    button.onclick = () => {
       void tryAuth(true);
     };
 

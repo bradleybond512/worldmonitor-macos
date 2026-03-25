@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Extra Info.plist keys merged into the app bundle at build time.
+  Tauri auto-sets CFBundleShortVersionString + CFBundleVersion from tauri.conf.json `version`.
+  Keep CFBundleGetInfoString in sync with that `version` field manually (or via the `release` skill).
+-->
+<plist version="1.0">
+<dict>
+  <!-- Shown as the labeled version string in Finder Get Info and Spotlight -->
+  <key>CFBundleGetInfoString</key>
+  <string>World Monitor 2.7.2</string>
+
+  <!-- Shown in the "More Info" section of Finder Get Info -->
+  <key>NSHumanReadableCopyright</key>
+  <string>World Monitor — Open source, AGPL-3.0. Based on worldmonitor by Elie Habib (koala73).</string>
+</dict>
+</plist>

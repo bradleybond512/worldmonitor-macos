@@ -23,33 +23,37 @@ function isTrustedBrowserOrigin(origin) {
   return Boolean(origin) && BROWSER_ORIGIN_PATTERNS.some(p => p.test(origin));
 }
 
-function extractOriginFromReferer(referer) {
-  if (!referer) return '';
-  try {
-    return new URL(referer).origin;
-  } catch {
-    return '';
-  }
+function hasTrustedBrowserFetchMetadata(req) {
+  const fetchSite = (req.headers.get('Sec-Fetch-Site') || '').toLowerCase();
+  const fetchMode = (req.headers.get('Sec-Fetch-Mode') || '').toLowerCase();
+
+  if (!['same-origin', 'same-site'].includes(fetchSite)) return false;
+  if (fetchMode && !['cors', 'same-origin', 'navigate', 'no-cors'].includes(fetchMode)) return false;
+  return true;
+}
+
+function isTrustedBrowserRequest(req, origin) {
+  if (!hasTrustedBrowserFetchMetadata(req)) return false;
+  // Require an explicit trusted Origin for browser no-key access.
+  // Referer can be forged by non-browser clients and is therefore insufficient.
+  return isTrustedBrowserOrigin(origin);
 }
 
 export function validateApiKey(req) {
   const key = req.headers.get('X-WorldMonitor-Key');
-  // Same-origin browser requests don't send Origin (per CORS spec).
-  // Fall back to Referer to identify trusted same-origin callers.
-  const origin = req.headers.get('Origin') || extractOriginFromReferer(req.headers.get('Referer')) || '';
+  const origin = req.headers.get('Origin') || '';
+  const validKeys = (process.env.WORLDMONITOR_VALID_KEYS || '').split(',').filter(Boolean);
 
   // Desktop app — always require API key
   if (isDesktopOrigin(origin)) {
     if (!key) return { valid: false, required: true, error: 'API key required for desktop access' };
-    const validKeys = (process.env.WORLDMONITOR_VALID_KEYS || '').split(',').filter(Boolean);
     if (!validKeys.includes(key)) return { valid: false, required: true, error: 'Invalid API key' };
     return { valid: true, required: true };
   }
 
-  // Trusted browser origin (worldmonitor.app, Vercel previews, localhost dev) — no key needed
-  if (isTrustedBrowserOrigin(origin)) {
+  // Trusted browser requests must look like real browser fetches, not just spoofed headers.
+  if (isTrustedBrowserRequest(req, origin)) {
     if (key) {
-      const validKeys = (process.env.WORLDMONITOR_VALID_KEYS || '').split(',').filter(Boolean);
       if (!validKeys.includes(key)) return { valid: false, required: true, error: 'Invalid API key' };
     }
     return { valid: true, required: false };
@@ -57,7 +61,6 @@ export function validateApiKey(req) {
 
   // Explicit key provided from unknown origin — validate it
   if (key) {
-    const validKeys = (process.env.WORLDMONITOR_VALID_KEYS || '').split(',').filter(Boolean);
     if (!validKeys.includes(key)) return { valid: false, required: true, error: 'Invalid API key' };
     return { valid: true, required: true };
   }

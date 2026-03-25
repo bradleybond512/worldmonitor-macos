@@ -688,6 +688,118 @@ test('accepts OLLAMA_MODEL via /api/local-env-update', async () => {
   }
 });
 
+test('accepts AVIATIONSTACK_API via /api/local-env-update', async () => {
+  const localApi = await setupApiDir({});
+
+  const app = await createLocalApiServer({
+    port: 0,
+    apiDir: localApi.apiDir,
+    logger: { log() {}, warn() {}, error() {} },
+  });
+  const { port } = await app.start();
+
+  try {
+    const response = await fetch(`http://127.0.0.1:${port}/api/local-env-update`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key: 'AVIATIONSTACK_API', value: 'aviationstack-test-key' }),
+    });
+    assert.equal(response.status, 200);
+    const body = await response.json();
+    assert.equal(body.ok, true);
+    assert.equal(body.key, 'AVIATIONSTACK_API');
+    assert.equal(process.env.AVIATIONSTACK_API, 'aviationstack-test-key');
+  } finally {
+    delete process.env.AVIATIONSTACK_API;
+    await app.close();
+    await localApi.cleanup();
+  }
+});
+
+test('accepts ANTHROPIC_API_KEY via /api/local-env-update', async () => {
+  const localApi = await setupApiDir({});
+
+  const app = await createLocalApiServer({
+    port: 0,
+    apiDir: localApi.apiDir,
+    logger: { log() {}, warn() {}, error() {} },
+  });
+  const { port } = await app.start();
+
+  try {
+    const response = await fetch(`http://127.0.0.1:${port}/api/local-env-update`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key: 'ANTHROPIC_API_KEY', value: 'anthropic-test-key' }),
+    });
+    assert.equal(response.status, 200);
+    const body = await response.json();
+    assert.equal(body.ok, true);
+    assert.equal(body.key, 'ANTHROPIC_API_KEY');
+    assert.equal(process.env.ANTHROPIC_API_KEY, 'anthropic-test-key');
+  } finally {
+    delete process.env.ANTHROPIC_API_KEY;
+    await app.close();
+    await localApi.cleanup();
+  }
+});
+
+test('accepts UC_DP_KEY via /api/local-env-update', async () => {
+  const localApi = await setupApiDir({});
+
+  const app = await createLocalApiServer({
+    port: 0,
+    apiDir: localApi.apiDir,
+    logger: { log() {}, warn() {}, error() {} },
+  });
+  const { port } = await app.start();
+
+  try {
+    const response = await fetch(`http://127.0.0.1:${port}/api/local-env-update`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key: 'UC_DP_KEY', value: 'ucdp-test-key' }),
+    });
+    assert.equal(response.status, 200);
+    const body = await response.json();
+    assert.equal(body.ok, true);
+    assert.equal(body.key, 'UC_DP_KEY');
+    assert.equal(process.env.UC_DP_KEY, 'ucdp-test-key');
+  } finally {
+    delete process.env.UC_DP_KEY;
+    await app.close();
+    await localApi.cleanup();
+  }
+});
+
+test('accepts WORLDMONITOR_API_KEY via /api/local-env-update', async () => {
+  const localApi = await setupApiDir({});
+
+  const app = await createLocalApiServer({
+    port: 0,
+    apiDir: localApi.apiDir,
+    logger: { log() {}, warn() {}, error() {} },
+  });
+  const { port } = await app.start();
+
+  try {
+    const response = await fetch(`http://127.0.0.1:${port}/api/local-env-update`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key: 'WORLDMONITOR_API_KEY', value: 'wm_test_key_1234567890abcdef' }),
+    });
+    assert.equal(response.status, 200);
+    const body = await response.json();
+    assert.equal(body.ok, true);
+    assert.equal(body.key, 'WORLDMONITOR_API_KEY');
+    assert.equal(process.env.WORLDMONITOR_API_KEY, 'wm_test_key_1234567890abcdef');
+  } finally {
+    delete process.env.WORLDMONITOR_API_KEY;
+    await app.close();
+    await localApi.cleanup();
+  }
+});
+
 test('rejects unknown key via /api/local-env-update', async () => {
   const localApi = await setupApiDir({});
 
@@ -707,6 +819,56 @@ test('rejects unknown key via /api/local-env-update', async () => {
     assert.equal(response.status, 403);
     const body = await response.json();
     assert.equal(body.error, 'key not in allowlist');
+  } finally {
+    await app.close();
+    await localApi.cleanup();
+  }
+});
+
+test('accepts ICAO_API_KEY via /api/local-validate-secret', async () => {
+  const localApi = await setupApiDir({});
+
+  const app = await createLocalApiServer({
+    port: 0,
+    apiDir: localApi.apiDir,
+    logger: { log() {}, warn() {}, error() {} },
+  });
+  const { port } = await app.start();
+
+  try {
+    const response = await fetch(`http://127.0.0.1:${port}/api/local-validate-secret`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key: 'ICAO_API_KEY', value: 'icao-test-key' }),
+    });
+    assert.equal(response.status, 200);
+    const body = await response.json();
+    assert.equal(body.valid, true);
+  } finally {
+    await app.close();
+    await localApi.cleanup();
+  }
+});
+
+test('accepts WORLDMONITOR_API_KEY via /api/local-validate-secret', async () => {
+  const localApi = await setupApiDir({});
+
+  const app = await createLocalApiServer({
+    port: 0,
+    apiDir: localApi.apiDir,
+    logger: { log() {}, warn() {}, error() {} },
+  });
+  const { port } = await app.start();
+
+  try {
+    const response = await fetch(`http://127.0.0.1:${port}/api/local-validate-secret`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key: 'WORLDMONITOR_API_KEY', value: 'wm_test_key_1234567890abcdef' }),
+    });
+    assert.equal(response.status, 200);
+    const body = await response.json();
+    assert.equal(body.valid, true);
   } finally {
     await app.close();
     await localApi.cleanup();
@@ -1353,18 +1515,18 @@ test('service-status reports bound fallback port after EADDRINUSE recovery', asy
     res.writeHead(200, { 'content-type': 'text/plain' });
     res.end('occupied');
   });
-  await listen(blocker, '127.0.0.1', 46123);
+  const blockedPort = await listen(blocker, '127.0.0.1', 0);
 
   const localApi = await setupApiDir({});
   const app = await createLocalApiServer({
-    port: 46123,
+    port: blockedPort,
     apiDir: localApi.apiDir,
     logger: { log() {}, warn() {}, error() {} },
   });
   const { port } = await app.start();
 
   try {
-    assert.notEqual(port, 46123);
+    assert.notEqual(port, blockedPort);
 
     const response = await fetch(`http://127.0.0.1:${port}/api/service-status`);
     assert.equal(response.status, 200);

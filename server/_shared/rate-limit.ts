@@ -20,13 +20,12 @@ function getRatelimit(): Ratelimit | null {
   return ratelimit;
 }
 
-function getClientIp(request: Request): string {
+export function getClientIp(request: Request): string {
   // Vercel injects x-real-ip from the TCP connection — cannot be spoofed by clients.
   // x-forwarded-for is client-settable and MUST NOT be trusted for rate limiting.
   return (
     request.headers.get('x-real-ip') ||
     request.headers.get('cf-connecting-ip') ||
-    request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
     '0.0.0.0'
   );
 }
@@ -59,6 +58,13 @@ export async function checkRateLimit(
 
     return null;
   } catch {
-    return null;
+    return new Response(JSON.stringify({ error: 'Rate limit unavailable' }), {
+      status: 503,
+      headers: {
+        'Content-Type': 'application/json',
+        'Retry-After': '1',
+        ...corsHeaders,
+      },
+    });
   }
 }
