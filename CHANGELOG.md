@@ -6,6 +6,18 @@ All notable changes to World Monitor are documented here.
 
 ---
 
+## [2.7.3] - 2026-03-25
+
+### Fixed
+
+- Release automation now triggers required pull request checks for the release branch before merge.
+
+### Changed
+
+- Version metadata was advanced to `2.7.3` across Node and Tauri release files to publish the repaired desktop release pipeline.
+
+---
+
 ## [2.7.2] - 2026-03-24
 
 ### Fixed
