@@ -277,12 +277,6 @@ export function installRuntimeFetchPatch(): void {
     return key && key.length > 0 ? key : null;
   }
 
-  async function getWorldMonitorCloudApiKey(): Promise<string | null> {
-    const { getRuntimeConfigSnapshot } = await import('@/services/runtime-config');
-    const key = getRuntimeConfigSnapshot().secrets.WORLDMONITOR_API_KEY?.value?.trim();
-    return key && key.length > 0 ? key : null;
-  }
-
   window.fetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
     const target = getApiTargetFromRequestInput(input);
     const debug = localStorage.getItem('wm-debug-log') === '1';

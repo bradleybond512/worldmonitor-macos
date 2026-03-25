@@ -6,27 +6,52 @@ import { fileURLToPath } from 'node:url';
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, '..');
 
-function listTrackedYamlFiles() {
-  const output = execFileSync('rg', [
-    '--files',
-    '-g',
-    '*.yml',
-    '-g',
-    '*.yaml',
-    '-g',
-    '!node_modules/**',
-    '-g',
-    '!dist/**',
-    '-g',
-    '!src-tauri/target/**',
-  ], {
-    cwd: repoRoot,
-    encoding: 'utf8',
-  });
+function parseFileList(output) {
   return output
     .split('\n')
     .map((file) => file.trim())
     .filter(Boolean);
+}
+
+function isMissingCommand(error) {
+  return Boolean(error && typeof error === 'object' && 'code' in error && error.code === 'ENOENT');
+}
+
+function listTrackedYamlFiles() {
+  try {
+    const output = execFileSync('rg', [
+      '--files',
+      '-g',
+      '*.yml',
+      '-g',
+      '*.yaml',
+      '-g',
+      '!node_modules/**',
+      '-g',
+      '!dist/**',
+      '-g',
+      '!src-tauri/target/**',
+    ], {
+      cwd: repoRoot,
+      encoding: 'utf8',
+    });
+    return parseFileList(output);
+  } catch (error) {
+    if (!isMissingCommand(error)) throw error;
+    const output = execFileSync('git', [
+      'ls-files',
+      '--',
+      '*.yml',
+      '*.yaml',
+      ':(exclude)node_modules/**',
+      ':(exclude)dist/**',
+      ':(exclude)src-tauri/target/**',
+    ], {
+      cwd: repoRoot,
+      encoding: 'utf8',
+    });
+    return parseFileList(output);
+  }
 }
 
 function resolveRuby() {
