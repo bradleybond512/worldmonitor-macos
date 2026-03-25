@@ -145,10 +145,14 @@ function _getCtx(): AudioContext | null {
 function _playModeSound(mode: AppMode): void {
   if (isMuted()) return;
   switch (mode) {
-    case 'war':      return _playWarAlarm();
-    case 'finance':  return _playFinanceChime();
-    case 'peace':    return _playPeaceTone();
-    case 'disaster': return _playDisasterAlert();
+    case 'war': {      return _playWarAlarm();
+    }
+    case 'finance': {  return _playFinanceChime();
+    }
+    case 'peace': {    return _playPeaceTone();
+    }
+    case 'disaster': { return _playDisasterAlert();
+    }
   }
 }
 
@@ -212,8 +216,8 @@ function _playFinanceChime(): void {
 
   // C5 (523 Hz) then G5 (783 Hz) — a perfect fifth interval
   const notes = [
-    { freq: 523.25, start: 0.00, peakGain: 0.42, decay: 0.55 },
-    { freq: 783.99, start: 0.22, peakGain: 0.38, decay: 1.30 },
+    { freq: 523.25, start: 0, peakGain: 0.42, decay: 0.55 },
+    { freq: 783.99, start: 0.22, peakGain: 0.38, decay: 1.3 },
   ];
 
   for (const { freq, start, peakGain, decay } of notes) {
@@ -254,8 +258,8 @@ function _playDisasterAlert(): void {
       osc.type = 'sine';
       osc.frequency.setValueAtTime(freq, t);
       g.gain.setValueAtTime(0, t);
-      g.gain.linearRampToValueAtTime(0.30, t + 0.010);
-      g.gain.setValueAtTime(0.30, t + BURST_MS / 1000 - 0.020);
+      g.gain.linearRampToValueAtTime(0.3, t + 0.01);
+      g.gain.setValueAtTime(0.3, t + BURST_MS / 1000 - 0.02);
       g.gain.linearRampToValueAtTime(0, t + BURST_MS / 1000);
       osc.connect(g);
       g.connect(ctx.destination);
@@ -276,8 +280,8 @@ function _playPeaceTone(): void {
 
   // G4 → C5: a rising perfect fourth, classic "all clear" interval
   const notes = [
-    { freq: 392,    start: 0.00, peakGain: 0.22, decay: 1.8 },
-    { freq: 523.25, start: 0.20, peakGain: 0.22, decay: 2.2 },
+    { freq: 392,    start: 0, peakGain: 0.22, decay: 1.8 },
+    { freq: 523.25, start: 0.2, peakGain: 0.22, decay: 2.2 },
   ];
 
   for (const { freq, start, peakGain, decay } of notes) {
@@ -287,7 +291,7 @@ function _playPeaceTone(): void {
     osc.type = 'sine';
     osc.frequency.setValueAtTime(freq, t);
     g.gain.setValueAtTime(0, t);
-    g.gain.linearRampToValueAtTime(peakGain, t + 0.020);
+    g.gain.linearRampToValueAtTime(peakGain, t + 0.02);
     g.gain.exponentialRampToValueAtTime(0.001, t + decay);
     osc.connect(g);
     g.connect(ctx.destination);
@@ -336,7 +340,7 @@ let _warScore = 0;            // 0-100 from wm:war-score; drives drone pitch
 
 /** Current spatial master volume (0–1). */
 export function getSpatialVolume(): number {
-  const v = parseFloat(localStorage.getItem(SPATIAL_VOLUME_KEY) || '0.5');
+  const v = Number.parseFloat(localStorage.getItem(SPATIAL_VOLUME_KEY) || '0.5');
   return Number.isFinite(v) ? Math.max(0, Math.min(1, v)) : 0.5;
 }
 
@@ -350,8 +354,8 @@ export function setSpatialVolume(v: number): void {
 /** Whether a spatial layer is enabled ('ambient' | 'drone' | 'pings'). */
 export function isSpatialLayerEnabled(layer: 'ambient' | 'drone' | 'pings'): boolean {
   const key = layer === 'ambient' ? SPATIAL_AMBIENT_KEY
-            : layer === 'drone'   ? SPATIAL_DRONE_KEY
-            :                       SPATIAL_PINGS_KEY;
+            : (layer === 'drone'   ? SPATIAL_DRONE_KEY
+            :                       SPATIAL_PINGS_KEY);
   // Drone defaults OFF (must be explicitly enabled). Ambient & pings default ON.
   if (layer === 'drone') return localStorage.getItem(key) === '1';
   return localStorage.getItem(key) !== '0';
@@ -360,8 +364,8 @@ export function isSpatialLayerEnabled(layer: 'ambient' | 'drone' | 'pings'): boo
 /** Enable or disable a spatial layer and apply immediately. */
 export function setSpatialLayerEnabled(layer: 'ambient' | 'drone' | 'pings', enabled: boolean): void {
   const key = layer === 'ambient' ? SPATIAL_AMBIENT_KEY
-            : layer === 'drone'   ? SPATIAL_DRONE_KEY
-            :                       SPATIAL_PINGS_KEY;
+            : (layer === 'drone'   ? SPATIAL_DRONE_KEY
+            :                       SPATIAL_PINGS_KEY);
   localStorage.setItem(key, enabled ? '1' : '0');
   if (layer === 'drone')   enabled ? _startDrone()    : _stopDrone();
   if (layer === 'ambient') enabled ? _scheduleChatter() : _cancelChatter();
@@ -446,7 +450,7 @@ function _startDrone(): void {
 
   // Drone gain — base level, will be modulated by LFO
   _droneGainNode = ctx.createGain();
-  _droneGainNode.gain.setValueAtTime(0.30, ctx.currentTime);
+  _droneGainNode.gain.setValueAtTime(0.3, ctx.currentTime);
 
   // LFO tremolo: 0.08 Hz (12.5-second cycle) — slow, breathing pulse
   _droneLfo = ctx.createOscillator();
@@ -454,7 +458,7 @@ function _startDrone(): void {
   _droneLfo.frequency.setValueAtTime(0.08, ctx.currentTime);
 
   _droneLfoGain = ctx.createGain();
-  _droneLfoGain.gain.setValueAtTime(0.20, ctx.currentTime); // ±0.20 tremolo depth
+  _droneLfoGain.gain.setValueAtTime(0.2, ctx.currentTime); // ±0.20 tremolo depth
 
   // LFO modulates drone gain AudioParam directly
   _droneLfo.connect(_droneLfoGain);
@@ -508,8 +512,8 @@ function _updateDronePitch(): void {
   const ctx = _getCtx();
   if (!ctx) return;
   const baseFreq = 40 + _warScore * 0.6;
-  _droneOsc.frequency.setTargetAtTime(baseFreq, ctx.currentTime, 3.0);
-  _droneOsc2?.frequency.setTargetAtTime(baseFreq * 1.005, ctx.currentTime, 3.0);
+  _droneOsc.frequency.setTargetAtTime(baseFreq, ctx.currentTime, 3);
+  _droneOsc2?.frequency.setTargetAtTime(baseFreq * 1.005, ctx.currentTime, 3);
 }
 
 // ── Ambient chatter ───────────────────────────────────────────────────────────
@@ -573,7 +577,7 @@ function _playEscalationPing(level?: 'critical' | 'high'): void {
 
   const isCritical = level === 'critical';
   const freqs    = isCritical ? [440, 660, 990] : [440, 660];
-  const peakGain = isCritical ? 0.40 : 0.28;
+  const peakGain = isCritical ? 0.4 : 0.28;
 
   freqs.forEach((freq, i) => {
     const t   = ctx.currentTime + i * 0.13;

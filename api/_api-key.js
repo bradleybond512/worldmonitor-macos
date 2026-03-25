@@ -45,7 +45,7 @@ function safeEqual(a, b) {
  */
 function isValidKey(key, validKeys) {
   // Ensure a minimum of one safeEqual call regardless of list length.
-  const candidates = validKeys.length > 0 ? validKeys : ['\x00'];
+  const candidates = validKeys.length > 0 ? validKeys : ['\u0000'];
   let matched = false;
   for (const k of candidates) {
     if (safeEqual(k.trim(), key)) matched = true; // no break — always check all

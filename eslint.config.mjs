@@ -52,6 +52,20 @@ export default tseslint.config(
       'unicorn/prevent-abbreviations': 'off',
       'unicorn/no-array-reduce': 'off',
       'unicorn/filename-case': 'off',
+      // Disabled: auto-fix is type-unsafe or targets ES2021+/ES2022+/ES2023+ above tsconfig ES2020
+      'unicorn/prefer-query-selector': 'off',       // querySelector returns Element (not HTMLElement)
+      'unicorn/prefer-string-replace-all': 'off',   // replaceAll requires ES2021
+      'unicorn/prefer-at': 'off',                   // .at() requires ES2022
+      'unicorn/prefer-dom-node-dataset': 'off',     // dataset missing on Element; only on HTMLElement
+      'unicorn/prefer-native-coercion-functions': 'off', // strips TS type-guard predicates in .filter()
+      'unicorn/prefer-switch': 'off',               // switch conversion exposes invalid case values (TS error)
+      'unicorn/prefer-array-find': 'off',           // checkFromLast introduces findLast (ES2023)
+      'unicorn/explicit-length-check': 'off',       // `> 0` breaks string-length truthiness checks
+      'unicorn/no-useless-undefined': 'off',        // removes .reduce() initial value, breaking TS inference
+      'unicorn/prefer-global-this': 'off',          // globalThis lacks window's index signature for YT, onYouTubeIframeAPIReady, etc.
+      'unicorn/no-array-for-each': 'off',           // for..of on optional-chained NodeList results in TS error (undefined is not iterable)
+      '@typescript-eslint/no-unnecessary-type-assertion': 'off', // removes casts that narrow Element→HTMLElement (required by downstream TS)
+      '@typescript-eslint/non-nullable-type-assertion-style': 'off', // converts `as HTMLInputElement` to `!`, losing the type narrowing
     },
   },
 
@@ -83,6 +97,13 @@ export default tseslint.config(
       'unicorn/prevent-abbreviations': 'off',
       'unicorn/no-array-reduce': 'off',
       'unicorn/filename-case': 'off',
+      // Disabled: auto-fix targets ES2021+/ES2022+/ES2023+ above tsconfig ES2020, or is type-unsafe
+      'unicorn/prefer-string-replace-all': 'off',   // replaceAll requires ES2021
+      'unicorn/prefer-at': 'off',                   // .at() requires ES2022
+      'unicorn/prefer-array-find': 'off',           // checkFromLast introduces findLast (ES2023)
+      'unicorn/prefer-switch': 'off',               // switch conversion can expose invalid case values
+      'unicorn/explicit-length-check': 'off',       // `> 0` breaks truthiness checks on non-number types
+      'unicorn/no-useless-undefined': 'off',        // removes .reduce() initial value
     },
   },
 

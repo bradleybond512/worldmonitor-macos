@@ -37,7 +37,7 @@ async function checkRateLimit(request, corsHeaders) {
   try {
     const { success, limit, reset } = await rl.limit(getClientIp(request));
     if (success) return null;
-    return new Response(JSON.stringify({ error: 'Too many requests' }), {
+    return Response.json({ error: 'Too many requests' }, {
       status: 429,
       headers: {
         'Content-Type': 'application/json',
@@ -49,7 +49,7 @@ async function checkRateLimit(request, corsHeaders) {
       },
     });
   } catch {
-    return new Response(JSON.stringify({ error: 'Rate limit unavailable' }), {
+    return Response.json({ error: 'Rate limit unavailable' }, {
       status: 503,
       headers: {
         'Content-Type': 'application/json',
@@ -61,7 +61,7 @@ async function checkRateLimit(request, corsHeaders) {
 }
 
 // Fetch with timeout
-async function fetchWithTimeout(url, options, timeoutMs = 15000) {
+async function fetchWithTimeout(url, options, timeoutMs = 15_000) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -102,7 +102,7 @@ async function fetchViaRailway(feedUrl, timeoutMs) {
 }
 
 // Allowed RSS feed domains for security
-const ALLOWED_DOMAINS = [
+const ALLOWED_DOMAINS = new Set([
   'feeds.bbci.co.uk',
   'www.theguardian.com',
   'feeds.npr.org',
@@ -400,11 +400,11 @@ const ALLOWED_DOMAINS = [
   'www.cisa.gov',          // CISA critical infrastructure advisories
   'inciweb.wildfire.gov',  // InciWeb wildfire incidents (official US)
   'www.nhc.noaa.gov',      // NHC hurricane recon VDMs RSS
-];
+]);
 
 export default async function handler(req) {
   if (isDisallowedOrigin(req)) {
-    return new Response(JSON.stringify({ error: 'Origin not allowed' }), {
+    return Response.json({ error: 'Origin not allowed' }, {
       status: 403,
       headers: { 'Content-Type': 'application/json' },
     });
@@ -418,7 +418,7 @@ export default async function handler(req) {
   }
 
   if (req.method !== 'GET') {
-    return new Response(JSON.stringify({ error: 'Method not allowed' }), {
+    return Response.json({ error: 'Method not allowed' }, {
       status: 405,
       headers: { 'Content-Type': 'application/json', ...corsHeaders },
     });
@@ -431,7 +431,7 @@ export default async function handler(req) {
   const feedUrl = requestUrl.searchParams.get('url');
 
   if (!feedUrl) {
-    return new Response(JSON.stringify({ error: 'Missing url parameter' }), {
+    return Response.json({ error: 'Missing url parameter' }, {
       status: 400,
       headers: { 'Content-Type': 'application/json', ...corsHeaders },
     });
@@ -444,8 +444,8 @@ export default async function handler(req) {
     const hostname = parsedUrl.hostname;
     const bare = hostname.replace(/^www\./, '');
     const withWww = hostname.startsWith('www.') ? hostname : `www.${hostname}`;
-    if (!ALLOWED_DOMAINS.includes(hostname) && !ALLOWED_DOMAINS.includes(bare) && !ALLOWED_DOMAINS.includes(withWww)) {
-      return new Response(JSON.stringify({ error: 'Domain not allowed' }), {
+    if (!ALLOWED_DOMAINS.has(hostname) && !ALLOWED_DOMAINS.has(bare) && !ALLOWED_DOMAINS.has(withWww)) {
+      return Response.json({ error: 'Domain not allowed' }, {
         status: 403,
         headers: { 'Content-Type': 'application/json', ...corsHeaders },
       });
@@ -453,7 +453,7 @@ export default async function handler(req) {
 
     // Google News is slow - use longer timeout
     const isGoogleNews = feedUrl.includes('news.google.com');
-    const timeout = isGoogleNews ? 20000 : 12000;
+    const timeout = isGoogleNews ? 20_000 : 12_000;
 
     const RSS_HEADERS = {
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -480,7 +480,7 @@ export default async function handler(req) {
           const rHost = redirectUrl.hostname;
           const rBare = rHost.replace(/^www\./, '');
           const rWithWww = rHost.startsWith('www.') ? rHost : `www.${rHost}`;
-          if (!ALLOWED_DOMAINS.includes(rHost) && !ALLOWED_DOMAINS.includes(rBare) && !ALLOWED_DOMAINS.includes(rWithWww)) {
+          if (!ALLOWED_DOMAINS.has(rHost) && !ALLOWED_DOMAINS.has(rBare) && !ALLOWED_DOMAINS.has(rWithWww)) {
             throw new Error('Redirect to disallowed domain');
           }
           currentUrl = redirectUrl.href;
@@ -531,11 +531,11 @@ export default async function handler(req) {
     // Strip query params before echoing the URL to avoid leaking any secrets embedded in them
     let safeUrl = feedUrl;
     try { safeUrl = new URL(feedUrl).origin + new URL(feedUrl).pathname; } catch { /* keep as-is */ }
-    return new Response(JSON.stringify({
+    return Response.json({
       error: isTimeout ? 'Feed timeout' : 'Failed to fetch feed',
       details: error.message,
       url: safeUrl,
-    }), {
+    }, {
       status: isTimeout ? 504 : 502,
       headers: { 'Content-Type': 'application/json', ...corsHeaders },
     });

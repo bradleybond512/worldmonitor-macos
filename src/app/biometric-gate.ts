@@ -13,13 +13,13 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-type FallbackOverlay = {
+interface FallbackOverlay {
   container: HTMLDivElement;
   message: HTMLParagraphElement;
   retry: HTMLButtonElement;
   quit: HTMLButtonElement;
   release: () => void;
-};
+}
 
 async function waitForInvokeBridge(): Promise<void> {
   const deadline = Date.now() + BRIDGE_READY_TIMEOUT_MS;
@@ -194,13 +194,13 @@ function showFallbackOverlay(initialMessage: string): FallbackOverlay {
     fontWeight: '600',
   } as CSSStyleDeclaration);
 
-  actions.appendChild(quit);
-  actions.appendChild(retry);
-  panel.appendChild(eyebrow);
-  panel.appendChild(title);
-  panel.appendChild(message);
-  panel.appendChild(actions);
-  container.appendChild(panel);
+  actions.append(quit);
+  actions.append(retry);
+  panel.append(eyebrow);
+  panel.append(title);
+  panel.append(message);
+  panel.append(actions);
+  container.append(panel);
   document.body.append(container);
 
   return { container, message, retry, quit, release };
@@ -241,14 +241,14 @@ export async function ensureBiometricUnlock(): Promise<boolean> {
     const ensureFallbackControls = (text: string) => {
       if (!fallbackOverlay) {
         fallbackOverlay = showFallbackOverlay(text);
-        fallbackOverlay.quit.onclick = () => {
+        fallbackOverlay.quit.addEventListener('click', () => {
           settle(false);
           window.close();
-        };
-        fallbackOverlay.retry.onclick = () => {
+        });
+        fallbackOverlay.retry.addEventListener('click', () => {
           fallbackOverlay?.retry.blur();
           void tryAuth(true);
-        };
+        });
       }
       fallbackOverlay.message.textContent = text;
       return fallbackOverlay;
@@ -319,9 +319,9 @@ export async function ensureBiometricUnlock(): Promise<boolean> {
           });
           settle(true);
           return true;
-        } catch (err) {
-          const text = err instanceof Error && err.message
-            ? err.message
+        } catch (error) {
+          const text = error instanceof Error && error.message
+            ? error.message
             : 'Touch ID did not complete. Try Again or quit.';
           if (text.includes('Tauri invoke bridge not ready')) {
             showAutoResumeState('Preparing secure unlock. Authentication will start automatically.');
