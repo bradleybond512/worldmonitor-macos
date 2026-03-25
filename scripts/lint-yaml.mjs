@@ -71,7 +71,7 @@ require "psych"
 errors = []
 ARGV.each do |path|
   begin
-    Psych.parse_stream(File.read(path), path)
+    Psych.parse_stream(File.read(path), filename: path)
   rescue Psych::SyntaxError => error
     line = error.line || 1
     column = error.column || 1
