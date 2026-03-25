@@ -361,7 +361,7 @@ export class LiveNewsPanel extends Panel {
   }
 
   private get embedOrigin(): string {
-    if (isDesktopRuntime()) return `http://localhost:${getLocalApiPort()}`;
+    if (isDesktopRuntime()) return `http://127.0.0.1:${getLocalApiPort()}`;
     try { return new URL(getRemoteApiBaseUrl()).origin; } catch { return 'https://worldmonitor.app'; }
   }
 
@@ -408,6 +408,7 @@ export class LiveNewsPanel extends Panel {
       if (protocol === 'http:' || protocol === 'https:') {
         // Desktop webviews commonly run from tauri.localhost which can trigger
         // YouTube embed restrictions. Use canonical public origin instead.
+        // eslint-disable-next-line no-restricted-syntax -- intentional: Tauri IPC origin check, not URL construction
         if (host === 'tauri.localhost' || host.endsWith('.tauri.localhost')) {
           return fallbackOrigin;
         }

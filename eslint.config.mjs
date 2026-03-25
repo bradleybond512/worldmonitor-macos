@@ -14,6 +14,7 @@ export default tseslint.config(
       'src/workers/ml.worker.ts',
       'src/generated/**',
       'convex/**',
+      'api/[domain]/**',    // esbuild artifact — not source
     ],
   },
 
@@ -66,6 +67,8 @@ export default tseslint.config(
       'unicorn/no-array-for-each': 'off',               // for..of on optional-chained NodeList → TS undefined error
       '@typescript-eslint/no-unnecessary-type-assertion': 'off', // removes Element→HTMLElement casts downstream code requires
       '@typescript-eslint/non-nullable-type-assertion-style': 'off', // converts `as T` to `!`, losing type narrowing
+      'unicorn/no-null': 'off',                                 // codebase convention: null used for nullable DOM/library values
+      'unicorn/prefer-to-sorted': 'off',                        // Array#toSorted requires ES2022; tsconfig targets ES2020
     },
   },
 
