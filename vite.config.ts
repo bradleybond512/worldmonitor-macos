@@ -2,6 +2,7 @@ import { defineConfig, type Plugin } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
 import { resolve, dirname, extname } from 'path';
 import { mkdir, readFile, writeFile } from 'fs/promises';
+import { spawnSync } from 'child_process';
 import { brotliCompress } from 'zlib';
 import { promisify } from 'util';
 import pkg from './package.json';
@@ -145,6 +146,16 @@ const VARIANT_META: Record<string, {
 
 const activeVariant = process.env.VITE_VARIANT || 'full';
 const activeMeta = VARIANT_META[activeVariant] || VARIANT_META.full;
+
+function runGit(args: string[]): string {
+  const result = spawnSync('git', args, { encoding: 'utf8' });
+  if (result.status !== 0) return '';
+  return result.stdout.trim();
+}
+
+const buildCommitSha = process.env.WM_BUILD_COMMIT_SHA || runGit(['rev-parse', 'HEAD']) || 'unknown';
+const buildTag = process.env.WM_BUILD_TAG || `v${pkg.version}`;
+const buildTimestamp = process.env.WM_BUILD_TIMESTAMP || new Date().toISOString();
 
 function htmlVariantPlugin(): Plugin {
   return {
@@ -671,8 +682,13 @@ function youtubeLivePlugin(): Plugin {
 }
 
 export default defineConfig({
+  base: process.env.BASE_PATH || '/',
   define: {
     __APP_VERSION__: JSON.stringify(pkg.version),
+    __BUILD_VARIANT__: JSON.stringify(activeVariant),
+    __BUILD_TAG__: JSON.stringify(buildTag),
+    __BUILD_COMMIT_SHA__: JSON.stringify(buildCommitSha),
+    __BUILD_TIMESTAMP__: JSON.stringify(buildTimestamp),
     // Build-time CPU arch: 'aarch64' on Apple Silicon, 'x64' on Intel.
     // Used by the auto-updater to select the matching DMG asset from GitHub Releases.
     __BUILD_ARCH__: JSON.stringify(process.arch === 'arm64' ? 'aarch64' : 'x64'),

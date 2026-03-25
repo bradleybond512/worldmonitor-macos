@@ -4,6 +4,11 @@ export const config = { runtime: 'edge' };
 const RELEASES_URL = 'https://api.github.com/repos/bradleybond512/worldmonitor-macos/releases/latest';
 const RELEASES_PAGE = 'https://github.com/bradleybond512/worldmonitor-macos/releases/latest';
 
+// In-process cache for the GitHub release response (survives warm Edge Function invocations).
+// CDN s-maxage=300 is the primary protection; this is a secondary layer.
+let releaseCache = null; // { data: object, expiresAt: number }
+const RELEASE_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
 const PLATFORM_PATTERNS = {
   'windows-exe': (name) => name.endsWith('_x64-setup.exe'),
   'windows-msi': (name) => name.endsWith('_x64_en-US.msi'),
@@ -14,8 +19,8 @@ const PLATFORM_PATTERNS = {
 };
 
 const VARIANT_IDENTIFIERS = {
-  full: ['worldmonitor', 'world monitor'],
-  world: ['worldmonitor', 'world monitor'],
+  full: ['worldmonitor'],
+  world: ['worldmonitor'],
   tech: ['techmonitor'],
   finance: ['financemonitor'],
 };
@@ -29,7 +34,7 @@ function findAssetForVariant(assets, variant, platformMatcher) {
   if (!identifiers) return null;
 
   return assets.find((asset) => {
-    const assetName = String(asset?.name || '');
+    const assetName = asset?.name ?? '';
     const normalizedAssetName = canonicalAssetName(assetName);
     const hasVariantIdentifier = identifiers.some((identifier) =>
       normalizedAssetName.includes(identifier)
@@ -48,18 +53,26 @@ export default async function handler(req) {
   }
 
   try {
-    const res = await fetch(RELEASES_URL, {
-      headers: {
-        'Accept': 'application/vnd.github+json',
-        'User-Agent': 'WorldMonitor-Download-Redirect',
-      },
-    });
+    let release;
+    const now = Date.now();
+    if (releaseCache && now < releaseCache.expiresAt) {
+      release = releaseCache.data;
+    } else {
+      const res = await fetch(RELEASES_URL, {
+        headers: {
+          'Accept': 'application/vnd.github+json',
+          'User-Agent': 'WorldMonitor-Download-Redirect',
+        },
+        signal: AbortSignal.timeout(8_000),
+      });
 
-    if (!res.ok) {
-      return Response.redirect(RELEASES_PAGE, 302);
+      if (!res.ok) {
+        return Response.redirect(RELEASES_PAGE, 302);
+      }
+
+      release = await res.json();
+      releaseCache = { data: release, expiresAt: now + RELEASE_CACHE_TTL_MS };
     }
-
-    const release = await res.json();
     const matcher = PLATFORM_PATTERNS[platform];
     const assets = Array.isArray(release.assets) ? release.assets : [];
     const asset = variant

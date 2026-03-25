@@ -109,6 +109,9 @@ import {
   DisplacementPanel,
   ClimateAnomalyPanel,
   PopulationExposurePanel,
+  TsunamiAlertsPanel,
+  TropicalCyclonesPanel,
+  FoodInsecurityPanel,
   TradePolicyPanel,
   SupplyChainPanel,
   SecurityAdvisoriesPanel,
@@ -2417,6 +2420,36 @@ export class DataLoaderManager implements AppModule {
       (this.ctx.panels['telegram-intel'] as TelegramIntelPanel)?.setData(result);
     } catch (error) {
       console.error('[App] Telegram intel fetch failed:', error);
+    }
+  }
+
+  async loadTsunamiAlerts(): Promise<void> {
+    try {
+      const { fetchTsunamiAlerts } = await import('@/services/tsunami-alerts');
+      const data = await fetchTsunamiAlerts();
+      (this.ctx.panels['tsunami-alerts'] as TsunamiAlertsPanel | undefined)?.update(data);
+    } catch (error) {
+      console.error('[App] Tsunami alerts fetch failed:', error);
+    }
+  }
+
+  async loadTropicalCyclones(): Promise<void> {
+    try {
+      const { fetchTropicalCyclones } = await import('@/services/tropical-cyclones');
+      const data = await fetchTropicalCyclones();
+      (this.ctx.panels['tropical-cyclones'] as TropicalCyclonesPanel | undefined)?.update(data);
+    } catch (error) {
+      console.error('[App] Tropical cyclones fetch failed:', error);
+    }
+  }
+
+  async loadFoodInsecurity(): Promise<void> {
+    try {
+      const { fetchFoodInsecurityAlerts: fetchFoodInsecurity } = await import('@/services/food-insecurity');
+      const data = await fetchFoodInsecurity();
+      (this.ctx.panels['food-insecurity'] as FoodInsecurityPanel | undefined)?.update(data);
+    } catch (error) {
+      console.error('[App] Food insecurity fetch failed:', error);
     }
   }
 }

@@ -6,10 +6,41 @@ All notable changes to World Monitor are documented here.
 
 ---
 
-## [2.6.0] - 2026-03-14
+## [2.7.2] - 2026-03-24
+
+### Fixed
+
+- CI typecheck compatibility for XML parser callbacks in aviation and arXiv ingestion paths, preventing release pipeline failures against stricter callback signatures.
+- Release docs no longer pin stale download/version strings in README and docs badges.
+
+### Changed
+
+- Added release-doc sync regression coverage so docs and changelog stay aligned with `package.json` version updates.
+
+---
+
+## [2.7.0] - 2026-03-16
+
+### Fixed
+
+- Desktop release version syncing now updates and validates `package-lock.json` and `src-tauri/Cargo.lock`, preventing release doctor failures caused by partial version bumps.
+- Desktop local-token generation now uses the `getrandom` 0.3 API (`fill`) so the Tauri Rust app compiles cleanly with the pinned dependency set.
+
+### Changed
+
+- Desktop app metadata advanced to `2.7.0` across the Node and Tauri release files.
+
+---
+
+## [2.6.1] - 2026-03-16
+
+> This release supersedes an unpublished `v2.6.0` Git tag. The latest public GitHub release moves directly from `v2.5.25` to `v2.6.1`.
 
 ### Added
 
+- **Claude Intelligence Agent panel** — new agentic panel powered by Anthropic's tool-use API. Ask natural-language questions; Claude autonomously calls live-data tools (news headlines via GDELT, country risk scores, market data, cyber threat IOCs) and synthesizes a structured intelligence brief. Accessible via the Intelligence category in the panel picker. Requires `ANTHROPIC_API_KEY`. Four preset queries provided for quick situational awareness.
+- **Communications Health panel** — consolidated monitoring surface for internet outages, infrastructure incidents, and communications disruption signals.
+- **Economic Stress panel** — composite stress view wired through the sidecar, panel layout, and data-loader for rapid macro deterioration checks.
 - **Yahoo Finance → free data sources migration** — all sidecar routes now use Stooq batch CSV + FRED CSV, eliminating Yahoo Finance dependency entirely
   - `/api/market-quotes`: Stooq batch CSV (cl.f, gc.f, spy.us, qqq.us, etc.) + FRED VIXCLS for VIX
   - `/api/btc-etf-flows`: Stooq batch CSV for IBIT, FBTC, ARKB, BITB, HODL
@@ -29,6 +60,8 @@ All notable changes to World Monitor are documented here.
 
 ### Fixed
 
+- Desktop Anthropic secret support is now wired end-to-end across the Rust keychain vault, the local sidecar allowlist, and provider validation
+- Release documentation now distinguishes between branch state, local packaging capability, and the latest published GitHub release artifacts
 - Webcam iframes use `127.0.0.1` instead of `localhost` to satisfy CSP `frame-src`
 - Window drag replaced CSS drag region with JS `startDragging()` for reliability
 - Toolbar drag zones expanded to title, status, and clock elements
@@ -36,12 +69,14 @@ All notable changes to World Monitor are documented here.
 
 ### Security
 
+- Hardened desktop trust boundaries around local secret handling and sidecar validation paths
 - Hardened secret detection, IndexedDB cap, idle throttle, AISSTREAM validation
 - Fixed oscillator leak, Ghost Mode analytics gap, CSP, and proxy timeout
 - Decompression bomb guard for URL state; OLLAMA_MODEL validation; arrival choreography memory caps
 
 ### Changed
 
+- **Claude AI model upgraded to Sonnet 4.6** — Anthropic provider now uses `claude-sonnet-4-6` (released February 2026), replacing Haiku 4.5. Sonnet 4.6 offers improved reasoning, advanced coding assistance, and a 1M-token context window, making AI intelligence briefs and panel summaries significantly more capable.
 - `src/services/oref-locations.ts` — 1,478 Hebrew→English location translations (cherry-picked from upstream)
 
 ### Upstream sync (cherry-picked from koala73/worldmonitor)
@@ -55,6 +90,12 @@ All notable changes to World Monitor are documented here.
 - `f4e1159` feat(header): add Download App button for web users
 - `bb31b43` feat(header): download dropdown + move system status into Settings (merged with API Keys tab)
 - `8a41422` fix: harden Windows installer update path and map resize behavior
+
+---
+
+## [2.6.0] - Unpublished tag
+
+> `v2.6.0` exists as a Git tag on GitHub but was never shipped as a proper GitHub release. Its releasable changes were rolled forward into `v2.6.1`.
 
 ---
 

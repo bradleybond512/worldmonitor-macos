@@ -7,6 +7,8 @@ This guide covers the desktop packaging helper as it exists today:
 
 The repository also includes a finance desktop build config (`npm run desktop:build:finance`), but `scripts/desktop-package.mjs` currently accepts only `full` and `tech` for release packaging.
 
+Some public GitHub releases also contain Linux AppImage assets for the main `World Monitor` build, but this guide documents only the packaging paths currently maintained in-repo: macOS and Windows.
+
 Variant identity is controlled by Tauri config:
 
 - full: `src-tauri/tauri.conf.json`

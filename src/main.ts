@@ -265,7 +265,9 @@ loadDesktopSecrets().then(async () => {
 applyStoredTheme();
 
 // Mark body with macOS-native class so CSS design system activates on desktop
-if (isDesktopRuntime() || FORCE_DESKTOP_GATE) {
+if (isDesktopRuntime()) {
+  document.body.classList.add('is-desktop-macos');
+} else if (FORCE_DESKTOP_GATE) {
   document.body.classList.add('is-desktop-macos');
 }
 
@@ -308,19 +310,23 @@ if (urlParams.get('settings') === '1') {
       showDesktopRuntimeDebugNotice(desktopRuntime);
     }
 
-    if (desktopRuntime.detected || desktopRuntime.forcedDesktopBuild) {
-      const { ensureBiometricUnlock } = await import('./app/biometric-gate');
-      const unlocked = await ensureBiometricUnlock();
-      if (!unlocked) return;
-    }
-
     const app = new App('app');
-    app
-      .init()
-      .then(() => {
-        clearChunkReloadGuard(chunkReloadStorageKey);
-      })
-      .catch(console.error);
+
+    if (desktopRuntime.detected || desktopRuntime.forcedDesktopBuild) {
+      // Start loading the app behind the vault overlay so it's ready when the door opens.
+      const appInitPromise = app.init();
+      const { runVaultIntro } = await import('./app/vault-intro');
+      const unlocked = await runVaultIntro(appInitPromise.catch(() => {}));
+      if (!unlocked) return;
+      appInitPromise
+        .then(() => { clearChunkReloadGuard(chunkReloadStorageKey); })
+        .catch(console.error);
+    } else {
+      app
+        .init()
+        .then(() => { clearChunkReloadGuard(chunkReloadStorageKey); })
+        .catch(console.error);
+    }
   };
   void boot();
 }

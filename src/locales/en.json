@@ -144,7 +144,9 @@
     "panelCatCentralBanks": "Central Banks & Econ",
     "panelCatDeals": "Deals & Institutional",
     "panelCatGulfMena": "Gulf & MENA",
-    "panelCatTradePolicy": "Trade Policy"
+    "panelCatTradePolicy": "Trade Policy",
+    "panelCatHazards": "Hazards",
+    "panelCatHealthEnv": "Health & Environment"
   },
   "panels": {
     "liveNews": "Live News",
@@ -222,7 +224,8 @@
     "spaceWeather": "Space Weather",
     "diseaseOutbreaks": "Disease Outbreaks",
     "airQuality": "Air Quality",
-    "airstrikes": "Air Strikes & Drones"
+    "airstrikes": "Air Strikes & Drones",
+    "claudeAgent": "Claude Intelligence Agent"
   },
   "commands": {
     "prefixes": {

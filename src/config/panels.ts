@@ -32,6 +32,7 @@ const FULL_PANELS: Record<string, PanelConfig> = {
   commodities: { name: 'Commodities', enabled: true, priority: 1 },
   markets: { name: 'Markets', enabled: true, priority: 1 },
   economic: { name: 'Economic Indicators', enabled: true, priority: 1 },
+  'economic-stress': { name: 'Economic Stress', enabled: true, priority: 2 },
   'trade-policy': { name: 'Trade Policy', enabled: true, priority: 1 },
   'supply-chain': { name: 'Supply Chain', enabled: true, priority: 1 },
   finance: { name: 'Financial', enabled: true, priority: 1 },
@@ -44,6 +45,7 @@ const FULL_PANELS: Record<string, PanelConfig> = {
   'satellite-fires': { name: 'Fires', enabled: true, priority: 2 },
   earthquakes: { name: 'Earthquakes', enabled: true, priority: 2 },
   'cyber-threats': { name: 'Cyber Threats', enabled: true, priority: 2 },
+  'comms-health': { name: 'Communications Health', enabled: true, priority: 2 },
   'alert-center': { name: 'Alert Center', enabled: true, priority: 1 },
   'macro-signals': { name: 'Market Radar', enabled: true, priority: 2 },
   'etf-flows': { name: 'BTC ETF Tracker', enabled: true, priority: 2 },
@@ -63,20 +65,19 @@ const FULL_PANELS: Record<string, PanelConfig> = {
   'gdacs-alerts': { name: 'GDACS Disaster Alerts', enabled: true, priority: 2 },
   'volcano-alerts': { name: 'Volcano Alerts', enabled: true, priority: 2 },
   'nws-alerts': { name: 'NWS Hazard Alerts', enabled: true, priority: 2 },
-  'comms-health': { name: 'Comms Health', enabled: true, priority: 1 },
-  'economic-stress': { name: 'Economic Stress Index', enabled: true, priority: 1 },
+  'tsunami-alerts': { name: 'Tsunami Alerts', enabled: true, priority: 2 },
+  'tropical-cyclones': { name: 'Tropical Cyclones', enabled: true, priority: 2 },
+  'food-insecurity': { name: 'Food Insecurity', enabled: true, priority: 2 },
   'radiation-decay': { name: 'Radiation Decay Calculator', enabled: false, priority: 3 },
   'resource-inventory': { name: 'Resource Inventory', enabled: false, priority: 3 },
-  'world-clock': { name: 'World Clock', enabled: true, priority: 2 },
-  'pinned-webcams': { name: 'Pinned Webcams', enabled: false, priority: 3 },
 };
 
 const FULL_MAP_LAYERS: MapLayers = {
   iranAttacks: true,
-  gpsJamming: true,
+  gpsJamming: false,
   conflicts: true,
   bases: true,
-  cables: true,
+  cables: false,
   pipelines: false,
   hotspots: true,
   ais: false,
@@ -89,7 +90,7 @@ const FULL_MAP_LAYERS: MapLayers = {
   outages: true,
   cyberThreats: true,
   datacenters: false,
-  protests: true,
+  protests: false,
   flights: false,
   military: true,
   natural: true,
@@ -99,7 +100,6 @@ const FULL_MAP_LAYERS: MapLayers = {
   // Data source layers
   ucdpEvents: false,
   airstrikes: false,
-  s2pimu: false,
   displacement: false,
   climate: false,
   // Tech layers (disabled in full variant)
@@ -121,6 +121,7 @@ const FULL_MAP_LAYERS: MapLayers = {
   speciesRecovery: false,
   renewableInstallations: false,
   tradeRoutes: false,
+  s2pimu: false,
   dayNight: false,
 };
 
@@ -152,7 +153,6 @@ const FULL_MOBILE_MAP_LAYERS: MapLayers = {
   // Data source layers
   ucdpEvents: false,
   airstrikes: false,
-  s2pimu: false,
   displacement: false,
   climate: false,
   // Tech layers (disabled in full variant)
@@ -174,6 +174,7 @@ const FULL_MOBILE_MAP_LAYERS: MapLayers = {
   speciesRecovery: false,
   renewableInstallations: false,
   tradeRoutes: false,
+  s2pimu: false,
   dayNight: false,
 };
 
@@ -245,7 +246,6 @@ const TECH_MAP_LAYERS: MapLayers = {
   // Data source layers
   ucdpEvents: false,
   airstrikes: false,
-  s2pimu: false,
   displacement: false,
   climate: false,
   // Tech layers (enabled in tech variant)
@@ -268,6 +268,7 @@ const TECH_MAP_LAYERS: MapLayers = {
   renewableInstallations: false,
   tradeRoutes: false,
   iranAttacks: false,
+  s2pimu: false,
   dayNight: false,
 };
 
@@ -298,7 +299,6 @@ const TECH_MOBILE_MAP_LAYERS: MapLayers = {
   // Data source layers
   ucdpEvents: false,
   airstrikes: false,
-  s2pimu: false,
   displacement: false,
   climate: false,
   // Tech layers (limited on mobile)
@@ -321,6 +321,7 @@ const TECH_MOBILE_MAP_LAYERS: MapLayers = {
   renewableInstallations: false,
   tradeRoutes: false,
   iranAttacks: false,
+  s2pimu: false,
   dayNight: false,
 };
 
@@ -388,7 +389,6 @@ const FINANCE_MAP_LAYERS: MapLayers = {
   // Data source layers
   ucdpEvents: false,
   airstrikes: false,
-  s2pimu: false,
   displacement: false,
   climate: false,
   // Tech layers (disabled in finance variant)
@@ -411,6 +411,7 @@ const FINANCE_MAP_LAYERS: MapLayers = {
   renewableInstallations: false,
   tradeRoutes: true,
   iranAttacks: false,
+  s2pimu: false,
   dayNight: false,
 };
 
@@ -441,7 +442,6 @@ const FINANCE_MOBILE_MAP_LAYERS: MapLayers = {
   // Data source layers
   ucdpEvents: false,
   airstrikes: false,
-  s2pimu: false,
   displacement: false,
   climate: false,
   // Tech layers (disabled)
@@ -464,6 +464,7 @@ const FINANCE_MOBILE_MAP_LAYERS: MapLayers = {
   renewableInstallations: false,
   tradeRoutes: false,
   iranAttacks: false,
+  s2pimu: false,
   dayNight: false,
 };
 
@@ -510,7 +511,6 @@ const HAPPY_MAP_LAYERS: MapLayers = {
   // Data source layers
   ucdpEvents: false,
   airstrikes: false,
-  s2pimu: false,
   displacement: false,
   climate: false,
   // Tech layers (disabled)
@@ -533,6 +533,7 @@ const HAPPY_MAP_LAYERS: MapLayers = {
   renewableInstallations: true,
   tradeRoutes: false,
   iranAttacks: false,
+  s2pimu: false,
   dayNight: false,
 };
 
@@ -563,7 +564,6 @@ const HAPPY_MOBILE_MAP_LAYERS: MapLayers = {
   // Data source layers
   ucdpEvents: false,
   airstrikes: false,
-  s2pimu: false,
   displacement: false,
   climate: false,
   // Tech layers (disabled)
@@ -586,6 +586,7 @@ const HAPPY_MOBILE_MAP_LAYERS: MapLayers = {
   renewableInstallations: true,
   tradeRoutes: false,
   iranAttacks: false,
+  s2pimu: false,
   dayNight: false,
 };
 
@@ -608,7 +609,6 @@ export const LAYER_TO_SOURCE: Partial<Record<keyof MapLayers, DataSourceId[]>> =
   ucdpEvents: ['ucdp_events'],
   displacement: ['unhcr'],
   climate: ['climate'],
-  s2pimu: ['s2_underground'],
 };
 
 // ============================================
@@ -638,7 +638,7 @@ export const PANEL_CATEGORY_MAP: Record<string, { labelKey: string; panelKeys: s
   },
   marketsFinance: {
     labelKey: 'header.panelCatMarketsFinance',
-    panelKeys: ['commodities', 'markets', 'economic', 'trade-policy', 'supply-chain', 'finance', 'polymarket', 'macro-signals', 'etf-flows', 'stablecoins', 'crypto', 'heatmap', 'economic-stress'],
+    panelKeys: ['commodities', 'markets', 'economic', 'economic-stress', 'trade-policy', 'supply-chain', 'finance', 'polymarket', 'macro-signals', 'etf-flows', 'stablecoins', 'crypto', 'heatmap'],
     variants: ['full'],
   },
   topical: {
@@ -648,7 +648,17 @@ export const PANEL_CATEGORY_MAP: Record<string, { labelKey: string; panelKeys: s
   },
   dataTracking: {
     labelKey: 'header.panelCatDataTracking',
-    panelKeys: ['monitors', 'satellite-fires', 'earthquakes', 'cyber-threats', 'ucdp-events', 'airstrikes', 'displacement', 'climate', 'population-exposure', 'security-advisories', 'oref-sirens', 'disease-outbreaks', 'space-weather', 'air-quality', 'gdacs-alerts', 'volcano-alerts', 'nws-alerts', 'comms-health', 'radiation-decay', 'resource-inventory'],
+    panelKeys: ['monitors', 'cyber-threats', 'comms-health', 'ucdp-events', 'airstrikes', 'displacement', 'security-advisories', 'oref-sirens', 'space-weather', 'population-exposure'],
+    variants: ['full'],
+  },
+  hazards: {
+    labelKey: 'header.panelCatHazards',
+    panelKeys: ['satellite-fires', 'earthquakes', 'gdacs-alerts', 'volcano-alerts', 'nws-alerts', 'tsunami-alerts', 'tropical-cyclones', 'climate'],
+    variants: ['full'],
+  },
+  healthEnv: {
+    labelKey: 'header.panelCatHealthEnv',
+    panelKeys: ['disease-outbreaks', 'air-quality', 'food-insecurity', 'radiation-decay', 'resource-inventory'],
     variants: ['full'],
   },
 
