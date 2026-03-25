@@ -16,6 +16,7 @@ const cargoLockPath = path.join(repoRoot, 'src-tauri', 'Cargo.lock');
 function parseArgs(argv) {
   const options = {
     allowExistingTargetRelease: false,
+    remote: '',
     variant: 'full',
   };
 
@@ -30,8 +31,17 @@ function parseArgs(argv) {
       i += 1;
       continue;
     }
+    if (arg === '--remote') {
+      options.remote = argv[i + 1] ?? '';
+      i += 1;
+      continue;
+    }
     if (arg.startsWith('--variant=')) {
       options.variant = arg.slice('--variant='.length);
+      continue;
+    }
+    if (arg.startsWith('--remote=')) {
+      options.remote = arg.slice('--remote='.length);
       continue;
     }
     throw new Error(`Unknown argument: ${arg}`);
