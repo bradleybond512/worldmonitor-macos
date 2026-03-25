@@ -133,6 +133,9 @@ export const COMMANDS: Command[] = [
   { id: 'panel:grocery-basket', keywords: ['grocery', 'grocery basket', 'grocery index', 'food prices', 'supermarket'], label: 'Panel: Grocery Index', icon: '\u{1F96C}', category: 'panels' },
   { id: 'panel:bigmac', keywords: ['bigmac', 'big mac', 'big mac index', 'purchasing power parity', 'ppp'], label: 'Panel: Big Mac Index', icon: '\u{1F354}', category: 'panels' },
   { id: 'panel:national-debt', keywords: ['national debt', 'debt clock', 'government debt', 'deficit'], label: 'Panel: National Debt Clock', icon: '\u{1F4B8}', category: 'panels' },
+  { id: 'panel:fear-greed', keywords: ['fear greed', 'sentiment', 'market sentiment', 'crypto sentiment'], label: 'Panel: Fear & Greed Index', icon: '\u{1F4CA}', category: 'panels' },
+  { id: 'panel:internet-disruptions', keywords: ['internet disruptions', 'bgp', 'ddos', 'outages', 'submarine cables'], label: 'Panel: Internet Disruptions', icon: '\u{1F4E1}', category: 'panels' },
+  { id: 'panel:fuel-prices', keywords: ['fuel prices', 'gasoline', 'diesel', 'gas prices', 'eia'], label: 'Panel: Fuel Prices', icon: '\u26FD', category: 'panels' },
 
   // Crypto panels
   { id: 'panel:crypto-heatmap', keywords: ['crypto sectors', 'crypto heatmap', 'altcoin sectors'], label: 'Panel: Crypto Sectors', icon: '\u{1F7E9}', category: 'panels' },
