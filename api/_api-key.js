@@ -42,26 +42,24 @@ function isTrustedBrowserRequest(req, origin) {
 export function validateApiKey(req) {
   const key = req.headers.get('X-WorldMonitor-Key');
   const origin = req.headers.get('Origin') || '';
-  const validKeys = (process.env.WORLDMONITOR_VALID_KEYS || '').split(',').filter(Boolean);
+  const validKeys = new Set((process.env.WORLDMONITOR_VALID_KEYS || '').split(',').filter(Boolean));
 
   // Desktop app — always require API key
   if (isDesktopOrigin(origin)) {
     if (!key) return { valid: false, required: true, error: 'API key required for desktop access' };
-    if (!validKeys.includes(key)) return { valid: false, required: true, error: 'Invalid API key' };
+    if (!validKeys.has(key)) return { valid: false, required: true, error: 'Invalid API key' };
     return { valid: true, required: true };
   }
 
   // Trusted browser requests must look like real browser fetches, not just spoofed headers.
   if (isTrustedBrowserRequest(req, origin)) {
-    if (key) {
-      if (!validKeys.includes(key)) return { valid: false, required: true, error: 'Invalid API key' };
-    }
+    if (key && !validKeys.has(key)) return { valid: false, required: true, error: 'Invalid API key' };
     return { valid: true, required: false };
   }
 
   // Explicit key provided from unknown origin — validate it
   if (key) {
-    if (!validKeys.includes(key)) return { valid: false, required: true, error: 'Invalid API key' };
+    if (!validKeys.has(key)) return { valid: false, required: true, error: 'Invalid API key' };
     return { valid: true, required: true };
   }
 

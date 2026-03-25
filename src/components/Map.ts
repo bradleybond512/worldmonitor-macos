@@ -134,7 +134,7 @@ export class MapComponent {
   private militaryVessels: MilitaryVessel[] = [];
   private militaryVesselClusters: MilitaryVesselCluster[] = [];
   private naturalEvents: NaturalEvent[] = [];
-  private firmsFireData: Array<{ lat: number; lon: number; brightness: number; frp: number; confidence: number; region: string; acq_date: string; daynight: string }> = [];
+  private firmsFireData: { lat: number; lon: number; brightness: number; frp: number; confidence: number; region: string; acq_date: string; daynight: string }[] = [];
   private techEvents: TechEventMarker[] = [];
   private techActivities: TechHubActivity[] = [];
   private geoActivities: GeoHubActivity[] = [];
@@ -174,24 +174,24 @@ export class MapComponent {
     const svgElement = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     svgElement.classList.add('map-svg');
     svgElement.id = 'mapSvg';
-    this.wrapper.appendChild(svgElement);
+    this.wrapper.append(svgElement);
 
     this.clusterCanvas = document.createElement('canvas');
     this.clusterCanvas.className = 'map-cluster-canvas';
     this.clusterCanvas.id = 'mapClusterCanvas';
-    this.wrapper.appendChild(this.clusterCanvas);
+    this.wrapper.append(this.clusterCanvas);
 
     // Overlays inside wrapper so they transform together on zoom/pan
     this.overlays = document.createElement('div');
     this.overlays.id = 'mapOverlays';
-    this.wrapper.appendChild(this.overlays);
+    this.wrapper.append(this.overlays);
 
-    container.appendChild(this.wrapper);
-    container.appendChild(this.createControls());
-    container.appendChild(this.createTimeSlider());
-    container.appendChild(this.createLayerToggles());
-    container.appendChild(this.createLegend());
-    this.healthCheckIntervalId = setInterval(() => this.runHealthCheck(), 30000);
+    container.append(this.wrapper);
+    container.append(this.createControls());
+    container.append(this.createTimeSlider());
+    container.append(this.createLayerToggles());
+    container.append(this.createLegend());
+    this.healthCheckIntervalId = setInterval(() => this.runHealthCheck(), 30_000);
 
     this.svg = d3.select(svgElement);
     this.baseLayerGroup = this.svg.append('g').attr('class', 'map-base');
@@ -415,7 +415,7 @@ export class MapComponent {
       btn.dataset.layer = layer;
       btn.textContent = getLayerLabel(layer);
       btn.addEventListener('click', () => this.toggleLayer(layer));
-      toggles.appendChild(btn);
+      toggles.append(btn);
     });
 
     // Add help button
@@ -424,7 +424,7 @@ export class MapComponent {
     helpBtn.textContent = '?';
     helpBtn.title = t('components.deckgl.layerGuide');
     helpBtn.addEventListener('click', () => this.showLayerHelp());
-    toggles.appendChild(helpBtn);
+    toggles.append(helpBtn);
 
     return toggles;
   }
@@ -556,9 +556,9 @@ export class MapComponent {
 
     popup.innerHTML = SITE_VARIANT === 'tech'
       ? techHelpContent
-      : SITE_VARIANT === 'finance'
+      : (SITE_VARIANT === 'finance'
       ? financeHelpContent
-      : fullHelpContent;
+      : fullHelpContent);
 
     popup.querySelector('.layer-help-close')?.addEventListener('click', () => popup.remove());
 
@@ -580,7 +580,7 @@ export class MapComponent {
       document.addEventListener('click', closeHandler);
     }, 100);
 
-    this.container.appendChild(popup);
+    this.container.append(popup);
   }
 
   private syncLayerButtons(): void {
@@ -724,7 +724,7 @@ export class MapComponent {
     let touchDragActive = false;
     let lastDragEndTime = 0;
     const TOUCH_DRAG_THRESHOLD = 8;
-    const touchHistory: Array<{ x: number; y: number; t: number }> = [];
+    const touchHistory: { x: number; y: number; t: number }[] = [];
     let inertiaRaf = 0;
 
     this.container.addEventListener('touchstart', (e) => {
@@ -876,8 +876,8 @@ export class MapComponent {
       this.render();
       // Re-render after layout stabilizes to catch full container width
       requestAnimationFrame(() => requestAnimationFrame(() => this.render()));
-    } catch (e) {
-      console.error('Failed to load map data:', e);
+    } catch (error) {
+      console.error('Failed to load map data:', error);
     }
   }
 
@@ -972,7 +972,7 @@ export class MapComponent {
       this.baseHeight = height;
       // Use native DOM clear for guaranteed effect
       const baseNode = this.baseLayerGroup.node()!;
-      while (baseNode.firstChild) baseNode.removeChild(baseNode.firstChild);
+      while (baseNode.firstChild) baseNode.firstChild.remove();
 
       // Background - extend well beyond viewBox to cover pan/zoom transforms
       // 3x size in each direction ensures no black bars when panning
@@ -1001,7 +1001,7 @@ export class MapComponent {
 
     // Always rebuild dynamic layer - use native DOM clear for reliability
     const dynamicNode = this.dynamicLayerGroup.node()!;
-    while (dynamicNode.firstChild) dynamicNode.removeChild(dynamicNode.firstChild);
+    while (dynamicNode.firstChild) dynamicNode.firstChild.remove();
     // Create overlays-svg group for SVG-based overlays (military tracks, etc.)
     this.dynamicLayerGroup.append('g').attr('class', 'overlays-svg');
 
@@ -1149,7 +1149,7 @@ export class MapComponent {
       const cableAdvisory = this.getCableAdvisory(cable.id);
       const advisoryClass = cableAdvisory ? `cable-${cableAdvisory.severity}` : '';
       const healthRecord = this.healthByCableId[cable.id];
-      const healthClass = healthRecord?.status === 'fault' ? 'cable-health-fault' : healthRecord?.status === 'degraded' ? 'cable-health-degraded' : '';
+      const healthClass = healthRecord?.status === 'fault' ? 'cable-health-fault' : (healthRecord?.status === 'degraded' ? 'cable-health-degraded' : '');
       const highlightClass = isHighlighted ? 'asset-highlight asset-highlight-cable' : '';
 
       const path = cableGroup
@@ -1274,8 +1274,8 @@ export class MapComponent {
     projection: d3.GeoProjection,
     pixelRadius: number,
     getGroupKey?: (item: T) => string
-  ): Array<{ items: T[]; center: [number, number]; pos: [number, number] }> {
-    const clusters: Array<{ items: T[]; center: [number, number]; pos: [number, number] }> = [];
+  ): { items: T[]; center: [number, number]; pos: [number, number] }[] {
+    const clusters: { items: T[]; center: [number, number]; pos: [number, number] }[] = [];
     const assigned = new Set<number>();
 
     for (let i = 0; i < items.length; i++) {
@@ -1304,7 +1304,7 @@ export class MapComponent {
 
         const dx = pos[0] - otherPos[0];
         const dy = pos[1] - otherPos[1];
-        const dist = Math.sqrt(dx * dx + dy * dy);
+        const dist = Math.hypot(dx, dy);
 
         if (dist <= pixelRadius) {
           cluster.push(other);
@@ -1376,7 +1376,7 @@ export class MapComponent {
           });
         });
 
-        this.overlays.appendChild(div);
+        this.overlays.append(div);
       });
     }
 
@@ -1403,7 +1403,7 @@ export class MapComponent {
           });
         });
 
-        this.overlays.appendChild(div);
+        this.overlays.append(div);
       });
     }
 
@@ -1432,7 +1432,7 @@ export class MapComponent {
           });
         });
 
-        this.overlays.appendChild(clickArea);
+        this.overlays.append(clickArea);
       });
     }
 
@@ -1442,10 +1442,10 @@ export class MapComponent {
         const pos = projection([ev.longitude, ev.latitude]);
         if (!pos || !Number.isFinite(pos[0]) || !Number.isFinite(pos[1])) return;
 
-        const size = ev.severity === 'high' ? 14 : ev.severity === 'medium' ? 11 : 8;
+        const size = ev.severity === 'high' ? 14 : (ev.severity === 'medium' ? 11 : 8);
         const color = ev.category === 'military' ? 'rgba(255,50,50,0.85)'
-          : (ev.category === 'politics' || ev.category === 'diplomacy') ? 'rgba(255,165,0,0.8)'
-          : 'rgba(255,255,0,0.7)';
+          : ((ev.category === 'politics' || ev.category === 'diplomacy') ? 'rgba(255,165,0,0.8)'
+          : 'rgba(255,255,0,0.7)');
 
         const div = document.createElement('div');
         div.className = 'iran-event-marker';
@@ -1467,7 +1467,7 @@ export class MapComponent {
           });
         });
 
-        this.overlays.appendChild(div);
+        this.overlays.append(div);
       });
     }
 
@@ -1501,7 +1501,7 @@ export class MapComponent {
           this.onHotspotClick?.(spot);
         });
 
-        this.overlays.appendChild(div);
+        this.overlays.append(div);
       });
     }
 
@@ -1520,7 +1520,7 @@ export class MapComponent {
         const label = document.createElement('div');
         label.className = 'base-label';
         label.textContent = base.name;
-        div.appendChild(label);
+        div.append(label);
 
         div.addEventListener('click', (e) => {
           e.stopPropagation();
@@ -1533,7 +1533,7 @@ export class MapComponent {
           });
         });
 
-        this.overlays.appendChild(div);
+        this.overlays.append(div);
       });
     }
 
@@ -1565,7 +1565,7 @@ export class MapComponent {
         const label = document.createElement('div');
         label.className = 'earthquake-label';
         label.textContent = `M${eq.magnitude.toFixed(1)}`;
-        div.appendChild(label);
+        div.append(label);
 
         div.addEventListener('click', (e) => {
           e.stopPropagation();
@@ -1578,7 +1578,7 @@ export class MapComponent {
           });
         });
 
-        this.overlays.appendChild(div);
+        this.overlays.append(div);
       });
       console.log('[Map] Actually rendered', rendered, 'earthquake markers');
     }
@@ -1596,8 +1596,8 @@ export class MapComponent {
 
         const icon = document.createElement('div');
         icon.className = 'economic-icon';
-        icon.textContent = center.type === 'exchange' ? '📈' : center.type === 'central-bank' ? '🏛' : '💰';
-        div.appendChild(icon);
+        icon.textContent = center.type === 'exchange' ? '📈' : (center.type === 'central-bank' ? '🏛' : '💰');
+        div.append(icon);
         div.title = center.name;
 
         div.addEventListener('click', (e) => {
@@ -1611,7 +1611,7 @@ export class MapComponent {
           });
         });
 
-        this.overlays.appendChild(div);
+        this.overlays.append(div);
       });
     }
 
@@ -1631,7 +1631,7 @@ export class MapComponent {
         const icon = document.createElement('div');
         icon.className = 'weather-icon';
         icon.textContent = '⚠';
-        div.appendChild(icon);
+        div.append(icon);
 
         div.addEventListener('click', (e) => {
           e.stopPropagation();
@@ -1644,7 +1644,7 @@ export class MapComponent {
           });
         });
 
-        this.overlays.appendChild(div);
+        this.overlays.append(div);
       });
     }
 
@@ -1662,12 +1662,12 @@ export class MapComponent {
         const icon = document.createElement('div');
         icon.className = 'outage-icon';
         icon.textContent = '📡';
-        div.appendChild(icon);
+        div.append(icon);
 
         const label = document.createElement('div');
         label.className = 'outage-label';
         label.textContent = outage.country;
-        div.appendChild(label);
+        div.append(label);
 
         div.addEventListener('click', (e) => {
           e.stopPropagation();
@@ -1680,7 +1680,7 @@ export class MapComponent {
           });
         });
 
-        this.overlays.appendChild(div);
+        this.overlays.append(div);
       });
     }
 
@@ -1698,12 +1698,12 @@ export class MapComponent {
         const icon = document.createElement('div');
         icon.className = 'cable-advisory-icon';
         icon.textContent = advisory.severity === 'fault' ? '⚡' : '⚠';
-        div.appendChild(icon);
+        div.append(icon);
 
         const label = document.createElement('div');
         label.className = 'cable-advisory-label';
         label.textContent = this.getCableName(advisory.cableId);
-        div.appendChild(label);
+        div.append(label);
 
         div.addEventListener('click', (e) => {
           e.stopPropagation();
@@ -1716,7 +1716,7 @@ export class MapComponent {
           });
         });
 
-        this.overlays.appendChild(div);
+        this.overlays.append(div);
       });
 
       this.repairShips.forEach((ship) => {
@@ -1731,12 +1731,12 @@ export class MapComponent {
         const icon = document.createElement('div');
         icon.className = 'repair-ship-icon';
         icon.textContent = '🚢';
-        div.appendChild(icon);
+        div.append(icon);
 
         const label = document.createElement('div');
         label.className = 'repair-ship-label';
         label.textContent = ship.name;
-        div.appendChild(label);
+        div.append(label);
 
         div.addEventListener('click', (e) => {
           e.stopPropagation();
@@ -1749,12 +1749,12 @@ export class MapComponent {
           });
         });
 
-        this.overlays.appendChild(div);
+        this.overlays.append(div);
       });
     }
 
     // AI Data Centers (always HTML - 🖥️ icons, filter to ≥10k GPUs)
-    const MIN_GPU_COUNT = 10000;
+    const MIN_GPU_COUNT = 10_000;
     if (this.state.layers.datacenters) {
       AI_DATA_CENTERS.filter(dc => (dc.chipCount || 0) >= MIN_GPU_COUNT).forEach((dc) => {
         const pos = projection([dc.lon, dc.lat]);
@@ -1769,7 +1769,7 @@ export class MapComponent {
         const icon = document.createElement('div');
         icon.className = 'datacenter-icon';
         icon.textContent = '🖥️';
-        div.appendChild(icon);
+        div.append(icon);
 
         div.addEventListener('click', (e) => {
           e.stopPropagation();
@@ -1782,7 +1782,7 @@ export class MapComponent {
           });
         });
 
-        this.overlays.appendChild(div);
+        this.overlays.append(div);
       });
     }
 
@@ -1800,12 +1800,12 @@ export class MapComponent {
         const icon = document.createElement('div');
         icon.className = 'spaceport-icon';
         icon.textContent = '🚀';
-        div.appendChild(icon);
+        div.append(icon);
 
         const label = document.createElement('div');
         label.className = 'spaceport-label';
         label.textContent = port.name;
-        div.appendChild(label);
+        div.append(label);
 
         div.addEventListener('click', (e) => {
           e.stopPropagation();
@@ -1818,7 +1818,7 @@ export class MapComponent {
           });
         });
 
-        this.overlays.appendChild(div);
+        this.overlays.append(div);
       });
     }
 
@@ -1836,13 +1836,13 @@ export class MapComponent {
         const icon = document.createElement('div');
         icon.className = 'mineral-icon';
         // Select icon based on mineral type
-        icon.textContent = mine.mineral === 'Lithium' ? '🔋' : mine.mineral === 'Rare Earths' ? '🧲' : '💎';
-        div.appendChild(icon);
+        icon.textContent = mine.mineral === 'Lithium' ? '🔋' : (mine.mineral === 'Rare Earths' ? '🧲' : '💎');
+        div.append(icon);
 
         const label = document.createElement('div');
         label.className = 'mineral-label';
         label.textContent = `${mine.mineral} - ${mine.name}`;
-        div.appendChild(label);
+        div.append(label);
 
         div.addEventListener('click', (e) => {
           e.stopPropagation();
@@ -1855,7 +1855,7 @@ export class MapComponent {
           });
         });
 
-        this.overlays.appendChild(div);
+        this.overlays.append(div);
       });
     }
 
@@ -1874,14 +1874,14 @@ export class MapComponent {
 
         const icon = document.createElement('div');
         icon.className = 'startup-hub-icon';
-        icon.textContent = hub.tier === 'mega' ? '🦄' : hub.tier === 'major' ? '🚀' : '💡';
-        div.appendChild(icon);
+        icon.textContent = hub.tier === 'mega' ? '🦄' : (hub.tier === 'major' ? '🚀' : '💡');
+        div.append(icon);
 
         if (this.state.zoom >= 2 || hub.tier === 'mega') {
           const label = document.createElement('div');
           label.className = 'startup-hub-label';
           label.textContent = hub.name;
-          div.appendChild(label);
+          div.append(label);
         }
 
         div.addEventListener('click', (e) => {
@@ -1895,7 +1895,7 @@ export class MapComponent {
           });
         });
 
-        this.overlays.appendChild(div);
+        this.overlays.append(div);
       });
     }
 
@@ -1915,13 +1915,13 @@ export class MapComponent {
         // Provider-specific icons
         const icons: Record<string, string> = { aws: '🟠', gcp: '🔵', azure: '🟣', cloudflare: '🟡' };
         icon.textContent = icons[region.provider] || '☁️';
-        div.appendChild(icon);
+        div.append(icon);
 
         if (this.state.zoom >= 3) {
           const label = document.createElement('div');
           label.className = 'cloud-region-label';
           label.textContent = region.provider.toUpperCase();
-          div.appendChild(label);
+          div.append(label);
         }
 
         div.addEventListener('click', (e) => {
@@ -1935,14 +1935,14 @@ export class MapComponent {
           });
         });
 
-        this.overlays.appendChild(div);
+        this.overlays.append(div);
       });
     }
 
     // Tech HQs (🏢 icons by company type) - with clustering by city
     if (this.state.layers.techHQs) {
       // Cluster radius depends on zoom - tighter clustering when zoomed out
-      const clusterRadius = this.state.zoom >= 4 ? 15 : this.state.zoom >= 3 ? 25 : 40;
+      const clusterRadius = this.state.zoom >= 4 ? 15 : (this.state.zoom >= 3 ? 25 : 40);
       // Group by city to prevent clustering companies from different cities
       const clusters = this.clusterMarkers(TECH_HQS, projection, clusterRadius, hq => hq.city);
 
@@ -1963,25 +1963,25 @@ export class MapComponent {
           // Show count for clusters
           const unicornCount = cluster.items.filter(h => h.type === 'unicorn').length;
           const faangCount = cluster.items.filter(h => h.type === 'faang').length;
-          icon.textContent = faangCount > 0 ? '🏛️' : unicornCount > 0 ? '🦄' : '🏢';
+          icon.textContent = faangCount > 0 ? '🏛️' : (unicornCount > 0 ? '🦄' : '🏢');
 
           const badge = document.createElement('div');
           badge.className = 'cluster-badge';
           badge.textContent = String(cluster.items.length);
-          div.appendChild(badge);
+          div.append(badge);
 
           div.title = cluster.items.map(h => h.company).join(', ');
         } else {
-          icon.textContent = primaryItem.type === 'faang' ? '🏛️' : primaryItem.type === 'unicorn' ? '🦄' : '🏢';
+          icon.textContent = primaryItem.type === 'faang' ? '🏛️' : (primaryItem.type === 'unicorn' ? '🦄' : '🏢');
         }
-        div.appendChild(icon);
+        div.append(icon);
 
         // Show label at higher zoom or for single FAANG markers
         if (!isCluster && (this.state.zoom >= 3 || primaryItem.type === 'faang')) {
           const label = document.createElement('div');
           label.className = 'tech-hq-label';
           label.textContent = primaryItem.company;
-          div.appendChild(label);
+          div.append(label);
         }
 
         div.addEventListener('click', (e) => {
@@ -2005,7 +2005,7 @@ export class MapComponent {
           }
         });
 
-        this.overlays.appendChild(div);
+        this.overlays.append(div);
       });
     }
 
@@ -2022,14 +2022,14 @@ export class MapComponent {
 
         const icon = document.createElement('div');
         icon.className = 'accelerator-icon';
-        icon.textContent = acc.type === 'accelerator' ? '🎯' : acc.type === 'incubator' ? '🔬' : '🎨';
-        div.appendChild(icon);
+        icon.textContent = acc.type === 'accelerator' ? '🎯' : (acc.type === 'incubator' ? '🔬' : '🎨');
+        div.append(icon);
 
         if (this.state.zoom >= 3) {
           const label = document.createElement('div');
           label.className = 'accelerator-label';
           label.textContent = acc.name;
-          div.appendChild(label);
+          div.append(label);
         }
 
         div.addEventListener('click', (e) => {
@@ -2043,7 +2043,7 @@ export class MapComponent {
           });
         });
 
-        this.overlays.appendChild(div);
+        this.overlays.append(div);
       });
     }
 
@@ -2060,7 +2060,7 @@ export class MapComponent {
           return pos && pos[0] >= 0 && pos[0] <= mapWidth && pos[1] >= 0 && pos[1] <= mapHeight;
         });
 
-      const clusterRadius = this.state.zoom >= 4 ? 15 : this.state.zoom >= 3 ? 25 : 40;
+      const clusterRadius = this.state.zoom >= 4 ? 15 : (this.state.zoom >= 3 ? 25 : 40);
       // Group by location to prevent clustering events from different cities
       const clusters = this.clusterMarkers(visibleEvents, projection, clusterRadius, e => e.location);
 
@@ -2079,7 +2079,7 @@ export class MapComponent {
           const badge = document.createElement('div');
           badge.className = 'cluster-badge';
           badge.textContent = String(cluster.items.length);
-          div.appendChild(badge);
+          div.append(badge);
           div.title = cluster.items.map(e => e.title).join(', ');
         }
 
@@ -2103,7 +2103,7 @@ export class MapComponent {
           }
         });
 
-        this.overlays.appendChild(div);
+        this.overlays.append(div);
       });
     }
 
@@ -2113,7 +2113,7 @@ export class MapComponent {
         const pos = projection([exchange.lon, exchange.lat]);
         if (!pos || !Number.isFinite(pos[0]) || !Number.isFinite(pos[1])) return;
 
-        const icon = exchange.tier === 'mega' ? '🏛️' : exchange.tier === 'major' ? '📊' : '📈';
+        const icon = exchange.tier === 'mega' ? '🏛️' : (exchange.tier === 'major' ? '📊' : '📈');
         const div = document.createElement('div');
         div.className = `map-marker exchange-marker tier-${exchange.tier}`;
         div.style.left = `${pos[0]}px`;
@@ -2126,7 +2126,7 @@ export class MapComponent {
           const label = document.createElement('span');
           label.className = 'marker-label';
           label.textContent = exchange.shortName;
-          div.appendChild(label);
+          div.append(label);
         }
 
         div.addEventListener('click', (e) => {
@@ -2140,7 +2140,7 @@ export class MapComponent {
           });
         });
 
-        this.overlays.appendChild(div);
+        this.overlays.append(div);
       });
     }
 
@@ -2150,7 +2150,7 @@ export class MapComponent {
         const pos = projection([center.lon, center.lat]);
         if (!pos || !Number.isFinite(pos[0]) || !Number.isFinite(pos[1])) return;
 
-        const icon = center.type === 'global' ? '💰' : center.type === 'regional' ? '🏦' : '🏝️';
+        const icon = center.type === 'global' ? '💰' : (center.type === 'regional' ? '🏦' : '🏝️');
         const div = document.createElement('div');
         div.className = `map-marker financial-center-marker type-${center.type}`;
         div.style.left = `${pos[0]}px`;
@@ -2163,7 +2163,7 @@ export class MapComponent {
           const label = document.createElement('span');
           label.className = 'marker-label';
           label.textContent = center.name;
-          div.appendChild(label);
+          div.append(label);
         }
 
         div.addEventListener('click', (e) => {
@@ -2177,7 +2177,7 @@ export class MapComponent {
           });
         });
 
-        this.overlays.appendChild(div);
+        this.overlays.append(div);
       });
     }
 
@@ -2187,12 +2187,12 @@ export class MapComponent {
         const pos = projection([bank.lon, bank.lat]);
         if (!pos || !Number.isFinite(pos[0]) || !Number.isFinite(pos[1])) return;
 
-        const icon = bank.type === 'supranational' ? '🌐' : bank.type === 'major' ? '🏛️' : '🏦';
+        const icon = bank.type === 'supranational' ? '🌐' : (bank.type === 'major' ? '🏛️' : '🏦');
         const div = document.createElement('div');
         div.className = `map-marker central-bank-marker type-${bank.type}`;
         div.style.left = `${pos[0]}px`;
         div.style.top = `${pos[1]}px`;
-        div.style.zIndex = bank.type === 'supranational' ? '48' : bank.type === 'major' ? '42' : '38';
+        div.style.zIndex = bank.type === 'supranational' ? '48' : (bank.type === 'major' ? '42' : '38');
         div.textContent = icon;
         div.title = `${bank.shortName} - ${bank.name}`;
 
@@ -2200,7 +2200,7 @@ export class MapComponent {
           const label = document.createElement('span');
           label.className = 'marker-label';
           label.textContent = bank.shortName;
-          div.appendChild(label);
+          div.append(label);
         }
 
         div.addEventListener('click', (e) => {
@@ -2214,7 +2214,7 @@ export class MapComponent {
           });
         });
 
-        this.overlays.appendChild(div);
+        this.overlays.append(div);
       });
     }
 
@@ -2224,7 +2224,7 @@ export class MapComponent {
         const pos = projection([hub.lon, hub.lat]);
         if (!pos || !Number.isFinite(pos[0]) || !Number.isFinite(pos[1])) return;
 
-        const icon = hub.type === 'exchange' ? '📦' : hub.type === 'port' ? '🚢' : '⛽';
+        const icon = hub.type === 'exchange' ? '📦' : (hub.type === 'port' ? '🚢' : '⛽');
         const div = document.createElement('div');
         div.className = `map-marker commodity-hub-marker type-${hub.type}`;
         div.style.left = `${pos[0]}px`;
@@ -2237,7 +2237,7 @@ export class MapComponent {
           const label = document.createElement('span');
           label.className = 'marker-label';
           label.textContent = hub.name;
-          div.appendChild(label);
+          div.append(label);
         }
 
         div.addEventListener('click', (e) => {
@@ -2251,7 +2251,7 @@ export class MapComponent {
           });
         });
 
-        this.overlays.appendChild(div);
+        this.overlays.append(div);
       });
     }
 
@@ -2268,7 +2268,7 @@ export class MapComponent {
         div.className = `tech-activity-marker ${activity.activityLevel}`;
         div.style.left = `${pos[0]}px`;
         div.style.top = `${pos[1]}px`;
-        div.style.zIndex = activity.activityLevel === 'high' ? '60' : activity.activityLevel === 'elevated' ? '50' : '40';
+        div.style.zIndex = activity.activityLevel === 'high' ? '60' : (activity.activityLevel === 'elevated' ? '50' : '40');
         div.title = `${activity.city}: ${activity.newsCount} stories`;
 
         div.addEventListener('click', (e) => {
@@ -2283,7 +2283,7 @@ export class MapComponent {
           });
         });
 
-        this.overlays.appendChild(div);
+        this.overlays.append(div);
 
         // Add label for high/elevated activity hubs at sufficient zoom
         if ((activity.activityLevel === 'high' || (activity.activityLevel === 'elevated' && this.state.zoom >= 2)) && this.state.zoom >= 1.5) {
@@ -2292,7 +2292,7 @@ export class MapComponent {
           label.textContent = activity.city;
           label.style.left = `${pos[0]}px`;
           label.style.top = `${pos[1] + 14}px`;
-          this.overlays.appendChild(label);
+          this.overlays.append(label);
         }
       });
     }
@@ -2310,7 +2310,7 @@ export class MapComponent {
         div.className = `geo-activity-marker ${activity.activityLevel}`;
         div.style.left = `${pos[0]}px`;
         div.style.top = `${pos[1]}px`;
-        div.style.zIndex = activity.activityLevel === 'high' ? '60' : activity.activityLevel === 'elevated' ? '50' : '40';
+        div.style.zIndex = activity.activityLevel === 'high' ? '60' : (activity.activityLevel === 'elevated' ? '50' : '40');
         div.title = `${activity.name}: ${activity.newsCount} stories`;
 
         div.addEventListener('click', (e) => {
@@ -2325,7 +2325,7 @@ export class MapComponent {
           });
         });
 
-        this.overlays.appendChild(div);
+        this.overlays.append(div);
       });
     }
 
@@ -2338,7 +2338,7 @@ export class MapComponent {
         return event.eventType === 'riot' || event.severity === 'high';
       });
 
-      const clusterRadius = this.state.zoom >= 4 ? 12 : this.state.zoom >= 3 ? 20 : 35;
+      const clusterRadius = this.state.zoom >= 4 ? 12 : (this.state.zoom >= 3 ? 20 : 35);
       const clusters = this.clusterMarkers(significantProtests, projection, clusterRadius, p => p.country);
 
       clusters.forEach((cluster) => {
@@ -2355,14 +2355,14 @@ export class MapComponent {
 
         const icon = document.createElement('div');
         icon.className = 'protest-icon';
-        icon.textContent = hasRiot ? '🔥' : primaryEvent.eventType === 'strike' ? '✊' : '📢';
-        div.appendChild(icon);
+        icon.textContent = hasRiot ? '🔥' : (primaryEvent.eventType === 'strike' ? '✊' : '📢');
+        div.append(icon);
 
         if (isCluster) {
           const badge = document.createElement('div');
           badge.className = 'cluster-badge';
           badge.textContent = String(cluster.items.length);
-          div.appendChild(badge);
+          div.append(badge);
           div.title = `${primaryEvent.country}: ${cluster.items.length} ${t('popups.events')}`;
         } else {
           div.title = `${primaryEvent.city || primaryEvent.country} - ${primaryEvent.eventType} (${primaryEvent.severity})`;
@@ -2391,7 +2391,7 @@ export class MapComponent {
           }
         });
 
-        this.overlays.appendChild(div);
+        this.overlays.append(div);
       });
     }
 
@@ -2408,14 +2408,14 @@ export class MapComponent {
 
         const icon = document.createElement('div');
         icon.className = 'flight-delay-icon';
-        icon.textContent = delay.delayType === 'ground_stop' ? '🛑' : delay.severity === 'severe' ? '✈️' : '🛫';
-        div.appendChild(icon);
+        icon.textContent = delay.delayType === 'ground_stop' ? '🛑' : (delay.severity === 'severe' ? '✈️' : '🛫');
+        div.append(icon);
 
         if (this.state.zoom >= 3) {
           const label = document.createElement('div');
           label.className = 'flight-delay-label';
           label.textContent = `${delay.iata} ${delay.avgDelayMinutes > 0 ? `+${delay.avgDelayMinutes}m` : ''}`;
-          div.appendChild(label);
+          div.append(label);
         }
 
         div.addEventListener('click', (e) => {
@@ -2429,7 +2429,7 @@ export class MapComponent {
           });
         });
 
-        this.overlays.appendChild(div);
+        this.overlays.append(div);
       });
     }
 
@@ -2450,14 +2450,14 @@ export class MapComponent {
         icon.className = `military-flight-icon ${flight.aircraftType}`;
         icon.style.transform = `rotate(${flight.heading}deg)`;
         // CSS handles the crosshair rendering
-        div.appendChild(icon);
+        div.append(icon);
 
         // Show callsign at higher zoom levels
         if (this.state.zoom >= 3) {
           const label = document.createElement('div');
           label.className = 'military-flight-label';
           label.textContent = flight.callsign;
-          div.appendChild(label);
+          div.append(label);
         }
 
         // Show altitude indicator
@@ -2465,7 +2465,7 @@ export class MapComponent {
           const alt = document.createElement('div');
           alt.className = 'military-flight-altitude';
           alt.textContent = `FL${Math.round(flight.altitude / 100)}`;
-          div.appendChild(alt);
+          div.append(alt);
         }
 
         div.addEventListener('click', (e) => {
@@ -2479,7 +2479,7 @@ export class MapComponent {
           });
         });
 
-        this.overlays.appendChild(div);
+        this.overlays.append(div);
 
         // Render flight track if available
         if (flight.track && flight.track.length > 1 && this.state.zoom >= 2) {
@@ -2516,12 +2516,12 @@ export class MapComponent {
         const count = document.createElement('div');
         count.className = 'cluster-count';
         count.textContent = String(cluster.flightCount);
-        div.appendChild(count);
+        div.append(count);
 
         const label = document.createElement('div');
         label.className = 'cluster-label';
         label.textContent = cluster.name;
-        div.appendChild(label);
+        div.append(label);
 
         div.addEventListener('click', (e) => {
           e.stopPropagation();
@@ -2534,7 +2534,7 @@ export class MapComponent {
           });
         });
 
-        this.overlays.appendChild(div);
+        this.overlays.append(div);
       });
 
       // Military Vessels (warships, carriers, submarines)
@@ -2552,7 +2552,7 @@ export class MapComponent {
         icon.className = `military-vessel-icon ${vessel.vesselType}`;
         icon.style.transform = `rotate(${vessel.heading}deg)`;
         // CSS handles the diamond/anchor rendering
-        div.appendChild(icon);
+        div.append(icon);
 
         // Dark vessel warning indicator
         if (vessel.isDark) {
@@ -2560,7 +2560,7 @@ export class MapComponent {
           darkIndicator.className = 'dark-vessel-indicator';
           darkIndicator.textContent = '⚠️';
           darkIndicator.title = 'AIS Signal Lost';
-          div.appendChild(darkIndicator);
+          div.append(darkIndicator);
         }
 
         // Show vessel name at higher zoom
@@ -2568,7 +2568,7 @@ export class MapComponent {
           const label = document.createElement('div');
           label.className = 'military-vessel-label';
           label.textContent = vessel.name;
-          div.appendChild(label);
+          div.append(label);
         }
 
         div.addEventListener('click', (e) => {
@@ -2582,7 +2582,7 @@ export class MapComponent {
           });
         });
 
-        this.overlays.appendChild(div);
+        this.overlays.append(div);
 
         // Render vessel track if available
         if (vessel.track && vessel.track.length > 1 && this.state.zoom >= 2) {
@@ -2618,12 +2618,12 @@ export class MapComponent {
         const count = document.createElement('div');
         count.className = 'cluster-count';
         count.textContent = String(cluster.vesselCount);
-        div.appendChild(count);
+        div.append(count);
 
         const label = document.createElement('div');
         label.className = 'cluster-label';
         label.textContent = cluster.name;
-        div.appendChild(label);
+        div.append(label);
 
         div.addEventListener('click', (e) => {
           e.stopPropagation();
@@ -2636,7 +2636,7 @@ export class MapComponent {
           });
         });
 
-        this.overlays.appendChild(div);
+        this.overlays.append(div);
       });
     }
 
@@ -2654,20 +2654,20 @@ export class MapComponent {
         const icon = document.createElement('div');
         icon.className = 'nat-event-icon';
         icon.textContent = getNaturalEventIcon(event.category);
-        div.appendChild(icon);
+        div.append(icon);
 
         if (this.state.zoom >= 2) {
           const label = document.createElement('div');
           label.className = 'nat-event-label';
           label.textContent = event.title.length > 25 ? event.title.slice(0, 25) + '…' : event.title;
-          div.appendChild(label);
+          div.append(label);
         }
 
         if (event.magnitude) {
           const mag = document.createElement('div');
           mag.className = 'nat-event-magnitude';
           mag.textContent = `${event.magnitude}${event.magnitudeUnit ? ` ${event.magnitudeUnit}` : ''}`;
-          div.appendChild(mag);
+          div.append(mag);
         }
 
         div.addEventListener('click', (e) => {
@@ -2681,7 +2681,7 @@ export class MapComponent {
           });
         });
 
-        this.overlays.appendChild(div);
+        this.overlays.append(div);
       });
     }
 
@@ -2691,7 +2691,7 @@ export class MapComponent {
         const pos = projection([fire.lon, fire.lat]);
         if (!pos) return;
 
-        const color = fire.brightness > 400 ? getCSSColor('--semantic-critical') : fire.brightness > 350 ? getCSSColor('--semantic-high') : getCSSColor('--semantic-elevated');
+        const color = fire.brightness > 400 ? getCSSColor('--semantic-critical') : (fire.brightness > 350 ? getCSSColor('--semantic-high') : getCSSColor('--semantic-elevated'));
         const size = Math.max(4, Math.min(10, (fire.frp || 1) * 0.5));
 
         const dot = document.createElement('div');
@@ -2703,7 +2703,7 @@ export class MapComponent {
         dot.style.backgroundColor = color;
         dot.title = `${fire.region} — ${Math.round(fire.brightness)}K, ${fire.frp}MW`;
 
-        this.overlays.appendChild(dot);
+        this.overlays.append(dot);
       });
     }
   }
@@ -2721,7 +2721,7 @@ export class MapComponent {
 
       const diamond = document.createElement('div');
       diamond.className = 'waterway-diamond';
-      div.appendChild(diamond);
+      div.append(diamond);
 
       div.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -2734,7 +2734,7 @@ export class MapComponent {
         });
       });
 
-      this.overlays.appendChild(div);
+      this.overlays.append(div);
     });
   }
 
@@ -2751,12 +2751,12 @@ export class MapComponent {
       const icon = document.createElement('div');
       icon.className = 'ais-disruption-icon';
       icon.textContent = event.type === 'gap_spike' ? '🛰️' : '🚢';
-      div.appendChild(icon);
+      div.append(icon);
 
       const label = document.createElement('div');
       label.className = 'ais-disruption-label';
       label.textContent = event.name;
-      div.appendChild(label);
+      div.append(label);
 
       div.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -2769,7 +2769,7 @@ export class MapComponent {
         });
       });
 
-      this.overlays.appendChild(div);
+      this.overlays.append(div);
     });
   }
 
@@ -2811,13 +2811,13 @@ export class MapComponent {
 
       const icon = document.createElement('div');
       icon.className = 'port-icon';
-      icon.textContent = port.type === 'naval' ? '⚓' : port.type === 'oil' || port.type === 'lng' ? '🛢️' : '🏭';
-      div.appendChild(icon);
+      icon.textContent = port.type === 'naval' ? '⚓' : (port.type === 'oil' || port.type === 'lng' ? '🛢️' : '🏭');
+      div.append(icon);
 
       const label = document.createElement('div');
       label.className = 'port-label';
       label.textContent = port.name;
-      div.appendChild(label);
+      div.append(label);
 
       div.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -2830,7 +2830,7 @@ export class MapComponent {
         });
       });
 
-      this.overlays.appendChild(div);
+      this.overlays.append(div);
     });
   }
 
@@ -2859,7 +2859,7 @@ export class MapComponent {
         });
       });
 
-      this.overlays.appendChild(div);
+      this.overlays.append(div);
     });
   }
 
@@ -2969,7 +2969,7 @@ export class MapComponent {
     flash.style.left = `${pos[0]}px`;
     flash.style.top = `${pos[1]}px`;
     flash.style.setProperty('--flash-duration', `${durationMs}ms`);
-    this.overlays.appendChild(flash);
+    this.overlays.append(flash);
 
     window.setTimeout(() => {
       flash.remove();
@@ -2999,8 +2999,8 @@ export class MapComponent {
       america: { zoom: 1.8, pan: { x: 180, y: 30 } },
       mena: { zoom: 3.5, pan: { x: -100, y: 50 } },
       eu: { zoom: 2.4, pan: { x: -30, y: 100 } },
-      asia: { zoom: 2.0, pan: { x: -320, y: 40 } },
-      latam: { zoom: 2.0, pan: { x: 120, y: -100 } },
+      asia: { zoom: 2, pan: { x: -320, y: 40 } },
+      latam: { zoom: 2, pan: { x: 120, y: -100 } },
       africa: { zoom: 2.2, pan: { x: -40, y: -30 } },
       oceania: { zoom: 2.2, pan: { x: -420, y: -100 } },
     };
@@ -3012,7 +3012,7 @@ export class MapComponent {
     this.render();
   }
 
-  private static readonly ASYNC_DATA_LAYERS: Set<keyof MapLayers> = new Set([
+  private static readonly ASYNC_DATA_LAYERS = new Set<keyof MapLayers>([
     'natural', 'weather', 'outages', 'ais', 'protests', 'flights', 'military', 'techEvents',
   ]);
 
@@ -3072,11 +3072,7 @@ export class MapComponent {
     if (!btn) return;
 
     btn.classList.remove('loading');
-    if (this.state.layers[layer] && hasData) {
-      btn.classList.add('active');
-    } else {
-      btn.classList.remove('active');
-    }
+    btn.classList.toggle('active', this.state.layers[layer] && hasData);
   }
 
   public onStateChanged(callback: (state: MapState) => void): void {
@@ -3096,11 +3092,11 @@ export class MapComponent {
   public reset(): void {
     this.state.zoom = 1;
     this.state.pan = { x: 0, y: 0 };
-    if (this.state.view !== 'global') {
+    if (this.state.view === 'global') {
+      this.applyTransform();
+    } else {
       this.state.view = 'global';
       this.render();
-    } else {
-      this.applyTransform();
     }
   }
 
@@ -3601,7 +3597,7 @@ export class MapComponent {
     this.render();
   }
 
-  public setFires(fires: Array<{ lat: number; lon: number; brightness: number; frp: number; confidence: number; region: string; acq_date: string; daynight: string }>): void {
+  public setFires(fires: { lat: number; lon: number; brightness: number; frp: number; confidence: number; region: string; acq_date: string; daynight: string }[]): void {
     this.firmsFireData = fires;
     this.render();
   }
@@ -3620,7 +3616,7 @@ export class MapComponent {
     this.render();
   }
 
-  public setNewsLocations(_data: Array<{ lat: number; lon: number; title: string; threatLevel: string; timestamp?: Date }>): void {
+  public setNewsLocations(_data: { lat: number; lon: number; title: string; threatLevel: string; timestamp?: Date }[]): void {
     // SVG fallback: news locations rendered as simple circles
     // For now, skip on SVG map to keep mobile lightweight
   }
