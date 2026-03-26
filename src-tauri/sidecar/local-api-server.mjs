@@ -105,6 +105,7 @@ const ALLOWED_ENV_KEYS = new Set([
   'OTX_API_KEY', 'ABUSEIPDB_API_KEY', 'WINGBITS_API_KEY', 'WS_RELAY_URL',
   'VITE_OPENSKY_RELAY_URL', 'OPENSKY_CLIENT_ID', 'OPENSKY_CLIENT_SECRET',
   'AISSTREAM_API_KEY', 'VITE_WS_RELAY_URL', 'FINNHUB_API_KEY', 'NASA_FIRMS_API_KEY',
+  'UC_DP_KEY',
   'OLLAMA_API_URL', 'OLLAMA_MODEL', 'WTO_API_KEY', 'AVIATIONSTACK_API',
   'ICAO_API_KEY', 'THREATFOX_API_KEY',
 ]);
@@ -123,10 +124,9 @@ function isPrivateIP(ip) {
   // IPv6 loopback
   if (addr === '::1' || addr === '::') return true;
 
-  // IPv6 unique-local (fc00::/7 — covers fc** and fd**)
-  if (/^f[cd]/i.test(addr)) return true;
-  // IPv6 link-local (fe80::/10 — covers fe80–febf)
-  if (/^fe[89ab]/i.test(addr)) return true;
+  // IPv6 link-local / unique-local
+  if (/^f[cd][0-9a-f]{2}:/i.test(addr)) return true; // fc00::/7 (ULA)
+  if (/^fe[89ab][0-9a-f]:/i.test(addr)) return true;  // fe80::/10 (link-local)
 
   const parts = addr.split('.').map(Number);
   if (parts.length !== 4 || parts.some(p => isNaN(p))) return false; // not an IPv4
@@ -163,6 +163,7 @@ async function isSafeUrl(urlString) {
   const hostname = parsed.hostname;
 
   // Quick-reject obvious private hostnames before DNS resolution
+  // eslint-disable-next-line no-restricted-syntax -- intentional: SSRF guard checking request hostname, not constructing a URL
   if (hostname === 'localhost' || hostname === '[::1]') {
     return { safe: false, reason: 'Requests to localhost are not allowed' };
   }
@@ -540,6 +541,7 @@ const SIDECAR_ALLOWED_ORIGINS = [
 function getSidecarCorsOrigin(req) {
   const origin = req.headers?.origin || req.headers?.get?.('origin') || '';
   if (origin && SIDECAR_ALLOWED_ORIGINS.some(p => p.test(origin))) return origin;
+  // eslint-disable-next-line no-restricted-syntax -- intentional: Tauri IPC origin; must not change to 127.0.0.1
   return 'tauri://localhost';
 }
 
@@ -1094,11 +1096,7 @@ async function handleOllamaStream(requestUrl, req, res, context) {
       family: 4,
     };
 
-    await new Promise((resolve, reject) => {
-      // Safety timeout — reject if no response path resolves within 2 minutes.
-      const safetyTimeout = setTimeout(() => reject(new Error('Ollama streaming timed out')), 120_000);
-      const done = (err) => { clearTimeout(safetyTimeout); err ? reject(err) : resolve(); };
-
+    await new Promise((resolve) => {
       const ollamaReq = mod.request(reqOptions, (ollamaRes) => {
         if (ollamaRes.statusCode !== 200) {
           const chunks = [];
@@ -1108,7 +1106,7 @@ async function handleOllamaStream(requestUrl, req, res, context) {
             res.write(`data: ${JSON.stringify({ error: `Ollama ${ollamaRes.statusCode}: ${errText}` })}\n\n`);
             res.write('data: [DONE]\n\n');
             res.end();
-            done();
+            resolve();
           });
           return;
         }
@@ -1144,24 +1142,24 @@ async function handleOllamaStream(requestUrl, req, res, context) {
           }
           res.write('data: [DONE]\n\n');
           res.end();
-          done();
+          resolve();
         });
 
         ollamaRes.on('error', (err) => {
           context.logger.error('[ollama-stream] response error:', err.message);
           try { res.write(`data: ${JSON.stringify({ error: err.message })}\n\n`); res.write('data: [DONE]\n\n'); res.end(); } catch { /* already ended */ }
-          done();
+          resolve();
         });
       });
 
       ollamaReq.on('error', (err) => {
         context.logger.error('[ollama-stream] request error:', err.message);
         try { res.write(`data: ${JSON.stringify({ error: err.message })}\n\n`); res.write('data: [DONE]\n\n'); res.end(); } catch { /* already ended */ }
-        done();
+        resolve();
       });
 
       // Destroy the Ollama request if the client disconnects
-      req.on('close', () => { try { ollamaReq.destroy(); } catch { /* ignore */ } done(); });
+      req.on('close', () => { try { ollamaReq.destroy(); } catch { /* ignore */ } resolve(); });
 
       ollamaReq.write(requestBody);
       ollamaReq.end();
@@ -2824,8 +2822,8 @@ export async function createLocalApiServer(options = {}) {
         await tryListen(context.port);
       } catch (err) {
         if (err?.code === 'EADDRINUSE') {
-          // Never kill arbitrary listeners on occupied ports. Bind to an
-          // OS-assigned port and publish it via service-status/port file.
+          // Never kill arbitrary listeners on occupied ports. Instead, bind to a
+          // random OS-assigned port and publish it through service-status/port file.
           context.logger.log(`[local-api] port ${context.port} already in use; falling back to OS-assigned port`);
           await tryListen(0);
         } else {
