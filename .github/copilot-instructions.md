@@ -79,15 +79,13 @@ npm run lint:md             # Markdown linting
 
 Run **`npm run typecheck`** and **`npm run test:sidecar`** before every PR.
 
-## Merge And Main-To-Mac Delivery
+---
 
-- Agent branches such as `copilot/*`, `claude/*`, and `codex/*` must go through PRs and GitHub auto-merge. Do not use direct PR merges to bypass required checks.
-- `main` is the only merge target.
-- Official desktop releases remain tag-driven.
-- Bradley's local Mac install path is synchronized from `main` by `npm run main-sync:setup`, which installs a LaunchAgent that polls `macos/main` from a dedicated clean clone at `~/.worldmonitor-main-sync/repo`.
-- That sync path must verify GitHub required checks for `main`, then run `npm run lockfile:check`, `npm ci`, `npm run version:check`, `npm run typecheck:all`, `npm run build`, `npm run desktop:build:app:full`, and install via `node scripts/install-built-app.mjs --relaunch`.
-- Update `AGENTS.md`, `CLAUDE.md`, and these instructions together whenever the sync contract changes.
-- Do not add `self-hosted` jobs to PR-triggered workflows in this public repository.
+## Release and Main Sync
+
+- Agent branches (`claude/*`, `codex/*`, `copilot/*`) must go through PRs and GitHub auto-merge after required checks pass.
+- Keep local delivery aligned with the same guarded path by installing and maintaining the LaunchAgent with `npm run main-sync:setup`.
+- Trigger a one-off local sync with `npm run main-sync:run`.
 
 ---
 
@@ -173,7 +171,7 @@ Anthropic Claude (`ANTHROPIC_API_KEY`) is a secondary cloud provider used for th
 ## Security Guidelines
 
 - **Never commit secrets** — use `.env.local` or Vercel/GitHub environment variables
-- This repository is a user-owned repo on GitHub, so GitHub's non-provider patterns and validity checks are unavailable here. The compensating control is the repo-owned secret scan gate in local hooks and CI; keep it enabled and green.
+- **Secret scan is mandatory** — this is a user-owned repo where provider-native secret validity checks and non-provider patterns are not enough on their own, so keep repo-level secret scan enforcement active in hooks and CI (`npm run secrets:scan:staged`, `npm run secrets:scan`)
 - **SSRF protection** — always use `sanitizeUrl()` from `src/utils` when handling user-supplied URLs
 - **XSS protection** — always call `DOMPurify.sanitize()` before injecting HTML into the DOM
 - **Rate limiting** — API routes use Upstash Redis (`@upstash/ratelimit`) for per-IP limits

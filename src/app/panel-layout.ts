@@ -177,7 +177,7 @@ export class PanelLayoutManager implements AppModule {
   }
 
   private buildVariantSwitcherItems(): string {
-    const local = this.ctx.isDesktopApp || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+    const local = this.ctx.isDesktopApp || location.hostname === '127.0.0.1';
     const vHref = (v: string, prod: string) => local || SITE_VARIANT === v ? '#' : prod;
     const vTarget = (v: string) => !local && SITE_VARIANT !== v ? 'target="_blank" rel="noopener"' : '';
     return `

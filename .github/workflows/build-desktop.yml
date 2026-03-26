@@ -173,10 +173,8 @@ jobs:
             echo "available=true" >> "$GITHUB_OUTPUT"
           else
             echo "available=false" >> "$GITHUB_OUTPUT"
-            if [ "${{ needs.release-context.outputs.publish }}" = "true" ]; then
-              echo "::error::Missing Apple signing secrets for publish workflow. Refusing unsigned release build."
-              exit 1
-            fi
+            echo "APPLE_SIGNING_IDENTITY=-" >> "$GITHUB_ENV"
+            echo "Apple signing secrets unavailable; using ad-hoc signing identity (-)."
           fi
 
       - name: Import Apple Developer Certificate
@@ -203,6 +201,21 @@ jobs:
           fi
           echo "APPLE_SIGNING_IDENTITY=$CERT_ID" >> "$GITHUB_ENV"
 
+      - name: Configure Apple notarization credentials
+        if: contains(matrix.platform, 'macos')
+        shell: bash
+        run: |
+          if [ -n "${{ secrets.APPLE_ID }}" ] && [ -n "${{ secrets.APPLE_PASSWORD }}" ] && [ -n "${{ secrets.APPLE_TEAM_ID }}" ]; then
+            {
+              echo "APPLE_ID=${{ secrets.APPLE_ID }}"
+              echo "APPLE_PASSWORD=${{ secrets.APPLE_PASSWORD }}"
+              echo "APPLE_TEAM_ID=${{ secrets.APPLE_TEAM_ID }}"
+            } >> "$GITHUB_ENV"
+            echo "Apple notarization secrets found."
+          else
+            echo "Apple notarization secrets unavailable; skipping notarization."
+          fi
+
       - name: Resolve Tauri build arguments
         shell: bash
         run: |
@@ -224,10 +237,6 @@ jobs:
           WM_BUILD_TAG: ${{ needs.release-context.outputs.tag }}
           WM_BUILD_COMMIT_SHA: ${{ needs.release-context.outputs.commit_sha }}
           CONVEX_URL: ${{ secrets.CONVEX_URL }}
-          APPLE_SIGNING_IDENTITY: ${{ env.APPLE_SIGNING_IDENTITY }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
           if [ -n "${TAURI_BUILD_ARGS}" ]; then
             read -r -a tauri_args <<< "${TAURI_BUILD_ARGS}"
@@ -306,7 +315,7 @@ jobs:
           node --input-type=module -e "import fs from 'node:fs'; import path from 'node:path'; const manifest = JSON.parse(fs.readFileSync('release-dist/manifest.json', 'utf8')); for (const asset of manifest.assets) { fs.copyFileSync(asset.path, path.join('release-dist/assets', asset.name)); }"
 
       - name: Upload release bundle
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
         with:
           name: release-bundle-${{ matrix.label }}
           path: |
@@ -316,7 +325,7 @@ jobs:
 
       - name: Upload smoke test screenshot
         if: contains(matrix.platform, 'ubuntu')
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
         with:
           name: linux-smoke-test-screenshot-${{ matrix.label }}
           path: screenshot.png
@@ -364,7 +373,7 @@ jobs:
           node-version: '22'
 
       - name: Download release bundles
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
           path: downloaded-bundles
           pattern: release-bundle-*

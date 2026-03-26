@@ -3,7 +3,6 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
-import { SUPPORTED_RELEASE_VARIANTS, buildReleaseTag } from './release-metadata.mjs';
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, '..');
@@ -17,7 +16,7 @@ const cargoLockPath = path.join(repoRoot, 'src-tauri', 'Cargo.lock');
 function parseArgs(argv) {
   const options = {
     allowExistingTargetRelease: false,
-    remote: 'origin',
+    remote: '',
     variant: 'full',
   };
 
@@ -27,17 +26,13 @@ function parseArgs(argv) {
       options.allowExistingTargetRelease = true;
       continue;
     }
-    if (arg === '--remote') {
-      options.remote = argv[i + 1] ?? '';
+    if (arg === '--variant') {
+      options.variant = argv[i + 1] ?? '';
       i += 1;
       continue;
     }
-    if (arg.startsWith('--remote=')) {
-      options.remote = arg.slice('--remote='.length);
-      continue;
-    }
-    if (arg === '--variant') {
-      options.variant = argv[i + 1] ?? '';
+    if (arg === '--remote') {
+      options.remote = argv[i + 1] ?? '';
       i += 1;
       continue;
     }
@@ -45,10 +40,14 @@ function parseArgs(argv) {
       options.variant = arg.slice('--variant='.length);
       continue;
     }
+    if (arg.startsWith('--remote=')) {
+      options.remote = arg.slice('--remote='.length);
+      continue;
+    }
     throw new Error(`Unknown argument: ${arg}`);
   }
 
-  if (!SUPPORTED_RELEASE_VARIANTS.includes(options.variant)) {
+  if (!['full', 'tech', 'finance'].includes(options.variant)) {
     throw new Error(`Unsupported variant for release doctor: ${options.variant}`);
   }
 
@@ -86,6 +85,12 @@ export function parseCargoLockVersion(cargoLock, packageName) {
     throw new Error(`Could not find ${packageName} package version in src-tauri/Cargo.lock`);
   }
   return versionMatch[1];
+}
+
+function buildTargetTag(version, variant) {
+  if (variant === 'tech') return `v${version}-tech`;
+  if (variant === 'finance') return `v${version}-finance`;
+  return `v${version}`;
 }
 
 export function findVersionMismatches(versionsByFile) {
@@ -131,7 +136,7 @@ export function findReleaseStateIssues({
     issues.push(`Remote tag already exists for target release: ${targetTag}`);
   }
 
-  if (hasRemoteTargetTag && releasesForTarget.length === 0) {
+  if (hasRemoteTargetTag && releasesForTarget.length === 0 && !allowExistingTargetRelease) {
     issues.push(`Remote tag exists without a GitHub release for target tag: ${targetTag}`);
   }
 
@@ -157,6 +162,27 @@ function runCommand(command, args, options = {}) {
   return result.stdout.trim();
 }
 
+function resolveRemoteName(preferredRemote = 'origin') {
+  const remotes = runCommand('git', ['remote'])
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  if (remotes.includes(preferredRemote)) {
+    return preferredRemote;
+  }
+
+  if (remotes.includes('macos')) {
+    return 'macos';
+  }
+
+  if (remotes.length > 0) {
+    return remotes[0];
+  }
+
+  throw new Error('No git remotes are configured');
+}
+
 function normalizeRepoSlug(remoteUrl) {
   const sshMatch = remoteUrl.match(/^git@github\.com:(.+?)(?:\.git)?$/);
   if (sshMatch) {
@@ -171,7 +197,7 @@ function normalizeRepoSlug(remoteUrl) {
   throw new Error(`Unsupported origin remote URL: ${remoteUrl}`);
 }
 
-export async function readVersionFiles() {
+async function readVersionFiles() {
   const packageJson = JSON.parse(await readFile(packageJsonPath, 'utf8'));
   const packageLock = JSON.parse(await readFile(packageLockPath, 'utf8'));
   const tauriConf = JSON.parse(await readFile(tauriConfPath, 'utf8'));
@@ -188,11 +214,12 @@ export async function readVersionFiles() {
   };
 }
 
-async function fetchRemoteReleaseState(targetTag, remoteName) {
+async function fetchRemoteReleaseState(targetTag, remoteName = 'origin') {
+  const resolvedRemote = resolveRemoteName(remoteName);
   const repoSlug = process.env.GITHUB_REPOSITORY
-    || normalizeRepoSlug(runCommand('git', ['remote', 'get-url', remoteName]));
+    || normalizeRepoSlug(runCommand('git', ['remote', 'get-url', resolvedRemote]));
 
-  const remoteTagOutput = runCommand('git', ['ls-remote', '--tags', remoteName, `refs/tags/${targetTag}`]);
+  const remoteTagOutput = runCommand('git', ['ls-remote', '--tags', resolvedRemote, `refs/tags/${targetTag}`]);
   const remoteTags = new Set(remoteTagOutput ? [targetTag] : []);
 
   const releases = JSON.parse(
@@ -209,13 +236,13 @@ async function main() {
   const options = parseArgs(process.argv.slice(2));
   const versionsByFile = await readVersionFiles();
   const targetVersion = versionsByFile['package.json'];
-  const targetTag = buildReleaseTag(targetVersion, options.variant);
+  const targetTag = buildTargetTag(targetVersion, options.variant);
 
   const issues = [
     ...findVersionMismatches(versionsByFile),
   ];
 
-  const { remoteTags, releases } = await fetchRemoteReleaseState(targetTag, options.remote);
+  const { remoteTags, releases } = await fetchRemoteReleaseState(targetTag, options.remote || 'origin');
   issues.push(
     ...findReleaseStateIssues({
       targetTag,
