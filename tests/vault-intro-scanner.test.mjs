@@ -15,12 +15,12 @@ test('vault intro scanner wiring is single-registration and retry-safe', () => {
   );
   assert.match(
     src,
-    /scene\.scanBtn\.addEventListener\('click', async \(\) => \{[\s\S]*if \(st\.phase !== 'idle'\) return;/m,
-    'scanner handler should remain single-registered and guard against re-entry during active scans',
+    /setTimeout\(\(\) => void tryAuth\(false\), 900\);/,
+    'scanner should attempt one automatic authentication pass without rebinding listeners',
   );
   assert.match(
     src,
-    /if \(granted\) \{[\s\S]*await playOpenSequence\(scene, st, appReady\);[\s\S]*\} else \{[\s\S]*await sleep\(1800\);[\s\S]*st\.phase\s*=\s*'idle';/m,
-    'retry path should reset scanner state back to idle after a failed authentication attempt',
+    /setTimeout\(\(\) => \{ if \(!settled\) setIdle\(refs\.state\); \}, 1500\);/,
+    'retry path should reset scanner state without registering new DOM handlers',
   );
 });

@@ -4,10 +4,18 @@ on:
   pull_request:
     paths:
       - '**/*.md'
+      - '**/*.json'
+      - '**/*.yml'
+      - '**/*.yaml'
+      - '**/*.sh'
+      - '.husky/**'
+      - 'scripts/lint-*.mjs'
       - '.markdownlint-cli2.jsonc'
+      - 'package.json'
+      - 'package-lock.json'
 
 jobs:
-  markdown:
+  static-lint:
     if: github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     steps:
@@ -19,19 +27,17 @@ jobs:
           node-version: '22'
           cache: 'npm'
       - run: npm ci
-      - name: Resolve changed markdown files
-        id: files
-        shell: bash
+      - run: npm run lint:conflicts
+      - run: npm run lint:json
+      - run: npm run lint:yaml
+      - run: npm run lint:shell
+      - name: Lint changed markdown files
         run: |
           git fetch origin "${{ github.base_ref }}" --depth=1
-          mapfile -t markdown_files < <(git diff --name-only "origin/${{ github.base_ref }}...HEAD" -- '*.md')
-          if [ "${#markdown_files[@]}" -eq 0 ]; then
-            echo "count=0" >> "$GITHUB_OUTPUT"
+          git diff --name-only "origin/${{ github.base_ref }}...HEAD" -- '*.md' > "$RUNNER_TEMP/markdown-files.list"
+          if [ ! -s "$RUNNER_TEMP/markdown-files.list" ]; then
+            echo "No markdown files changed"
             exit 0
           fi
-          printf '%s\0' "${markdown_files[@]}" > "$RUNNER_TEMP/markdown-files.txt"
-          echo "count=${#markdown_files[@]}" >> "$GITHUB_OUTPUT"
-      - name: Run markdownlint on changed files
-        if: steps.files.outputs.count != '0'
-        shell: bash
-        run: xargs -0 npx markdownlint-cli2 < "$RUNNER_TEMP/markdown-files.txt"
+          tr '\n' '\0' < "$RUNNER_TEMP/markdown-files.list" > "$RUNNER_TEMP/markdown-files.txt"
+          xargs -0 npx markdownlint-cli2 < "$RUNNER_TEMP/markdown-files.txt"

@@ -61,6 +61,7 @@ export * from './PinnedWebcamsPanel';
 export { showMapContextMenu, dismissMapContextMenu } from './MapContextMenu';
 export type { MapContextMenuItem } from './MapContextMenu';
 export * from './StatusCard';
+export * from './ClaudeAgentPanel';
 export * from './FearGreedPanel';
 export * from './InternetDisruptionsPanel';
 export * from './NationalDebtPanel';

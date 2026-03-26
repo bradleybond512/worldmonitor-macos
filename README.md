@@ -1,196 +1,154 @@
 # World Monitor
 
-[![Release](https://img.shields.io/github/v/release/bradleybond512/worldmonitor-macos?label=version)](https://github.com/bradleybond512/worldmonitor-macos/releases/latest)
-[![Desktop CI](https://github.com/bradleybond512/worldmonitor-macos/actions/workflows/build-desktop.yml/badge.svg)](https://github.com/bradleybond512/worldmonitor-macos/actions/workflows/build-desktop.yml)
-[![License](https://img.shields.io/badge/license-AGPL--3.0--only-blue.svg)](./LICENSE)
+[![Version](https://img.shields.io/github/v/release/bradleybond512/worldmonitor-macos?label=version)](https://github.com/bradleybond512/worldmonitor-macos/releases/latest)
+<a href="https://github.com/bradleybond512/worldmonitor-macos/releases/latest"><strong>Download Latest Release</strong></a>
 
-World Monitor is a local-first situational awareness application for geopolitical, infrastructure, climate, cyber, and market intelligence.
+World Monitor is a multi-runtime intelligence platform: one codebase, four web variants, three desktop targets, a proto-first API layer, and a local-first desktop runtime that can keep working when cloud paths are unavailable.
 
-It ships as:
+At the product level, it is a real-time situational-awareness dashboard for geopolitics, infrastructure, markets, and technology. At the engineering level, it is a systems project: geospatial rendering, typed contracts, desktop security boundaries, AI fallback orchestration, and operational documentation all living in the same repo.
 
-- A web app (Vite + TypeScript)
-- A desktop app (Tauri 2 with local sidecar + secure local storage)
-- A progressive web app (installable, offline-aware)
+## Why This Repo Is Interesting
 
-<p>
-  <a href="https://github.com/bradleybond512/worldmonitor-macos/releases/latest"><strong>Download Latest Release</strong></a>
-</p>
+This is not just a map UI with a long feed list. The repo is designed to show full-stack judgment:
 
-## What Is Actually In This Repo
+- A single TypeScript frontend powers four distinct product variants without forking the architecture.
+- API behavior is contract-driven through Buf, Protobuf, Sebuf, and generated clients and handlers.
+- The desktop app is local-first: a Tauri shell starts a localhost sidecar, stores secrets in the OS keychain, and treats cloud fallback as an explicit boundary instead of an assumption.
+- AI features are built with graceful degradation in mind: local endpoints, multiple cloud providers, browser fallback, and cache-aware request handling.
+- The documentation is meant to read like production documentation, not a weekend-project README.
 
-This README intentionally lists only implemented capabilities that are wired in code today.
+## By The Numbers
 
-Core references:
+Current code-backed snapshot:
 
-- Panel configuration: [src/config/panels.ts](./src/config/panels.ts)
-- Panel wiring: [src/app/panel-layout.ts](./src/app/panel-layout.ts)
-- Data refresh orchestration: [src/app/data-loader.ts](./src/app/data-loader.ts)
-- Sidecar API server: [src-tauri/sidecar/local-api-server.mjs](./src-tauri/sidecar/local-api-server.mjs)
-
-Implemented capability groups include:
-
-- Strategic and intelligence views: strategic posture, strategic risk, geo hubs, GDELT intel, alert center, Telegram intel
-- Infrastructure and resilience signals: communications health, internet disruptions, cable activity/health, service status
-- Crisis and hazard monitoring: GDACS, NWS alerts, tsunami alerts, tropical cyclones, wildfire and climate-related layers
-- Security and cyber: cyber threat feeds, security advisories, signal fusion support
-- Population and humanitarian context: displacement, disease outbreaks, food insecurity, air quality, population exposure
-- Markets and macro: macro signals, ETF flows, stablecoin monitoring, trade policy, supply chain, fear/greed, fuel prices
-- Variant-specific focus packs for `full`, `tech`, `finance`, and `happy`
+| Metric | Current value | Source of truth |
+| --- | --- | --- |
+| Web variants | `4` | `src/config/variant.ts`, `src/config/panels.ts` |
+| Desktop build targets | `3` | `package.json`, `src-tauri/*.json` |
+| Generated OpenAPI service specs | `21` | `docs/api/*.openapi.json` |
+| Locales | `18` | `src/services/i18n.ts` |
+| Desktop secret keys | `25` | `src-tauri/src/main.rs` |
+| Default panel inventory | `62 full / 35 tech / 31 finance / 10 happy` | `src/config/panels.ts` |
 
 ## Variants
 
-- `full`: broad geopolitical + infrastructure + disaster + macro coverage
-- `tech`: AI, startups, platform risk, regulation, and market overlays
-- `finance`: macro/market-first view with policy and risk context
-- `happy`: positive-news-focused reduced-noise mode
+| Variant | Web | Desktop | Focus |
+| --- | --- | --- | --- |
+| `full` | Yes | Yes | Geopolitics, infrastructure, cyber, conflict, disasters |
+| `tech` | Yes | Yes | AI, startups, cloud, service health, developer ecosystems |
+| `finance` | Yes | Yes | Markets, commodities, macro signals, central banks |
+| `happy` | Yes | No | Positive news, progress, science, conservation |
 
-Runtime variant selection is handled through:
+Desktop configs exist for `full`, `tech`, and `finance`. The release packaging helper currently wraps `full` and `tech`.
 
-- [src/config/variant.ts](./src/config/variant.ts)
-- [src/config/variants/](./src/config/variants/)
+## Technical Highlights
 
-## Architecture
+### 1. Variant architecture, not duplicate apps
 
-Frontend:
+World, Tech, Finance, and Happy are not separate frontends glued together at deploy time. They share the same application shell, service layer, and component system, then swap panel defaults, feeds, and map-layer presets through configuration.
 
-- TypeScript + Vite
-- Panel-based UI with explicit data refresh scheduling
-- Map + layer system for geospatial overlays
+### 2. Proto-first API contracts
 
-Backend/API:
+The API layer is driven by Protobuf and Sebuf rather than handwritten request wiring. That gives the project:
 
-- Edge APIs in [api/](./api)
-- Generated RPC handlers in [api/[domain]/v1/[rpc].ts](./api/[domain]/v1/[rpc].ts)
-- Shared server handlers in [server/](./server)
+- generated TypeScript clients for the frontend
+- generated server bindings for handlers
+- generated OpenAPI output for external inspection
+- a tighter contract between UI, runtime, and backend behavior
 
-Desktop:
+### 3. Local-first desktop runtime
 
-- Tauri shell in [src-tauri/](./src-tauri)
-- Local API sidecar for desktop-specific secure/local flows
-- Local secret update + validation endpoints with allowlists
+The desktop build runs through Tauri with a localhost Node.js sidecar. The renderer resolves the sidecar port dynamically, authenticates to it with a short-lived local token, and only falls back to remote API paths when the request is allowed to cross that boundary.
 
-Data quality and reliability:
+### 4. AI orchestration with real fallback behavior
 
-- Cache tiering, stale fallback behavior, and request deduping
-- Regression tests for panel wiring, route parity, feed freshness, and auth behavior
+Summarization is not hard-coded to one provider. The system can use Ollama, Groq, Claude, OpenRouter, or browser inference depending on runtime availability and feature configuration. That makes the feature useful in both fully connected and privacy-sensitive environments.
+
+### 5. Geospatial UI with product-specific intelligence layers
+
+The UI combines MapLibre GL and deck.gl for a globe-style monitoring experience, then layers product-specific overlays for conflicts, cables, ports, outages, markets, datacenters, and more. The goal is not just visual density; it is useful correlation between feeds, location, and operator context.
+
+## Architecture Snapshot
+
+| Layer | Stack |
+| --- | --- |
+| Frontend | TypeScript, Vite, i18next, MapLibre GL, deck.gl, D3 |
+| Contracts | Buf, Protobuf, Sebuf, generated TypeScript clients and handlers |
+| Web backend | Vercel routes in `api/` plus generated RPC gateway |
+| Desktop | Tauri v2, Rust shell, Node.js sidecar, OS keychain integration |
+| Verification | Type checks, data tests, sidecar tests, Playwright runtime and visual coverage |
 
 ## Quick Start
 
-### Prerequisites
-
-- Node.js 20+ (22 recommended)
-- npm
-- Rust toolchain (desktop builds)
-- Xcode command line tools on macOS (desktop builds)
-
-### Install
-
 ```bash
 npm ci
+npm run dev
 ```
 
-### Run Web App
+The default dev server runs at [http://localhost:3000](http://localhost:3000).
+
+### Variant commands
 
 ```bash
-npm run dev          # full
-npm run dev:tech     # tech
-npm run dev:finance  # finance
-npm run dev:happy    # happy
+npm run dev:tech
+npm run dev:finance
+npm run dev:happy
 ```
 
-### Build Web App
-
-```bash
-npm run build:full
-npm run build:tech
-npm run build:finance
-npm run build:happy
-```
-
-## Desktop Commands
-
-Development:
+### Desktop commands
 
 ```bash
 npm run desktop:dev
-```
-
-Package/build commands currently available:
-
-```bash
-# macOS
 npm run desktop:build:full
 npm run desktop:build:tech
 npm run desktop:build:finance
-
-# macOS app-only (no dmg/msi)
-npm run desktop:build:app:full
-npm run desktop:build:app:tech
-npm run desktop:build:app:finance
-
-# explicit package targets
-npm run desktop:package:macos:full
-npm run desktop:package:macos:tech
-npm run desktop:package:macos:finance
-npm run desktop:package:windows:full
-npm run desktop:package:windows:tech
 ```
 
-Signed package commands:
+### Verification commands
 
 ```bash
-npm run desktop:package:macos:full:sign
-npm run desktop:package:macos:tech:sign
-npm run desktop:package:macos:finance:sign
-npm run desktop:package:windows:full:sign
-npm run desktop:package:windows:tech:sign
-```
-
-## Quality Gates
-
-Main local checks:
-
-```bash
+npm run lint:strict
 npm run typecheck:all
 npm run test:data
 npm run test:sidecar
-npm run test:feeds
-npm run lint:md
-npm run lockfile:check
-npm run version:check
-npm audit
+npm run test:e2e:runtime
 ```
 
-Note:
+For release bundles and signing, use the packaging guide linked below.
 
-- Playwright runtime tests may require a non-sandboxed environment on some systems.
-- Desktop packaging requires platform-specific build/signing prerequisites.
+## Recommended Reading
 
-## Security Model (High Level)
+If you want the fastest path through the repo:
 
-- Desktop sidecar enforces local auth/token behavior and key allowlists
-- CORS + API key guardrails for desktop/cloud boundary
-- Rate-limiting + cache-based pressure controls
-- Secret scanning in local/CI workflows
-- Dedicated [SECURITY.md](./SECURITY.md) policy and disclosure path
+| Read this | Why |
+| --- | --- |
+| [docs/DOCUMENTATION.md](docs/DOCUMENTATION.md) | Curated map of the repository docs |
+| [docs/API_KEY_DEPLOYMENT.md](docs/API_KEY_DEPLOYMENT.md) | Cloud/API trust boundary and origin rules |
+| [docs/DESKTOP_CONFIGURATION.md](docs/DESKTOP_CONFIGURATION.md) | Desktop runtime capabilities and secret model |
+| [docs/RELEASE_PACKAGING.md](docs/RELEASE_PACKAGING.md) | Packaging and release workflow |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | Contributor workflow and extension points |
+| [docs/ADDING_ENDPOINTS.md](docs/ADDING_ENDPOINTS.md) | How the contract-driven API layer is extended |
+| [docs/api](docs/api) | Generated OpenAPI output from the current proto surface |
 
-## Documentation Map
+## Documentation
 
-- Product and architecture docs: [docs/DOCUMENTATION.md](./docs/DOCUMENTATION.md)
-- Desktop config and key management: [docs/DESKTOP_CONFIGURATION.md](./docs/DESKTOP_CONFIGURATION.md)
-- API key deployment model: [docs/API_KEY_DEPLOYMENT.md](./docs/API_KEY_DEPLOYMENT.md)
-- Release packaging/signing: [docs/RELEASE_PACKAGING.md](./docs/RELEASE_PACKAGING.md)
-- Contribution standards: [CONTRIBUTING.md](./CONTRIBUTING.md)
-- Changelog: [CHANGELOG.md](./CHANGELOG.md)
+| Guide | Purpose |
+| --- | --- |
+| [docs/DOCUMENTATION.md](docs/DOCUMENTATION.md) | Entry point for product, architecture, and repo docs |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | Contributor workflow, checks, and PR expectations |
+| [SECURITY.md](SECURITY.md) | Vulnerability reporting and security scope |
+| [docs/ADDING_ENDPOINTS.md](docs/ADDING_ENDPOINTS.md) | Proto and Sebuf workflow for new RPC endpoints |
+| [docs/DESKTOP_CONFIGURATION.md](docs/DESKTOP_CONFIGURATION.md) | Desktop secret keys, feature availability, and fallback behavior |
+| [docs/API_KEY_DEPLOYMENT.md](docs/API_KEY_DEPLOYMENT.md) | Cloud API access rules and origin/key requirements |
+| [docs/RELAY_PARAMETERS.md](docs/RELAY_PARAMETERS.md) | Relay and transport environment variables |
+| [docs/RELEASE_PACKAGING.md](docs/RELEASE_PACKAGING.md) | Desktop packaging and signing workflow |
+| [docs/TAURI_VALIDATION_REPORT.md](docs/TAURI_VALIDATION_REPORT.md) | Desktop validation notes and failure classification |
+| [research/README.md](research/README.md) | Narrow autoresearch loop for alerting, source trust, and map performance |
 
 ## Contributing
 
-Contributions are welcome. Start with:
+If you change product behavior, API contracts, or operational workflows, update the docs in the same branch. The project is much easier to evaluate when the implementation and the documentation move together.
 
-- [CONTRIBUTING.md](./CONTRIBUTING.md)
-- [CODE_OF_CONDUCT.md](./CODE_OF_CONDUCT.md)
-- [SECURITY.md](./SECURITY.md)
+## License and Attribution
 
-## License
-
-AGPL-3.0-only. See [LICENSE](./LICENSE).
+Licensed under AGPL-3.0-only. This desktop project builds on top of [koala73/worldmonitor](https://github.com/koala73/worldmonitor) by Elie Habib.

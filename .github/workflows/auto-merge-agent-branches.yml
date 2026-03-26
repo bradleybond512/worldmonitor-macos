@@ -132,7 +132,7 @@ jobs:
             }
 
   auto-merge:
-    name: Enable GitHub auto-merge
+    name: Auto-merge when checks pass
     needs: auto-pr
     runs-on: ubuntu-latest
     if: startsWith(github.ref_name, 'claude/') || startsWith(github.ref_name, 'codex/') || startsWith(github.ref_name, 'copilot/')
@@ -141,7 +141,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Enable auto-merge on PR
+      - name: Enable GitHub auto-merge
         uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -154,23 +154,19 @@ jobs:
               state: 'open'
             });
             if (prs.length > 0) {
-              const pr = prs[0];
-              await github.graphql(`
-                mutation EnableAutoMerge($pullRequestId: ID!) {
+              const prNodeId = prs[0].node_id;
+              const mutation = `
+                mutation EnablePullRequestAutoMerge($pullRequestId: ID!) {
                   enablePullRequestAutoMerge(input: {
-                    pullRequestId: $pullRequestId,
+                    pullRequestId: $pullRequestId
                     mergeMethod: SQUASH
                   }) {
                     pullRequest {
                       number
-                      autoMergeRequest {
-                        enabledAt
-                      }
                     }
                   }
                 }
-              `, {
-                pullRequestId: pr.node_id
-              });
-              console.log(`Enabled GitHub auto-merge for PR #${pr.number}`);
+              `;
+              await github.graphql(mutation, { pullRequestId: prNodeId });
+              console.log(`Enabled GitHub auto-merge for PR #${prs[0].number}`);
             }

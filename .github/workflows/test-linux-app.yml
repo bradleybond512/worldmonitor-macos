@@ -63,7 +63,7 @@ jobs:
         run: bash scripts/download-node.sh --target "$NODE_TARGET"
 
       - name: Build Tauri app
-        uses: tauri-apps/tauri-action@73fb865345c54760d875b94642314f8c0c894afa
+        uses: tauri-apps/tauri-action@84b9d35b5fc46c1e45415bdb6144030364f7ebc5
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VITE_VARIANT: full
@@ -164,7 +164,7 @@ jobs:
 
       - name: Upload smoke test screenshot
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
         with:
           name: linux-smoke-test-screenshot
           path: screenshot.png
@@ -172,7 +172,7 @@ jobs:
 
       - name: Upload logs
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
         with:
           name: linux-smoke-test-logs
           path: |
