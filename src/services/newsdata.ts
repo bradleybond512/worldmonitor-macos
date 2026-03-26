@@ -19,7 +19,7 @@ function toNewsItem(a: NewsDataArticle): NewsItem {
     link: a.link,
     pubDate: new Date(a.pubDate),
     isAlert: false,
-    threat: { level: 'normal', source: 'keyword', confidence: 0 },
+    threat: { level: 'info', category: 'general', source: 'keyword', confidence: 0 },
   };
 }
 
