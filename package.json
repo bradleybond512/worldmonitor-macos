@@ -86,11 +86,7 @@
     "@types/topojson-specification": "^1.0.5",
     "cross-env": "^10.1.0",
     "esbuild": "^0.27.4",
-    "eslint": "^9.39.4",
-    "eslint-plugin-sonarjs": "^4.0.2",
-    "eslint-plugin-unicorn": "^63.0.0",
     "h3-js": "^4.4.0",
-    "lint-staged": "^16.4.0",
     "markdownlint-cli2": "^0.21.0",
     "tsx": "^4.21.0",
     "typescript": "^6.0.2",
@@ -104,7 +100,6 @@
     "@deck.gl/layers": "^9.2.6",
     "@deck.gl/mapbox": "^9.2.6",
     "@sentry/browser": "^10.39.0",
-    "@types/three": "^0.183.1",
     "@upstash/ratelimit": "^2.0.8",
     "@upstash/redis": "^1.36.1",
     "@vercel/analytics": "^1.6.1",
@@ -122,7 +117,7 @@
     "papaparse": "^5.5.3",
     "posthog-js": "^1.360.2",
     "telegram": "^2.26.22",
-    "three": "^0.183.2",
+    "three": "^0.180.0",
     "topojson-client": "^3.1.0",
     "ws": "^8.19.0",
     "youtubei.js": "^16.0.1"
@@ -139,8 +134,5 @@
   },
   "bugs": {
     "url": "https://github.com/bradleybond512/worldmonitor-macos/issues"
-  },
-  "lint-staged": {
-    "*.{ts,js,mjs}": "eslint --fix --quiet"
   }
 }
