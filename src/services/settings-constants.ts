@@ -30,6 +30,7 @@ export const SIGNUP_URLS: Partial<Record<RuntimeSecretKey, string>> = {
   VIRUSTOTAL_API_KEY: 'https://www.virustotal.com/gui/join-us',
   BGPVIEW_API_KEY: 'https://bgpview.io/',
   FMP_API_KEY: 'https://financialmodelingprep.com/developer/docs',
+  SHODAN_API_KEY: 'https://account.shodan.io/',
 };
 
 export const PLAINTEXT_KEYS = new Set<RuntimeSecretKey>([
@@ -75,6 +76,7 @@ export const HUMAN_LABELS: Record<RuntimeSecretKey, string> = {
   VIRUSTOTAL_API_KEY: 'VirusTotal API Key',
   BGPVIEW_API_KEY: 'BGPView API Key',
   FMP_API_KEY: 'Financial Modeling Prep API Key',
+  SHODAN_API_KEY: 'Shodan API Key',
 };
 
 export interface SettingsCategory {
@@ -102,7 +104,7 @@ export const SETTINGS_CATEGORIES: SettingsCategory[] = [
   {
     id: 'security',
     label: 'Security & Threats',
-    features: ['cloudApiFallbackAuth', 'internetOutages', 'acledConflicts', 'acledAirstrikes', 'abuseChThreatIntel', 'alienvaultOtxThreatIntel', 'abuseIpdbThreatIntel', 'threatfoxThreatIntel', 'openPhishThreatIntel', 'spamhausDrop', 'cisaKev', 'virusTotalEnrichment', 'bgpViewEnrichment'],
+    features: ['cloudApiFallbackAuth', 'internetOutages', 'acledConflicts', 'acledAirstrikes', 'abuseChThreatIntel', 'alienvaultOtxThreatIntel', 'abuseIpdbThreatIntel', 'threatfoxThreatIntel', 'openPhishThreatIntel', 'spamhausDrop', 'cisaKev', 'virusTotalEnrichment', 'bgpViewEnrichment', 'shodanIcsExposure'],
   },
   {
     id: 'tracking',
