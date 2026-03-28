@@ -29,6 +29,7 @@ export const SIGNUP_URLS: Partial<Record<RuntimeSecretKey, string>> = {
   NEWSDATA_API_KEY: 'https://newsdata.io/register',
   VIRUSTOTAL_API_KEY: 'https://www.virustotal.com/gui/join-us',
   BGPVIEW_API_KEY: 'https://bgpview.io/',
+  FMP_API_KEY: 'https://financialmodelingprep.com/developer/docs',
 };
 
 export const PLAINTEXT_KEYS = new Set<RuntimeSecretKey>([
@@ -73,6 +74,7 @@ export const HUMAN_LABELS: Record<RuntimeSecretKey, string> = {
   NEWSDATA_API_KEY: 'NewsData API Key',
   VIRUSTOTAL_API_KEY: 'VirusTotal API Key',
   BGPVIEW_API_KEY: 'BGPView API Key',
+  FMP_API_KEY: 'Financial Modeling Prep API Key',
 };
 
 export interface SettingsCategory {
@@ -95,7 +97,7 @@ export const SETTINGS_CATEGORIES: SettingsCategory[] = [
   {
     id: 'markets',
     label: 'Markets & Trade',
-    features: ['finnhubMarkets', 'wtoTrade'],
+    features: ['finnhubMarkets', 'fmpMarketsFallback', 'wtoTrade'],
   },
   {
     id: 'security',
