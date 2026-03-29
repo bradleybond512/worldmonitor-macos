@@ -100,7 +100,7 @@ globalThis.fetch = async function ipv4Fetch(input, init) {
 
 const ALLOWED_ENV_KEYS = new Set([
   'WORLDMONITOR_API_KEY',
-  'ANTHROPIC_API_KEY', 'GROQ_API_KEY', 'OPENROUTER_API_KEY', 'FRED_API_KEY', 'EIA_API_KEY',
+  'GROQ_API_KEY', 'OPENROUTER_API_KEY', 'FRED_API_KEY', 'EIA_API_KEY',
   'CLOUDFLARE_API_TOKEN', 'ACLED_ACCESS_TOKEN', 'ACLED_EMAIL', 'URLHAUS_AUTH_KEY',
   'OTX_API_KEY', 'ABUSEIPDB_API_KEY', 'WINGBITS_API_KEY', 'WS_RELAY_URL',
   'VITE_OPENSKY_RELAY_URL', 'OPENSKY_CLIENT_ID', 'OPENSKY_CLIENT_SECRET',
@@ -108,9 +108,55 @@ const ALLOWED_ENV_KEYS = new Set([
   'UC_DP_KEY',
   'OLLAMA_API_URL', 'OLLAMA_MODEL', 'WTO_API_KEY', 'AVIATIONSTACK_API',
   'ICAO_API_KEY', 'THREATFOX_API_KEY',
+  'NEWSAPI_KEY', 'NEWSDATA_API_KEY', 'VIRUSTOTAL_API_KEY', 'BGPVIEW_API_KEY',
 ]);
 
 const CHROME_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
+
+// ── IP geolocation helpers ────────────────────────────────────────────────
+// ip-api.com batch endpoint: free, no key, up to 100 IPs per request.
+// Note: free tier requires HTTP (not HTTPS).
+async function geolocateIPs(ips) {
+  if (!ips || ips.length === 0) return new Map();
+  try {
+    const batch = ips.slice(0, 100).map(ip => ({ query: ip, fields: 'query,country,countryCode,lat,lon' }));
+    const resp = await fetchWithTimeout('http://ip-api.com/batch?fields=query,country,countryCode,lat,lon', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'User-Agent': 'WorldMonitor/1.0' },
+      body: JSON.stringify(batch),
+    }, 8000);
+    if (!resp.ok) return new Map();
+    const results = await resp.json();
+    const map = new Map();
+    for (const r of results) {
+      if (r.query && r.lat && r.lon) {
+        map.set(r.query, { lat: r.lat, lon: r.lon, country: r.country ?? '', countryCode: r.countryCode ?? '' });
+      }
+    }
+    return map;
+  } catch {
+    return new Map();
+  }
+}
+
+// IPQuery.io: free, no key, per-IP risk scoring.
+async function scoreIPsQuery(ips) {
+  if (!ips || ips.length === 0) return new Map();
+  const map = new Map();
+  const topIps = ips.slice(0, 15);
+  await Promise.allSettled(topIps.map(async (ip) => {
+    try {
+      const resp = await fetchWithTimeout(`https://api.ipquery.io/${encodeURIComponent(ip)}`, {
+        headers: { 'User-Agent': 'WorldMonitor/1.0', Accept: 'application/json' },
+      }, 5000);
+      if (!resp.ok) return;
+      const data = await resp.json();
+      const score = data?.risk?.risk_score ?? null;
+      if (score !== null) map.set(ip, score);
+    } catch { /* ignore per-IP failures */ }
+  }));
+  return map;
+}
 
 // ── SSRF protection ──────────────────────────────────────────────────────
 // Block requests to private/reserved IP ranges to prevent the RSS proxy
@@ -1518,6 +1564,190 @@ async function dispatch(requestUrl, req, routes, context) {
     }
   }
 
+  // ── AlienVault OTX pulse/IOC feed ────────────────────────────────────────
+  if (requestUrl.pathname === '/api/otx-iocs') {
+    const apiKey = process.env.OTX_API_KEY;
+    if (!apiKey) return json({ error: 'OTX_API_KEY not configured' }, 503);
+    try {
+      const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+      const resp = await fetchWithTimeout(
+        `https://otx.alienvault.com/api/v1/pulses/subscribed?limit=50&modified_since=${since}`,
+        { headers: { 'X-OTX-API-KEY': apiKey, Accept: 'application/json', 'User-Agent': CHROME_UA } },
+        15000,
+      );
+      if (!resp.ok) return json([], 200);
+      const data = await resp.json();
+      const pulses = Array.isArray(data?.results) ? data.results : [];
+      const rawThreats = [];
+      for (const pulse of pulses) {
+        const indicators = Array.isArray(pulse.indicators) ? pulse.indicators : [];
+        for (const ioc of indicators) {
+          const itype = ioc.type ?? '';
+          const isIP = itype === 'IPv4' || itype === 'IPv6';
+          const isURL = itype === 'URL';
+          rawThreats.push({
+            id: `otx-${pulse.id}-${ioc.id ?? rawThreats.length}`,
+            type: isIP ? 'c2_server' : 'malware_host',
+            source: 'otx',
+            indicator: String(ioc.indicator ?? ''),
+            indicatorType: isIP ? 'ip' : isURL ? 'url' : 'domain',
+            lat: 0,
+            lon: 0,
+            country: '',
+            severity: 'high',
+            malwareFamily: pulse.adversary || (Array.isArray(pulse.tags) ? pulse.tags.slice(0, 3).join(', ') : ''),
+            tags: Array.isArray(pulse.tags) ? pulse.tags : [],
+            firstSeen: ioc.created ?? pulse.created ?? '',
+            lastSeen: ioc.created ?? pulse.modified ?? '',
+          });
+          if (rawThreats.length >= 300) break;
+        }
+        if (rawThreats.length >= 300) break;
+      }
+      // Enrich IP-type IOCs with geolocation
+      const ipIOCs = rawThreats.filter(t => t.indicatorType === 'ip').map(t => t.indicator);
+      const [geoMap, riskMap] = await Promise.all([geolocateIPs(ipIOCs), scoreIPsQuery(ipIOCs)]);
+      for (const t of rawThreats) {
+        if (t.indicatorType === 'ip') {
+          const geo = geoMap.get(t.indicator);
+          if (geo) { t.lat = geo.lat; t.lon = geo.lon; t.country = geo.country; }
+          const risk = riskMap.get(t.indicator);
+          if (risk !== undefined) t.riskScore = risk;
+        }
+      }
+      return json(rawThreats);
+    } catch (e) {
+      return json([], 200);
+    }
+  }
+
+  // ── VirusTotal IOC reputation lookup ─────────────────────────────────────
+  if (requestUrl.pathname === '/api/virustotal-lookup') {
+    const apiKey = process.env.VIRUSTOTAL_API_KEY;
+    if (!apiKey) return json({ error: 'VIRUSTOTAL_API_KEY not configured' }, 503);
+    const indicator = requestUrl.searchParams.get('indicator');
+    const type = requestUrl.searchParams.get('type') ?? 'domain';
+    if (!indicator) return json({ error: 'Missing indicator' }, 400);
+    try {
+      const endpointMap = { ip: 'ip_addresses', domain: 'domains', url: 'urls' };
+      const ep = endpointMap[type] ?? 'domains';
+      const encoded = type === 'url'
+        ? Buffer.from(indicator).toString('base64').replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_')
+        : encodeURIComponent(indicator);
+      const resp = await fetchWithTimeout(
+        `https://www.virustotal.com/api/v3/${ep}/${encoded}`,
+        { headers: { 'x-apikey': apiKey, Accept: 'application/json', 'User-Agent': CHROME_UA } },
+        12000,
+      );
+      if (!resp.ok) return json({ error: `VT responded ${resp.status}` }, resp.status);
+      const data = await resp.json();
+      const stats = data?.data?.attributes?.last_analysis_stats ?? {};
+      return json({
+        indicator,
+        type,
+        malicious: stats.malicious ?? 0,
+        suspicious: stats.suspicious ?? 0,
+        harmless: stats.harmless ?? 0,
+        undetected: stats.undetected ?? 0,
+        reputation: data?.data?.attributes?.reputation ?? 0,
+        lastAnalysisDate: data?.data?.attributes?.last_analysis_date ?? null,
+      });
+    } catch (e) {
+      return json({ error: String(e.message ?? e) }, 502);
+    }
+  }
+
+  // ── BGPView ASN info ──────────────────────────────────────────────────────
+  if (requestUrl.pathname === '/api/bgpview-asn') {
+    const apiKey = process.env.BGPVIEW_API_KEY;
+    const asn = requestUrl.searchParams.get('asn');
+    if (!asn || !/^\d+$/.test(asn)) return json({ error: 'Invalid ASN' }, 400);
+    try {
+      const headers = { Accept: 'application/json', 'User-Agent': CHROME_UA };
+      if (apiKey) headers['X-Api-Key'] = apiKey;
+      const [asnResp, prefixResp] = await Promise.all([
+        fetchWithTimeout(`https://api.bgpview.io/asn/${asn}`, { headers }, 10000),
+        fetchWithTimeout(`https://api.bgpview.io/asn/${asn}/prefixes`, { headers }, 10000),
+      ]);
+      const asnData = asnResp.ok ? await asnResp.json() : {};
+      const prefixData = prefixResp.ok ? await prefixResp.json() : {};
+      const info = asnData?.data ?? {};
+      return json({
+        asn: info.asn ?? Number(asn),
+        name: info.name ?? '',
+        description: info.description_short ?? info.description_full ?? '',
+        countryCode: info.country_code ?? '',
+        website: info.website ?? '',
+        rir: info.rir_allocation?.rir_name ?? '',
+        ipv4Prefixes: Array.isArray(prefixData?.data?.ipv4_prefixes) ? prefixData.data.ipv4_prefixes.length : 0,
+        ipv6Prefixes: Array.isArray(prefixData?.data?.ipv6_prefixes) ? prefixData.data.ipv6_prefixes.length : 0,
+      });
+    } catch (e) {
+      return json({ error: String(e.message ?? e) }, 502);
+    }
+  }
+
+  // ── NewsAPI.org headlines ─────────────────────────────────────────────────
+  if (requestUrl.pathname === '/api/newsapi-headlines') {
+    const apiKey = process.env.NEWSAPI_KEY;
+    if (!apiKey) return json({ error: 'NEWSAPI_KEY not configured' }, 503);
+    const q = requestUrl.searchParams.get('q') ?? 'geopolitics';
+    const pageSize = Math.min(20, parseInt(requestUrl.searchParams.get('pageSize') ?? '10', 10));
+    try {
+      const params = new URLSearchParams({ q, pageSize: String(pageSize), language: 'en', sortBy: 'publishedAt', apiKey });
+      const resp = await fetchWithTimeout(
+        `https://newsapi.org/v2/everything?${params}`,
+        { headers: { Accept: 'application/json', 'User-Agent': CHROME_UA } },
+        12000,
+      );
+      if (!resp.ok) return json([], 200);
+      const data = await resp.json();
+      const articles = Array.isArray(data?.articles) ? data.articles : [];
+      const items = articles.map((a, i) => ({
+        id: `newsapi-${i}`,
+        source: a.source?.name ?? 'NewsAPI',
+        title: a.title ?? '',
+        link: a.url ?? '',
+        pubDate: a.publishedAt ?? new Date().toISOString(),
+        description: a.description ?? '',
+        imageUrl: a.urlToImage ?? undefined,
+      }));
+      return json(items);
+    } catch (e) {
+      return json([], 200);
+    }
+  }
+
+  // ── NewsData.io feed ──────────────────────────────────────────────────────
+  if (requestUrl.pathname === '/api/newsdata-feed') {
+    const apiKey = process.env.NEWSDATA_API_KEY;
+    if (!apiKey) return json({ error: 'NEWSDATA_API_KEY not configured' }, 503);
+    const q = requestUrl.searchParams.get('q') ?? 'world news';
+    try {
+      const params = new URLSearchParams({ apikey: apiKey, q, language: 'en' });
+      const resp = await fetchWithTimeout(
+        `https://newsdata.io/api/1/latest?${params}`,
+        { headers: { Accept: 'application/json', 'User-Agent': CHROME_UA } },
+        12000,
+      );
+      if (!resp.ok) return json([], 200);
+      const data = await resp.json();
+      const results = Array.isArray(data?.results) ? data.results : [];
+      const items = results.map((a, i) => ({
+        id: `newsdata-${i}`,
+        source: a.source_name ?? a.source_id ?? 'NewsData',
+        title: a.title ?? '',
+        link: a.link ?? '',
+        pubDate: a.pubDate ?? new Date().toISOString(),
+        description: a.description ?? '',
+        imageUrl: a.image_url ?? undefined,
+      }));
+      return json(items);
+    } catch (e) {
+      return json([], 200);
+    }
+  }
+
   // ── USGS Volcano Hazards Program alerts ─────────────────────────────────
   if (requestUrl.pathname === '/api/volcano-alerts') {
     try {
@@ -2660,6 +2890,147 @@ async function dispatch(requestUrl, req, routes, context) {
       return json(result);
     } catch (error) {
       return json({ events: [], updatedAt: Math.floor(Date.now() / 1000), error: error?.message ?? 'unknown' });
+    }
+  }
+
+  // ── Fear & Greed Index (alternative.me, no key required) ─────────────────
+  if (requestUrl.pathname === '/api/fear-greed') {
+    const cached = getCached('fear-greed', 60 * 60 * 1000); // 1 hour
+    if (cached) return json(cached);
+    try {
+      const res = await fetchWithTimeout('https://api.alternative.me/fng/?limit=7', {}, 8000);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      const entries = data?.data ?? [];
+      const [latest, ...rest] = entries;
+      const result = {
+        score: parseInt(latest?.value ?? '50', 10),
+        classification: latest?.value_classification ?? 'Neutral',
+        history: rest.map(e => ({ value: parseInt(e.value, 10), timestamp: e.timestamp })),
+        updatedAt: parseInt(latest?.timestamp ?? String(Math.floor(Date.now() / 1000)), 10),
+      };
+      setCached('fear-greed', result);
+      return json(result);
+    } catch (e) {
+      return json({ score: 50, classification: 'Neutral', history: [], updatedAt: Math.floor(Date.now() / 1000), error: e?.message ?? 'unknown' });
+    }
+  }
+
+  // ── National Debt / GDP (World Bank, no key required) ─────────────────────
+  if (requestUrl.pathname === '/api/national-debt') {
+    const cached = getCached('national-debt', 24 * 60 * 60 * 1000); // 24 hours
+    if (cached) return json(cached);
+    try {
+      const url = 'https://api.worldbank.org/v2/country/all/indicator/GC.DOD.TOTL.GD.ZS?format=json&mrv=5&per_page=300';
+      const res = await fetchWithTimeout(url, {}, 12000);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      const rows = data?.[1] ?? [];
+      const seen = new Map();
+      for (const row of rows) {
+        if (!row.country?.value || row.value == null) continue;
+        const code = row.countryiso3code || row.country?.id || '';
+        // skip aggregates (all-caps 3-char codes are typically regional aggregates from WB)
+        if (!code || code.length !== 3) continue;
+        if (!seen.has(code)) {
+          seen.set(code, { code, name: row.country.value, debtPctGdp: parseFloat(row.value.toFixed(1)), year: row.date });
+        }
+      }
+      const countries = [...seen.values()].sort((a, b) => b.debtPctGdp - a.debtPctGdp).slice(0, 30);
+      const result = { countries, updatedAt: Math.floor(Date.now() / 1000) };
+      setCached('national-debt', result);
+      return json(result);
+    } catch (e) {
+      return json({ countries: [], updatedAt: Math.floor(Date.now() / 1000), error: e?.message ?? 'unknown' });
+    }
+  }
+
+  // ── Fuel Prices (EIA v2, free key required) ───────────────────────────────
+  if (requestUrl.pathname === '/api/fuel-prices') {
+    const eiaKey = process.env.EIA_API_KEY;
+    if (!eiaKey) return json({ regions: [], keyMissing: true, updatedAt: Math.floor(Date.now() / 1000) });
+    const cached = getCached('fuel-prices', 12 * 60 * 60 * 1000); // 12 hours
+    if (cached) return json(cached);
+    try {
+      const base = 'https://api.eia.gov/v2/petroleum/pri/gnd/data/';
+      const params = new URLSearchParams({
+        'api_key': eiaKey,
+        'frequency': 'weekly',
+        'data[0]': 'value',
+        'facets[duoarea][]': 'NUS',
+        'facets[process][]': 'PTE',
+        'sort[0][column]': 'period',
+        'sort[0][direction]': 'desc',
+        'length': '20',
+      });
+      // fetch gasoline (EPM0) and diesel (EPD2D) together
+      const paramStr = params.toString() + '&facets[duoarea][]=R10&facets[duoarea][]=R20&facets[duoarea][]=R30&facets[duoarea][]=R40&facets[duoarea][]=R50&facets[product][]=EPM0&facets[product][]=EPD2D';
+      const res = await fetchWithTimeout(`${base}?${paramStr}`, {}, 12000);
+      if (!res.ok) throw new Error(`EIA HTTP ${res.status}`);
+      const data = await res.json();
+      const rows = data?.response?.data ?? [];
+
+      const AREA_NAMES = { NUS: 'U.S. Average', R10: 'East Coast', R20: 'Midwest', R30: 'Gulf Coast', R40: 'Rocky Mountain', R50: 'West Coast' };
+      const AREA_ORDER = ['NUS', 'R10', 'R20', 'R30', 'R40', 'R50'];
+
+      // Group latest value per (duoarea, product)
+      const latest = new Map();
+      for (const row of rows) {
+        const key = `${row.duoarea}|${row.product}`;
+        if (!latest.has(key)) latest.set(key, row);
+      }
+
+      const regions = AREA_ORDER.map(area => {
+        const gasRow = latest.get(`${area}|EPM0`);
+        const dslRow = latest.get(`${area}|EPD2D`);
+        return {
+          name: AREA_NAMES[area] ?? area,
+          gasolineUsd: gasRow ? parseFloat(gasRow.value) : 0,
+          dieselUsd: dslRow ? parseFloat(dslRow.value) : 0,
+          period: gasRow?.period ?? dslRow?.period ?? '',
+        };
+      }).filter(r => r.gasolineUsd > 0 || r.dieselUsd > 0);
+
+      const result = { regions, keyMissing: false, updatedAt: Math.floor(Date.now() / 1000) };
+      setCached('fuel-prices', result);
+      return json(result);
+    } catch (e) {
+      return json({ regions: [], keyMissing: false, updatedAt: Math.floor(Date.now() / 1000), error: e?.message ?? 'unknown' });
+    }
+  }
+
+  // ── GDELT Intelligence (no key required, public API) ──────────────────────
+  if (requestUrl.pathname === '/api/gdelt-intel') {
+    const cached = getCached('gdelt-intel', 15 * 60 * 1000); // 15 minutes
+    if (cached) return json(cached);
+    try {
+      const params = new URLSearchParams({
+        query: 'war OR conflict OR crisis OR military OR sanctions OR nuclear',
+        mode: 'artlist',
+        maxrecords: '25',
+        format: 'json',
+        sort: 'ToneAsc',
+        timespan: '3h',
+      });
+      const res = await fetchWithTimeout(`https://api.gdeltproject.org/api/v2/doc/doc?${params}`, { headers: { 'User-Agent': CHROME_UA } }, 12000);
+      if (!res.ok) throw new Error(`GDELT HTTP ${res.status}`);
+      const data = await res.json();
+      const articles = data?.articles ?? [];
+      const events = articles.map(a => ({
+        title: a.title ?? '',
+        url: a.url ?? '',
+        source: a.domain ?? '',
+        tone: typeof a.tone === 'number' ? Math.round(a.tone * 10) / 10 : 0,
+        country: a.sourcecountry ?? '',
+        timestamp: a.seendate
+          ? new Date(a.seendate.replace(/(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z/, '$1-$2-$3T$4:$5:$6Z')).getTime()
+          : Date.now(),
+      })).filter(e => e.title && e.url);
+      const result = { events, updatedAt: Math.floor(Date.now() / 1000) };
+      setCached('gdelt-intel', result);
+      return json(result);
+    } catch (e) {
+      return json({ events: [], updatedAt: Math.floor(Date.now() / 1000), error: e?.message ?? 'unknown' });
     }
   }
 

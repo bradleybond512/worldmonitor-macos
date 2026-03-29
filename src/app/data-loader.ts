@@ -59,6 +59,7 @@ import {
 } from '@/services';
 import { checkBatchForBreakingAlerts } from '@/services/breaking-news-alerts';
 import { evaluateWarThreat, evaluateFinanceTrigger, evaluateCommodityTrigger, evaluateDisasterTrigger, checkFinanceAutoTriggerTimeout } from '@/services/mode-manager';
+import { reportElevatedPanel } from '@/services/panel-correlation';
 import { fetchGDACSEvents } from '@/services/gdacs';
 import { mlWorker } from '@/services/ml-worker';
 import { clusterNewsHybrid } from '@/services/clustering';
@@ -128,7 +129,7 @@ import { AirQualityPanel } from '@/components/AirQualityPanel';
 import { AirstrikesPanel } from '@/components/AirstrikesPanel';
 import { fetchAirstrikes } from '@/services/airstrikes';
 import { fetchS2Underground } from '@/services/s2-underground';
-import { fetchThreatFoxIOCs, fetchOpenPhishFeed, fetchSpamhausDrop, fetchCisaKev } from '@/services/cyber-extra';
+import { fetchThreatFoxIOCs, fetchOpenPhishFeed, fetchSpamhausDrop, fetchCisaKev, fetchOtxIOCs } from '@/services/cyber-extra';
 import { fetchSpaceWeather } from '@/services/space-weather';
 import { fetchDiseaseOutbreaks } from '@/services/disease-outbreak';
 import { fetchGlobalAirQuality } from '@/services/air-quality';
@@ -158,6 +159,8 @@ import { fetchAllPositiveTopicIntelligence } from '@/services/gdelt-intel';
 import { fetchPositiveGeoEvents, geocodePositiveNewsItems } from '@/services/positive-events-geo';
 import { fetchKindnessData } from '@/services/kindness-data';
 import { getPersistentCache, setPersistentCache } from '@/services/persistent-cache';
+import { fetchNewsApiHeadlines } from '@/services/newsapi';
+import { fetchNewsDataFeed } from '@/services/newsdata';
 import type { ThreatLevel as ClientThreatLevel } from '@/services/threat-classifier';
 import type { NewsItem as ProtoNewsItem, ThreatLevel as ProtoThreatLevel } from '@/generated/client/worldmonitor/news/v1/service_client';
 
@@ -814,6 +817,13 @@ export class DataLoaderManager implements AppModule {
       }
     }
 
+    // Augment with NewsAPI and NewsData headlines (non-blocking, best-effort)
+    const [newsApiItems, newsDataItems] = await Promise.all([
+      fetchNewsApiHeadlines('geopolitics world conflict crisis', 15).catch(() => [] as typeof collectedNews),
+      fetchNewsDataFeed('world news geopolitics').catch(() => [] as typeof collectedNews),
+    ]);
+    collectedNews.push(...newsApiItems, ...newsDataItems);
+
     this.ctx.allNews = collectedNews;
     this.ctx.initialLoadComplete = true;
     maybeShowDownloadBanner();
@@ -1036,7 +1046,18 @@ export class DataLoaderManager implements AppModule {
 
     // Evaluate disaster auto-trigger (uses cached GDACS data — no extra fetch)
     const earthquakes = earthquakeResult.status === 'fulfilled' ? earthquakeResult.value : [];
-    fetchGDACSEvents().then(gdacs => evaluateDisasterTrigger(gdacs, earthquakes)).catch(() => {});
+
+    // Report elevated panels for correlation detector
+    if (earthquakes.some(eq => eq.magnitude >= 6.5)) {
+      reportElevatedPanel('earthquakes', 'Earthquakes');
+    }
+
+    fetchGDACSEvents().then(gdacs => {
+      evaluateDisasterTrigger(gdacs, earthquakes);
+      if (gdacs.some(e => e.alertLevel === 'Red')) {
+        reportElevatedPanel('gdacs-alerts', 'GDACS Disaster Alerts');
+      }
+    }).catch(() => {});
   }
 
   async loadTechEvents(): Promise<void> {
@@ -1473,14 +1494,15 @@ export class DataLoaderManager implements AppModule {
     }
 
     try {
-      const [threats, tfIocs, openPhish, spamhaus, cisaKev] = await Promise.all([
+      const [threats, tfIocs, openPhish, spamhaus, cisaKev, otxIocs] = await Promise.all([
         fetchCyberThreats({ limit: 500, days: 14 }),
         fetchThreatFoxIOCs(),
         fetchOpenPhishFeed(),
         fetchSpamhausDrop(),
         fetchCisaKev(),
+        fetchOtxIOCs(),
       ]);
-      const allThreats = [...threats, ...tfIocs, ...openPhish, ...spamhaus, ...cisaKev];
+      const allThreats = [...threats, ...tfIocs, ...openPhish, ...spamhaus, ...cisaKev, ...otxIocs];
       this.ctx.cyberThreatsCache = allThreats;
       this.ctx.map?.setCyberThreats(allThreats);
       this.ctx.map?.setLayerReady('cyberThreats', allThreats.length > 0);
@@ -1618,6 +1640,22 @@ export class DataLoaderManager implements AppModule {
 
     // Check for high-risk regions and emit velocity_spike signals into war threat evaluation
     const highRisk = getHighRiskRegions();
+
+    // Dispatch EMA forecast event for sidebar sparklines
+    document.dispatchEvent(new CustomEvent('wm:ema-forecast', {
+      detail: {
+        regions: highRisk.slice(0, 6).map(r => ({
+          region:  r.region,
+          risk24h: r.risk24h,
+          trending: r.trending,
+        })),
+      },
+    }));
+
+    if (highRisk.length >= 2) {
+      // 2+ high-risk regions = elevated conflict intelligence signal
+      reportElevatedPanel('ucdp-events', 'UCDP Conflict Events');
+    }
     if (highRisk.length > 0) {
       const signals = highRisk.slice(0, 3).map(forecast => ({
         id: `ema-forecast-${forecast.region}-${Date.now()}`,

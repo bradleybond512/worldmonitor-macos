@@ -2,7 +2,6 @@ import type { RuntimeSecretKey, RuntimeFeatureId } from './runtime-config';
 
 export const SIGNUP_URLS: Partial<Record<RuntimeSecretKey, string>> = {
   WORLDMONITOR_API_KEY: 'https://worldmonitor.app',
-  ANTHROPIC_API_KEY: 'https://console.anthropic.com/settings/keys',
   GROQ_API_KEY: 'https://console.groq.com/keys',
   OPENROUTER_API_KEY: 'https://openrouter.ai/settings/keys',
   FRED_API_KEY: 'https://fred.stlouisfed.org/docs/api/api_key.html',
@@ -26,6 +25,12 @@ export const SIGNUP_URLS: Partial<Record<RuntimeSecretKey, string>> = {
   AVIATIONSTACK_API: 'https://aviationstack.com/signup/free',
   ICAO_API_KEY: 'https://dataservices.icao.int/',
   THREATFOX_API_KEY: 'https://auth.abuse.ch/',
+  NEWSAPI_KEY: 'https://newsapi.org/register',
+  NEWSDATA_API_KEY: 'https://newsdata.io/register',
+  VIRUSTOTAL_API_KEY: 'https://www.virustotal.com/gui/join-us',
+  BGPVIEW_API_KEY: 'https://bgpview.io/',
+  FMP_API_KEY: 'https://financialmodelingprep.com/developer/docs',
+  SHODAN_API_KEY: 'https://account.shodan.io/',
 };
 
 export const PLAINTEXT_KEYS = new Set<RuntimeSecretKey>([
@@ -40,7 +45,7 @@ export const MASKED_SENTINEL = '__WM_MASKED__';
 
 export const HUMAN_LABELS: Record<RuntimeSecretKey, string> = {
   WORLDMONITOR_API_KEY: 'World Monitor Cloud API Key',
-  ANTHROPIC_API_KEY: 'Anthropic (Claude) API Key',
+  ANTHROPIC_API_KEY: 'Anthropic API Key',
   GROQ_API_KEY: 'Groq API Key',
   OPENROUTER_API_KEY: 'OpenRouter API Key',
   FRED_API_KEY: 'FRED API Key',
@@ -66,6 +71,12 @@ export const HUMAN_LABELS: Record<RuntimeSecretKey, string> = {
   AVIATIONSTACK_API: 'AviationStack API Key',
   ICAO_API_KEY: 'ICAO NOTAM API Key',
   THREATFOX_API_KEY: 'ThreatFox API Key',
+  NEWSAPI_KEY: 'NewsAPI Key',
+  NEWSDATA_API_KEY: 'NewsData API Key',
+  VIRUSTOTAL_API_KEY: 'VirusTotal API Key',
+  BGPVIEW_API_KEY: 'BGPView API Key',
+  FMP_API_KEY: 'Financial Modeling Prep API Key',
+  SHODAN_API_KEY: 'Shodan API Key',
 };
 
 export interface SettingsCategory {
@@ -78,7 +89,7 @@ export const SETTINGS_CATEGORIES: SettingsCategory[] = [
   {
     id: 'ai',
     label: 'AI & Summarization',
-    features: ['aiOllama', 'aiGroq', 'aiClaude', 'aiOpenRouter'],
+    features: ['aiOllama', 'aiGroq', 'aiOpenRouter'],
   },
   {
     id: 'economy',
@@ -88,16 +99,21 @@ export const SETTINGS_CATEGORIES: SettingsCategory[] = [
   {
     id: 'markets',
     label: 'Markets & Trade',
-    features: ['finnhubMarkets', 'wtoTrade'],
+    features: ['finnhubMarkets', 'fmpMarketsFallback', 'wtoTrade'],
   },
   {
     id: 'security',
     label: 'Security & Threats',
-    features: ['cloudApiFallbackAuth', 'internetOutages', 'acledConflicts', 'acledAirstrikes', 'abuseChThreatIntel', 'alienvaultOtxThreatIntel', 'abuseIpdbThreatIntel', 'threatfoxThreatIntel', 'openPhishThreatIntel', 'spamhausDrop', 'cisaKev'],
+    features: ['cloudApiFallbackAuth', 'internetOutages', 'acledConflicts', 'acledAirstrikes', 'abuseChThreatIntel', 'alienvaultOtxThreatIntel', 'abuseIpdbThreatIntel', 'threatfoxThreatIntel', 'openPhishThreatIntel', 'spamhausDrop', 'cisaKev', 'virusTotalEnrichment', 'bgpViewEnrichment', 'shodanIcsExposure'],
   },
   {
     id: 'tracking',
     label: 'Tracking & Sensing',
     features: ['aisRelay', 'openskyRelay', 'wingbitsEnrichment', 'nasaFirms', 'aviationStack', 'icaoNotams'],
+  },
+  {
+    id: 'news',
+    label: 'News & Media',
+    features: ['newsApiHeadlines', 'newsDataFeed'],
   },
 ];

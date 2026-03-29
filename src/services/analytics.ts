@@ -87,6 +87,12 @@ const SECRET_ANALYTICS_NAMES: Record<RuntimeSecretKey, string> = {
   AVIATIONSTACK_API: 'aviationstack',
   ICAO_API_KEY: 'icao',
   THREATFOX_API_KEY: 'threatfox',
+  NEWSAPI_KEY: 'newsapi',
+  NEWSDATA_API_KEY: 'newsdata',
+  VIRUSTOTAL_API_KEY: 'virustotal',
+  BGPVIEW_API_KEY: 'bgpview',
+  SHODAN_API_KEY: 'shodan',
+  FMP_API_KEY: 'fmp',
 };
 
 // ── Typed event schemas (allowlisted properties per event) ──
