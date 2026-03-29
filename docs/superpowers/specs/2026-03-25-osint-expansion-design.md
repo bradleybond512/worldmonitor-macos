@@ -147,6 +147,7 @@ Guard: `isFeatureAvailable()` in service (execution) + in panel per-section (UI 
 **`ACLED_EMAIL`** is stored in `localStorage` as `worldmonitor-acled-email`. It is not in the keychain. In the Settings → API Keys tab it is rendered as a plain `<input type="text">` in its own row immediately below the `ACLED_API_KEY` row, using the same visual row styling as the secret key inputs but with `type="text"` (value visible) and saved to `localStorage` directly on change (no keychain IPC call). The implementing developer adds a custom render path for this field in the API Keys tab, separate from the standard keychain key render loop.
 
 Changes required:
+
 - `src-tauri/src/main.rs` — 4 new entries in `SUPPORTED_SECRET_KEYS`
 - `src/services/runtime-config.ts` — 4 keychain key defs (`isDesktopOnly: true`); `ACLED_EMAIL` localStorage-backed field; feature flags `greynoiseIntel`, `otxPulses`, `abuseIpDb`, `acledEvents`
 - `src/services/settings-constants.ts` — `HUMAN_LABELS` + `SIGNUP_URLS` for all five
