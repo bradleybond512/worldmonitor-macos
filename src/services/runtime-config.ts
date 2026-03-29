@@ -33,6 +33,7 @@ export type RuntimeSecretKey =
   | 'NEWSDATA_API_KEY'
   | 'VIRUSTOTAL_API_KEY'
   | 'BGPVIEW_API_KEY'
+  | 'SHODAN_API_KEY'
   | 'FMP_API_KEY';
 
 export type RuntimeFeatureId =
@@ -66,6 +67,7 @@ export type RuntimeFeatureId =
   | 'newsDataFeed'
   | 'virusTotalEnrichment'
   | 'bgpViewEnrichment'
+  | 'shodanIcsExposure'
   | 'fmpMarketsFallback';
 
 export interface RuntimeFeatureDefinition {
@@ -126,6 +128,7 @@ const defaultToggles: Record<RuntimeFeatureId, boolean> = {
   newsDataFeed: true,
   virusTotalEnrichment: true,
   bgpViewEnrichment: true,
+  shodanIcsExposure: true,
   fmpMarketsFallback: true,
 };
 
@@ -367,6 +370,14 @@ export const RUNTIME_FEATURES: RuntimeFeatureDefinition[] = [
     requiredSecrets: ['BGPVIEW_API_KEY'],
     desktopRequiredSecrets: [],
     fallback: 'BGPView ASN enrichment is disabled.',
+  },
+  {
+    id: 'shodanIcsExposure',
+    name: 'Shodan ICS internet exposure',
+    description: 'Shodan search for internet-exposed ICS/SCADA systems (Modbus, S7, DNP3, EtherNet/IP, BACnet).',
+    requiredSecrets: ['SHODAN_API_KEY'],
+    desktopRequiredSecrets: [],
+    fallback: 'Shodan ICS exposure feed is disabled.',
   },
   {
     id: 'fmpMarketsFallback',
