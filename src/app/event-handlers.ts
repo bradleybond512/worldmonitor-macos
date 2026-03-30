@@ -694,6 +694,19 @@ export class EventHandlerManager implements AppModule {
           this.applyPanelSettings();
         }
       },
+      setPanelsEnabled: (keys, enabled) => {
+        let changed = false;
+        for (const key of keys) {
+          const config = this.ctx.panelSettings[key];
+          if (!config || config.enabled === enabled) continue;
+          config.enabled = enabled;
+          trackPanelToggled(key, config.enabled);
+          changed = true;
+        }
+        if (!changed) return;
+        saveToStorage(STORAGE_KEYS.panels, this.ctx.panelSettings);
+        this.applyPanelSettings();
+      },
       getDisabledSources: () => this.ctx.disabledSources,
       toggleSource: (name: string) => {
         if (this.ctx.disabledSources.has(name)) {
@@ -738,10 +751,10 @@ export class EventHandlerManager implements AppModule {
       }
     });
 
+    const toolbar = this.ctx.container.querySelector('.mac-content-toolbar');
     const headerRight = this.ctx.container.querySelector('.header-right');
-    if (headerRight) {
-      headerRight.insertBefore(this.ctx.playbackControl.getElement(), headerRight.firstChild);
-    }
+    const mount = toolbar ?? headerRight ?? this.ctx.container;
+    mount.insertBefore(this.ctx.playbackControl.getElement(), mount.firstChild);
   }
 
   setupSnapshotSaving(): void {
@@ -753,6 +766,10 @@ export class EventHandlerManager implements AppModule {
         if (m.price !== null) marketPrices[m.symbol] = m.price;
       });
 
+      const watchlistSummary = (
+        this.ctx.panels.watchlist as { getReplaySummary?: () => DashboardSnapshot['watchlistSummary'] } | undefined
+      )?.getReplaySummary?.() ?? null;
+
       await saveSnapshot({
         timestamp: Date.now(),
         events: this.ctx.latestClusters,
@@ -761,7 +778,8 @@ export class EventHandlerManager implements AppModule {
           title: p.title,
           yesPrice: p.yesPrice
         })),
-        hotspotLevels: this.ctx.map?.getHotspotLevels() ?? {}
+        hotspotLevels: this.ctx.map?.getHotspotLevels() ?? {},
+        watchlistSummary,
       });
     };
 

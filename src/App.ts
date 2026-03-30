@@ -42,10 +42,17 @@ import { EventHandlerManager } from '@/app/event-handlers';
 import { resolveUserRegion } from '@/utils/user-location';
 
 const CYBER_LAYER_ENABLED = import.meta.env.VITE_ENABLE_CYBER_LAYER === 'true';
-const AI_OVERVIEW_PRIORITY_PANELS: Record<string, string[]> = {
-  full: ['insights', 'strategic-posture', 'strategic-risk', 'cii', 'geo-hubs'],
+const CRITICAL_PRIORITY_PANELS: Record<string, string[]> = {
+  full: ['watchlist', 'alert-center', 'strategic-risk', 'strategic-posture', 'insights', 'cii', 'geo-hubs', 'live-news', 'live-webcams'],
   tech: ['insights', 'regulation', 'tech-readiness', 'ai', 'tech-hubs', 'tech', 'policy'],
+  finance: ['insights', 'markets', 'macro-signals', 'economic', 'commodities', 'live-news', 'live-webcams'],
 };
+
+function clonePanelSettings(settings: Record<string, PanelConfig>): Record<string, PanelConfig> {
+  return Object.fromEntries(
+    Object.entries(settings).map(([key, config]) => [key, { ...config }]),
+  );
+}
 
 export type { CountryBriefSignals } from '@/app/app-context';
 
@@ -93,9 +100,11 @@ export class App {
         const unhappyLayers: (keyof MapLayers)[] = ['conflicts', 'bases', 'hotspots', 'nuclear', 'irradiators', 'sanctions', 'military', 'protests', 'pipelines', 'waterways', 'ais', 'flights', 'spaceports', 'minerals', 'natural', 'fires', 'outages', 'cyberThreats', 'weather', 'economic', 'cables', 'datacenters', 'ucdpEvents', 'displacement', 'climate', 'iranAttacks'];
         unhappyLayers.forEach(layer => { mapLayers[layer] = false; });
       }
-      panelSettings = loadFromStorage<Record<string, PanelConfig>>(
-        STORAGE_KEYS.panels,
-        DEFAULT_PANELS
+      panelSettings = clonePanelSettings(
+        loadFromStorage<Record<string, PanelConfig>>(
+          STORAGE_KEYS.panels,
+          DEFAULT_PANELS,
+        ),
       );
       // Merge in any new panels that didn't exist when settings were saved
       for (const [key, config] of Object.entries(DEFAULT_PANELS)) {
@@ -126,25 +135,40 @@ export class App {
         localStorage.setItem(PANEL_ORDER_MIGRATION_KEY, 'done');
       }
 
-      const aiOverviewPriorityPanels = AI_OVERVIEW_PRIORITY_PANELS[currentVariant] ?? [];
-      const AI_OVERVIEW_MIGRATION_KEY = 'worldmonitor-ai-overview-top-v2.7.1';
-      if (aiOverviewPriorityPanels.length > 0 && !localStorage.getItem(AI_OVERVIEW_MIGRATION_KEY)) {
+      const criticalPriorityPanels = CRITICAL_PRIORITY_PANELS[currentVariant] ?? [];
+      const CRITICAL_PRIORITY_MIGRATION_KEY = 'worldmonitor-critical-top-v2.7.5';
+      if (criticalPriorityPanels.length > 0 && !localStorage.getItem(CRITICAL_PRIORITY_MIGRATION_KEY)) {
         const savedOrder = localStorage.getItem(PANEL_ORDER_KEY);
         if (savedOrder) {
           try {
             const order: string[] = JSON.parse(savedOrder);
-            const filtered = order.filter(k => !aiOverviewPriorityPanels.includes(k));
+            const filtered = order.filter(k => !criticalPriorityPanels.includes(k));
             const newOrder = [
-              ...aiOverviewPriorityPanels.filter(panelKey => order.includes(panelKey)),
+              ...criticalPriorityPanels.filter(panelKey => order.includes(panelKey)),
               ...filtered,
             ];
             localStorage.setItem(PANEL_ORDER_KEY, JSON.stringify(newOrder));
-            console.log(`[App] ${currentVariant} variant: moved AI overview panels to top`);
+            console.log(`[App] ${currentVariant} variant: moved critical panels to top`);
           } catch {
             // Invalid saved order, will use defaults
           }
         }
-        localStorage.setItem(AI_OVERVIEW_MIGRATION_KEY, 'done');
+        localStorage.setItem(CRITICAL_PRIORITY_MIGRATION_KEY, 'done');
+      }
+
+      const FULL_PANEL_VISIBILITY_MIGRATION_KEY = 'worldmonitor-full-panels-visible-v2.7.6';
+      if (currentVariant === 'full' && !localStorage.getItem(FULL_PANEL_VISIBILITY_MIGRATION_KEY)) {
+        for (const [key, config] of Object.entries(DEFAULT_PANELS)) {
+          if (panelSettings[key]) {
+            panelSettings[key].name = config.name;
+            panelSettings[key].priority = config.priority;
+            panelSettings[key].enabled = true;
+          } else {
+            panelSettings[key] = { ...config, enabled: true };
+          }
+        }
+        saveToStorage(STORAGE_KEYS.panels, panelSettings);
+        localStorage.setItem(FULL_PANEL_VISIBILITY_MIGRATION_KEY, 'done');
       }
     } else {
       // Variant changed - use defaults for new variant, clear old settings
@@ -155,7 +179,7 @@ export class App {
       localStorage.removeItem(PANEL_ORDER_KEY);
       localStorage.removeItem(PANEL_SPANS_KEY);
       mapLayers = { ...defaultLayers };
-      panelSettings = { ...DEFAULT_PANELS };
+      panelSettings = clonePanelSettings(DEFAULT_PANELS);
     }
 
     // One-time migration: clear stale panel ordering and sizing state
@@ -276,6 +300,8 @@ export class App {
 
     this.panelLayout = new PanelLayoutManager(this.state, {
       openCountryStory: (code, name) => this.countryIntel.openCountryStory(code, name),
+      openCountryBriefByCode: (code, name) => this.countryIntel.openCountryBriefByCode(code, name),
+      getCountryWatchSnapshot: (code, name) => this.countryIntel.getCountryWatchSnapshot(code, name),
       loadAllData: () => this.dataLoader.loadAllData(),
       updateMonitorResults: () => this.dataLoader.updateMonitorResults(),
       loadSecurityAdvisories: () => this.dataLoader.loadSecurityAdvisories(),
@@ -538,6 +564,7 @@ export class App {
         { name: 'economicStress', fn: () => this.dataLoader.loadEconomicStress(), intervalMs: 15 * 60 * 1000, condition: () => SITE_VARIANT === 'full' },
         { name: 'tsunamiAlerts', fn: () => this.dataLoader.loadTsunamiAlerts(), intervalMs: 5 * 60 * 1000, condition: () => SITE_VARIANT === 'full' },
         { name: 'tropicalCyclones', fn: () => this.dataLoader.loadTropicalCyclones(), intervalMs: 30 * 60 * 1000, condition: () => SITE_VARIANT === 'full' },
+        { name: 'savedPlaceWeather', fn: () => this.dataLoader.loadSavedPlaceWeather(), intervalMs: 30 * 60 * 1000, condition: () => SITE_VARIANT === 'full' },
         { name: 'foodInsecurity', fn: () => this.dataLoader.loadFoodInsecurity(), intervalMs: 4 * 60 * 60 * 1000, condition: () => SITE_VARIANT === 'full' },
       ]);
     }
@@ -597,10 +624,12 @@ export class App {
     // Refresh intelligence signals for CII (geopolitical variant only)
     if (SITE_VARIANT === 'full') {
       this.refreshScheduler.scheduleRefresh('intelligence', () => {
-        const { military, iranEvents } = this.state.intelligenceCache;
+        const { military, iranEvents, earthquakes, gdacsAlerts } = this.state.intelligenceCache;
         this.state.intelligenceCache = {};
         if (military) this.state.intelligenceCache.military = military;
         if (iranEvents) this.state.intelligenceCache.iranEvents = iranEvents;
+        if (earthquakes) this.state.intelligenceCache.earthquakes = earthquakes;
+        if (gdacsAlerts) this.state.intelligenceCache.gdacsAlerts = gdacsAlerts;
         return this.dataLoader.loadIntelligenceSignals();
       }, 15 * 60 * 1000);
     }

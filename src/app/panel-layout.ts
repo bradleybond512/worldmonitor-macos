@@ -38,6 +38,10 @@ import {
   SecurityAdvisoriesPanel,
   OrefSirensPanel,
   TelegramIntelPanel,
+  WatchlistPanel,
+  SavedPlacesPanel,
+  LocalLogisticsPanel,
+  CommsPlanPanel,
 } from '@/components';
 import { SatelliteFiresPanel } from '@/components/SatelliteFiresPanel';
 import { EarthquakesPanel } from '@/components/EarthquakesPanel';
@@ -90,11 +94,14 @@ import { trackCriticalBannerAction } from '@/services/analytics';
 import { initMode, setMode, alertFamily, getMode, toggleGhostMode, type AppMode } from '@/services/mode-manager';
 import { isLowPowerMode, setLowPowerMode } from '@/services/low-power';
 import { tryInvokeTauri } from '@/services/tauri-bridge';
+import { getPrimarySavedPlace, getSavedPlace } from '@/services/saved-places';
 import type { GeoHubActivity } from '@/services/geo-activity';
 import type { TechHubActivity } from '@/services/tech-activity';
 
 export interface PanelLayoutCallbacks {
   openCountryStory: (code: string, name: string) => void;
+  openCountryBriefByCode: (code: string, country: string) => void;
+  getCountryWatchSnapshot: (code: string, country: string) => import('@/components/WatchlistPanel').WatchCountrySnapshot | null;
   loadAllData: () => Promise<void>;
   updateMonitorResults: () => void;
   loadSecurityAdvisories?: () => Promise<void>;
@@ -111,7 +118,7 @@ export class PanelLayoutManager implements AppModule {
   private _preModeOrder: string[] = [];
 
   /** Panels always kept at the top regardless of mode (video feeds / live streams). */
-  private static readonly MODE_ANCHORS = ['live-news', 'live-webcams'];
+  private static readonly MODE_ANCHORS = ['watchlist', 'alert-center', 'live-news', 'live-webcams'];
 
   /** Panels floated to top in Finance Mode. */
   private static readonly FINANCE_PRIORITY = [
@@ -128,9 +135,10 @@ export class PanelLayoutManager implements AppModule {
 
   /** Panels floated to top in Disaster Mode. */
   private static readonly DISASTER_PRIORITY = [
-    'earthquakes', 'satellite-fires', 'gdacs-alerts',
-    'volcano-alerts', 'nws-alerts', 'alert-center', 'displacement',
-    'oref-sirens', 'weather', 'air-quality', 'comms-health', 'economic-stress',
+    'alert-center', 'saved-places', 'tropical-cyclones', 'nws-alerts',
+    'weather', 'earthquakes', 'gdacs-alerts', 'satellite-fires',
+    'volcano-alerts', 'displacement', 'oref-sirens', 'air-quality',
+    'comms-health', 'economic-stress',
   ];
 
   constructor(ctx: AppContext, callbacks: PanelLayoutCallbacks) {
@@ -309,7 +317,7 @@ export class PanelLayoutManager implements AppModule {
               <button class="mac-mode-btn${getMode() === 'war' ? ' mac-mode-active mac-mode-war-active' : ''}" data-mode="war" title="War Mode — Conflict escalation monitoring">⚔ War</button>
               <button class="mac-mode-btn${getMode() === 'disaster' ? ' mac-mode-active mac-mode-disaster-active' : ''}" data-mode="disaster" title="Disaster Mode — Natural disaster monitoring">🌋 Disaster</button>
             </div>
-            ${getMode() === 'war' ? '<button class="mac-alert-family-btn" id="alertFamilyBtn">⚠ Alert Family</button>' : ''}
+            ${getMode() === 'war' ? '<button class="mac-alert-family-btn" id="alertFamilyBtn">📡 Share Check-In</button>' : ''}
             <button class="mac-ghost-mode-btn${getMode() === 'ghost' ? ' mac-ghost-mode-active' : ''}" id="ghostModeBtn" title="Ghost Mode — Reduce polling, suppress notifications (⌘⇧G)">👻 Ghost Mode</button>
           </div>`}
 
@@ -730,10 +738,44 @@ export class PanelLayoutManager implements AppModule {
     }
 
     if (SITE_VARIANT === 'full') {
+      let localLogisticsPanel: LocalLogisticsPanel | null = null;
+      let commsPlanPanel: CommsPlanPanel | null = null;
       const focusGeoHub = (hub: GeoHubActivity) => {
         this.ctx.map?.setCenter(hub.lat, hub.lon, 4);
         this.ctx.map?.flashLocation(hub.lat, hub.lon, 3000);
       };
+      const focusSavedPlace = (placeId: string) => {
+        const place = getSavedPlace(placeId);
+        if (!place) return;
+        localLogisticsPanel?.setPlaceId(placeId);
+        commsPlanPanel?.setPlaceId(placeId);
+        this.ctx.map?.setCenter(place.lat, place.lon, 6);
+        this.ctx.map?.flashLocation(place.lat, place.lon, 3000);
+      };
+
+      const watchlistPanel = new WatchlistPanel({
+        getCountrySnapshot: (code, country) => this.callbacks.getCountryWatchSnapshot(code, country),
+        openCountryBrief: (code, country) => this.callbacks.openCountryBriefByCode(code, country),
+      });
+      this.ctx.panels.watchlist = watchlistPanel;
+
+      const savedPlacesPanel = new SavedPlacesPanel({
+        focusPlace: focusSavedPlace,
+      });
+      this.ctx.panels['saved-places'] = savedPlacesPanel;
+
+      localLogisticsPanel = new LocalLogisticsPanel({
+        focusNode: (lat, lon) => {
+          this.ctx.map?.setCenter(lat, lon, 9);
+          this.ctx.map?.flashLocation(lat, lon, 3000);
+        },
+      });
+      localLogisticsPanel.setPlaceId(getPrimarySavedPlace()?.id ?? null);
+      this.ctx.panels['local-logistics'] = localLogisticsPanel;
+
+      commsPlanPanel = new CommsPlanPanel();
+      commsPlanPanel.setPlaceId(getPrimarySavedPlace()?.id ?? null);
+      this.ctx.panels['comms-plan'] = commsPlanPanel;
 
       const gdeltIntelPanel = new GdeltIntelPanel();
       this.ctx.panels['gdelt-intel'] = gdeltIntelPanel;
@@ -949,18 +991,9 @@ export class PanelLayoutManager implements AppModule {
     }
 
     if (SITE_VARIANT !== 'happy') {
-      const liveNewsIdx = panelOrder.indexOf('live-news');
-      if (liveNewsIdx > 0) {
-        panelOrder.splice(liveNewsIdx, 1);
-        panelOrder.unshift('live-news');
-      }
-
-      const webcamsIdx = panelOrder.indexOf('live-webcams');
-      if (webcamsIdx !== -1 && webcamsIdx !== panelOrder.indexOf('live-news') + 1) {
-        panelOrder.splice(webcamsIdx, 1);
-        const afterNews = panelOrder.indexOf('live-news') + 1;
-        panelOrder.splice(afterNews, 0, 'live-webcams');
-      }
+      const anchors = PanelLayoutManager.MODE_ANCHORS.filter((key) => panelOrder.includes(key));
+      const rest = panelOrder.filter((key) => !anchors.includes(key));
+      panelOrder = [...anchors, ...rest];
     }
 
     panelOrder.forEach((key: string) => {
@@ -1025,13 +1058,13 @@ export class PanelLayoutManager implements AppModule {
       });
     });
 
-    // Alert Family button (only visible in War mode)
+    // Share Check-In button (only visible in War mode)
     document.getElementById('alertFamilyBtn')?.addEventListener('click', () => {
       alertFamily();
       const btn = document.getElementById('alertFamilyBtn');
       if (btn) {
         const orig = btn.textContent;
-        btn.textContent = '✓ Copied to clipboard';
+        btn.textContent = '✓ Copied check-in';
         setTimeout(() => { btn.textContent = orig; }, 2000);
       }
     });
@@ -1047,7 +1080,7 @@ export class PanelLayoutManager implements AppModule {
       this.ctx.unifiedSettings?.open();
     });
 
-    // React to mode changes: update button states, body class, re-render family button
+    // React to mode changes: update button states, body class, re-render check-in button
     document.addEventListener('wm:mode-changed', ((e: CustomEvent) => {
       const { mode } = e.detail as { mode: AppMode };
       document.body.dataset.appMode = mode;
@@ -1065,7 +1098,7 @@ export class PanelLayoutManager implements AppModule {
       const ghostBtn = document.getElementById('ghostModeBtn');
       if (ghostBtn) ghostBtn.classList.toggle('mac-ghost-mode-active', mode === 'ghost');
 
-      // Show / hide Alert Family button
+      // Show / hide Share Check-In button
       const section = document.getElementById('modeSelectorSection');
       if (!section) return;
       let familyBtn = document.getElementById('alertFamilyBtn');
@@ -1073,11 +1106,11 @@ export class PanelLayoutManager implements AppModule {
         familyBtn = document.createElement('button');
         familyBtn.className = 'mac-alert-family-btn';
         familyBtn.id = 'alertFamilyBtn';
-        familyBtn.textContent = '⚠ Alert Family';
+        familyBtn.textContent = '📡 Share Check-In';
         familyBtn.addEventListener('click', () => {
           alertFamily();
           const orig = familyBtn!.textContent;
-          familyBtn!.textContent = '✓ Copied to clipboard';
+          familyBtn!.textContent = '✓ Copied check-in';
           setTimeout(() => { if (familyBtn) familyBtn.textContent = orig; }, 2000);
         });
         // Insert before ghost button if it exists
