@@ -9,6 +9,9 @@ import { SITE_VARIANT } from './variant';
 const FULL_PANELS: Record<string, PanelConfig> = {
   map: { name: 'Global Map', enabled: true, priority: 1 },
   watchlist: { name: 'Watchlist & Playbooks', enabled: true, priority: 1 },
+  'saved-places': { name: 'Saved Places', enabled: true, priority: 1 },
+  'local-logistics': { name: 'Local Logistics', enabled: true, priority: 1 },
+  'comms-plan': { name: 'Tactical Comms', enabled: true, priority: 1 },
   'alert-center': { name: 'Alert Center', enabled: true, priority: 1 },
   'strategic-risk': { name: 'Strategic Risk Overview', enabled: true, priority: 1 },
   'strategic-posture': { name: 'AI Strategic Posture', enabled: true, priority: 1 },
@@ -634,7 +637,7 @@ export const PANEL_CATEGORY_MAP: Record<string, { labelKey: string; panelKeys: s
   // Full (geopolitical) variant
   intelligence: {
     labelKey: 'header.panelCatIntelligence',
-    panelKeys: ['watchlist', 'alert-center', 'strategic-risk', 'cii', 'geo-hubs', 'intel', 'gdelt-intel', 'cascade', 'telegram-intel'],
+    panelKeys: ['watchlist', 'saved-places', 'local-logistics', 'comms-plan', 'alert-center', 'strategic-risk', 'cii', 'geo-hubs', 'intel', 'gdelt-intel', 'cascade', 'telegram-intel'],
     variants: ['full'],
   },
   regionalNews: {
@@ -644,7 +647,7 @@ export const PANEL_CATEGORY_MAP: Record<string, { labelKey: string; panelKeys: s
   },
   marketsFinance: {
     labelKey: 'header.panelCatMarketsFinance',
-    panelKeys: ['commodities', 'markets', 'economic', 'economic-stress', 'trade-policy', 'supply-chain', 'finance', 'polymarket', 'macro-signals', 'etf-flows', 'stablecoins', 'crypto', 'heatmap'],
+    panelKeys: ['commodities', 'markets', 'economic', 'economic-stress', 'trade-policy', 'supply-chain', 'finance', 'polymarket', 'macro-signals', 'etf-flows', 'stablecoins', 'crypto', 'heatmap', 'fear-greed', 'national-debt', 'fuel-prices'],
     variants: ['full'],
   },
   topical: {
@@ -654,7 +657,7 @@ export const PANEL_CATEGORY_MAP: Record<string, { labelKey: string; panelKeys: s
   },
   dataTracking: {
     labelKey: 'header.panelCatDataTracking',
-    panelKeys: ['monitors', 'cyber-threats', 'comms-health', 'ucdp-events', 'nuclear-risk', 'airstrikes', 'displacement', 'security-advisories', 'oref-sirens', 'space-weather', 'population-exposure'],
+    panelKeys: ['monitors', 'cyber-threats', 'comms-health', 'ucdp-events', 'nuclear-risk', 'airstrikes', 'displacement', 'security-advisories', 'oref-sirens', 'space-weather', 'population-exposure', 'internet-disruptions'],
     variants: ['full'],
   },
   hazards: {
