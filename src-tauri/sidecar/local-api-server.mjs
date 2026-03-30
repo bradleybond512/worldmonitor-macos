@@ -3212,6 +3212,20 @@ async function dispatch(requestUrl, req, routes, context) {
     });
   }
 
+  // ── AIS snapshot — served from sidecar's own aisstream.io connection ────────
+  if (requestUrl.pathname === '/api/ais-snapshot') {
+    const apiKey = process.env.AISSTREAM_API_KEY;
+    if (!apiKey) {
+      return json({ error: 'AISSTREAM_API_KEY not configured — add your key in Settings → Tracking & Sensing' }, 503);
+    }
+    // Ensure connected (handles case where key was just set and connect hasn't fired yet)
+    if (!aisState.socket || aisState.socket.readyState > 1) aisConnect(apiKey);
+    return new Response(aisBuildSnapshot(), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-cache' },
+    });
+  }
+
   if (context.cloudFallback && cloudPreferred.has(requestUrl.pathname)) {
     const cloudResponse = await tryCloudFallback(requestUrl, req, context);
     if (cloudResponse) return cloudResponse;
