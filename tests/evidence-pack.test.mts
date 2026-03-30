@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import {
   buildBreakingAlertEvidencePack,
@@ -8,6 +10,8 @@ import {
   buildSignalEvidencePack,
 } from '../src/services/evidence-pack.ts';
 
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const root = resolve(__dirname, '..');
 const NOW = new Date('2026-03-29T18:00:00.000Z');
 
 function makeNewsItem(source, title, minutesAgo, tier) {
@@ -113,7 +117,7 @@ test('buildBreakingAlertEvidencePack marks critical trusted alerts as actionable
 
 test('analysis-core wires cluster and signal evidence builders', () => {
   const source = readFileSync(
-    '/Users/bradleybond/Developer/worldmonitor/src/services/analysis-core.ts',
+    resolve(root, 'src/services/analysis-core.ts'),
     'utf8',
   );
 
@@ -126,11 +130,11 @@ test('analysis-core wires cluster and signal evidence builders', () => {
 
 test('geo and breaking-alert integrations preserve the evidence contract', () => {
   const breakingAlertsSource = readFileSync(
-    '/Users/bradleybond/Developer/worldmonitor/src/services/breaking-news-alerts.ts',
+    resolve(root, 'src/services/breaking-news-alerts.ts'),
     'utf8',
   );
   const geoConvergenceSource = readFileSync(
-    '/Users/bradleybond/Developer/worldmonitor/src/services/geo-convergence.ts',
+    resolve(root, 'src/services/geo-convergence.ts'),
     'utf8',
   );
 

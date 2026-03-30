@@ -57,7 +57,7 @@ const FULL_PANELS: Record<string, PanelConfig> = {
   'ucdp-events': { name: 'UCDP Conflict Events', enabled: true, priority: 2 },
   'nuclear-risk': { name: 'Nuclear Risk Tracker', enabled: true, priority: 2 },
   'airstrikes': { name: 'Air Strikes & Drones', enabled: true, priority: 2 },
-  giving: { name: 'Global Giving', enabled: false, priority: 2 },
+  giving: { name: 'Global Giving', enabled: true, priority: 2 },
   displacement: { name: 'UNHCR Displacement', enabled: true, priority: 2 },
   climate: { name: 'Climate Anomalies', enabled: true, priority: 2 },
   'population-exposure': { name: 'Population Exposure', enabled: true, priority: 2 },
@@ -73,8 +73,8 @@ const FULL_PANELS: Record<string, PanelConfig> = {
   'tsunami-alerts': { name: 'Tsunami Alerts', enabled: true, priority: 2 },
   'tropical-cyclones': { name: 'Tropical Cyclones', enabled: true, priority: 2 },
   'food-insecurity': { name: 'Food Insecurity', enabled: true, priority: 2 },
-  'radiation-decay': { name: 'Radiation Decay Calculator', enabled: false, priority: 3 },
-  'resource-inventory': { name: 'Resource Inventory', enabled: false, priority: 3 },
+  'radiation-decay': { name: 'Radiation Decay Calculator', enabled: true, priority: 3 },
+  'resource-inventory': { name: 'Resource Inventory', enabled: true, priority: 3 },
   'fear-greed': { name: 'Fear & Greed Index', enabled: true, priority: 2 },
   'internet-disruptions': { name: 'Internet Disruptions', enabled: true, priority: 2 },
   'national-debt': { name: 'National Debt', enabled: true, priority: 2 },
@@ -667,7 +667,7 @@ export const PANEL_CATEGORY_MAP: Record<string, { labelKey: string; panelKeys: s
   },
   healthEnv: {
     labelKey: 'header.panelCatHealthEnv',
-    panelKeys: ['disease-outbreaks', 'air-quality', 'food-insecurity', 'radiation-decay', 'resource-inventory'],
+    panelKeys: ['giving', 'disease-outbreaks', 'air-quality', 'food-insecurity', 'radiation-decay', 'resource-inventory'],
     variants: ['full'],
   },
 
