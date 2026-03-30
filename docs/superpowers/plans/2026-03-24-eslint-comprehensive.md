@@ -30,6 +30,7 @@
 ### Task 1: Install ESLint packages
 
 **Files:**
+
 - Modify: `package.json` (devDependencies)
 
 - [ ] **Step 1: Install devDependencies**
@@ -53,6 +54,7 @@ Expected: `v9.x.x`
 ### Task 2: Write `eslint.config.mjs`
 
 **Files:**
+
 - Create: `eslint.config.mjs`
 
 `★ Insight ─────────────────────────────────────`
@@ -183,6 +185,7 @@ Expected: Non-zero exit with a summary line like `X problems (Y errors, Z warnin
 ### Task 3: Add npm scripts and lint-staged config
 
 **Files:**
+
 - Modify: `package.json`
 
 - [ ] **Step 6: Add `lint` and `lint:fix` scripts to `package.json`**
@@ -231,6 +234,7 @@ EOF
 ### Task 4: Run the auto-fix pass
 
 **Files:**
+
 - Modify: `src/**/*.ts`, `src-tauri/sidecar/**/*.mjs`, `scripts/**/*.mjs`, `api/**/*.js`
 
 `★ Insight ─────────────────────────────────────`
@@ -281,6 +285,7 @@ Note: Use `git add` on specific files/directories rather than `-A`. Stage: `src/
 ### Task 5: Audit and fix localhost string literals
 
 **Files:**
+
 - Modify: Any file in `src/`, `scripts/`, `api/`, `src-tauri/sidecar/` containing the string `"localhost"`
 
 - [ ] **Step 5: Find all localhost string literals**
@@ -294,12 +299,15 @@ Expected: A list of file:line occurrences. Examine each one.
 - [ ] **Step 6: Triage each occurrence**
 
 For each hit:
+
 - **`src/`**: Replace `"localhost"` with `"127.0.0.1"` — these are WKWebView URL constructions and are always bugs per CLAUDE.md.
 - **`src-tauri/sidecar/local-api-server.mjs` — `return 'tauri://localhost'`**: This is an intentional Tauri IPC origin. Add exactly this suppress comment above the line:
+
   ```js
   // eslint-disable-next-line no-restricted-syntax -- intentional: Tauri IPC origin; must not change to 127.0.0.1
   return 'tauri://localhost';
   ```
+
 - **`hostname === 'localhost'`** in the same file: This is a variable comparison (not a string Literal node with the localhost value in the right position for the selector), so the rule will not fire — no change needed.
 - **`scripts/` or `api/`**: Evaluate case-by-case. Test fixtures comparing against `"localhost"` may be intentional — if so, add a suppress comment with explanation. URL constructions should be changed to `"127.0.0.1"`.
 
@@ -330,6 +338,7 @@ EOF
 ### Task 6: Fix floating promise violations
 
 **Files:**
+
 - Modify: `src/**/*.ts` files flagged by `@typescript-eslint/no-floating-promises`
 
 `★ Insight ─────────────────────────────────────`
@@ -347,6 +356,7 @@ Expected: List of `file:line:col` entries.
 - [ ] **Step 2: Fix each violation**
 
 For each location:
+
 - If the containing function can be `async`, add `await`.
 - If the containing function is a sync event handler (e.g., a `mousedown` callback), prefix the call with `void`: `void fetchData()`.
 - If the call is already in a `.then().catch()` chain, the rule should not have fired — re-read the context.
@@ -376,6 +386,7 @@ EOF
 ### Task 7: Fix explicit-any violations
 
 **Files:**
+
 - Modify: `src/**/*.ts` files flagged by `@typescript-eslint/no-explicit-any`
 
 `★ Insight ─────────────────────────────────────`
@@ -391,6 +402,7 @@ npm run lint -- --rule '{"@typescript-eslint/no-explicit-any": "error"}' src/ 2>
 - [ ] **Step 6: Fix each violation**
 
 Decision tree for each `any`:
+
 1. Is the value from an external API response with no schema? → Use `unknown`, add a type guard or `as SpecificType` with a comment.
 2. Is it a callback parameter type? → Use the specific event/callback type from the library (e.g., `MessageEvent`, `ErrorEvent`).
 3. Is it a generic container? → Use `unknown` or a constrained generic `<T extends object>`.
@@ -421,6 +433,7 @@ EOF
 ### Task 8: Fix cognitive complexity violations
 
 **Files:**
+
 - Modify: Any function in `src/`, `scripts/`, `api/`, `src-tauri/sidecar/` exceeding sonarjs cognitive complexity 15
 
 `★ Insight ─────────────────────────────────────`
@@ -438,6 +451,7 @@ Expected: List of functions over complexity 15, with their scores.
 - [ ] **Step 10: Refactor each over-complex function**
 
 For each flagged function:
+
 1. Read the full function body.
 2. Identify the clearest extraction boundary — usually the deepest or most independent nested block.
 3. Extract to a named helper in the same file.
@@ -480,6 +494,7 @@ EOF
 ### Task 9: Fix remaining unicorn and sonarjs violations
 
 **Files:**
+
 - Modify: Any remaining flagged files in `src/`, `scripts/`, `api/`, `src-tauri/sidecar/`
 
 - [ ] **Step 14: Run full lint and capture remaining violations**
@@ -493,6 +508,7 @@ Expected: Any remaining violations from unicorn/sonarjs rules not covered by pri
 - [ ] **Step 15: Fix remaining violations**
 
 Common unicorn fixes:
+
 - `unicorn/prefer-string-slice` → replace `.substring()` / `.substr()` with `.slice()`
 - `unicorn/prefer-ternary` → replace simple `if/else` assignment with ternary
 - `unicorn/no-lonely-if` → merge nested `if` into parent `else if`
@@ -500,6 +516,7 @@ Common unicorn fixes:
 - `unicorn/prefer-number-properties` → replace `isNaN()` with `Number.isNaN()`
 
 Common sonarjs fixes:
+
 - `sonarjs/no-duplicate-string` → extract repeated string to a named constant
 - `sonarjs/no-identical-functions` → extract identical function bodies to a shared helper
 
@@ -538,6 +555,7 @@ EOF
 ### Task 10: Update the pre-commit hook
 
 **Files:**
+
 - Modify: `.husky/pre-commit`
 
 - [ ] **Step 1: Add `npx lint-staged` to the pre-commit hook**
@@ -602,6 +620,7 @@ EOF
 ### Task 11: Add CI workflow
 
 **Files:**
+
 - Create: `.github/workflows/eslint.yml`
 
 `★ Insight ─────────────────────────────────────`
