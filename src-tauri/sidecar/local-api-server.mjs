@@ -1402,6 +1402,59 @@ async function dispatch(requestUrl, req, routes, context) {
     }
   }
 
+  if (requestUrl.pathname === '/api/local-youtube-recent-videos') {
+    const channelParam = requestUrl.searchParams.get('channel');
+    if (!channelParam) return json({ error: 'Missing channel parameter', videoIds: [] }, 400);
+    const count = Math.min(Math.max(1, parseInt(requestUrl.searchParams.get('count') || '15', 10)), 30);
+    const handle = channelParam.startsWith('@') ? channelParam : `@${channelParam}`;
+
+    // In-memory channel ID cache (handle → { channelId, ts }) to avoid re-scraping on every call
+    if (!context._ytChannelIdCache) context._ytChannelIdCache = new Map();
+    const cache = context._ytChannelIdCache;
+    const CHANNEL_ID_CACHE_TTL = 24 * 60 * 60 * 1000;
+
+    try {
+      let channelId = null;
+      const cached = cache.get(handle);
+      if (cached && Date.now() - cached.ts < CHANNEL_ID_CACHE_TTL) {
+        channelId = cached.channelId;
+      } else {
+        // Resolve handle → channel ID by scraping the channel page
+        const pageRes = await fetch(`https://www.youtube.com/${handle}`, {
+          headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' },
+          redirect: 'follow',
+        });
+        if (pageRes.ok) {
+          const html = await pageRes.text();
+          const idMatch = html.match(/"externalId"\s*:\s*"(UC[A-Za-z0-9_-]{22})"/);
+          if (idMatch) {
+            channelId = idMatch[1];
+            cache.set(handle, { channelId, ts: Date.now() });
+          }
+        }
+      }
+
+      if (!channelId) return json({ videoIds: [], error: 'Could not resolve channel ID' }, 200);
+
+      // Fetch the public RSS feed (no API key required, returns up to 15 videos newest-to-oldest)
+      const rssRes = await fetch(`https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`, {
+        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; WorldMonitor/1.0)' },
+      });
+      if (!rssRes.ok) throw new Error(`RSS ${rssRes.status}`);
+      const xml = await rssRes.text();
+
+      // Extract video IDs — RSS lists videos newest-to-oldest by default
+      const videoIds = [...xml.matchAll(/<yt:videoId>([A-Za-z0-9_-]{11})<\/yt:videoId>/g)]
+        .map(m => m[1])
+        .slice(0, count);
+
+      return json({ videoIds, channelId }, 200, { 'cache-control': 'public, max-age=900, stale-while-revalidate=300' });
+    } catch (err) {
+      context.logger.warn(`[local-api] youtube-recent-videos failed for ${handle}: ${err?.message}`);
+      return json({ videoIds: [], error: 'Failed to fetch recent videos' }, 200);
+    }
+  }
+
   if (requestUrl.pathname === '/api/local-status') {
     return json({
       success: true,
