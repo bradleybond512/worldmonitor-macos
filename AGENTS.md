@@ -6,6 +6,22 @@
 - Agent branches (`claude/*`, `codex/*`, `copilot/*`) must go through PRs and GitHub auto-merge after required checks pass.
 - Do not merge agent PRs directly with the REST merge endpoint or local `git merge` unless explicitly told.
 
+## Branch Discipline (MANDATORY — start every session here)
+
+**Never commit directly to local `main`.** Every session must start from a fresh branch:
+
+```bash
+git fetch macos
+git checkout -b codex/your-feature-name macos/main  # use claude/* for Claude sessions
+# ... do work, commit freely ...
+git push macos codex/your-feature-name
+# open PR → auto-merge lands it
+```
+
+- Local `main` is read-only — only ever fast-forward it to `macos/main`
+- Committing directly to local `main` causes divergence that is painful to reconcile across sessions
+- If you find yourself on `main` with changes, move to a branch before pushing: `git checkout -b codex/rescue-YYYYMMDD`
+
 ## Release And Main Sync
 
 - Official desktop releases are tag-driven.

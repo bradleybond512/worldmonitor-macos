@@ -39,6 +39,23 @@ If a second clone is found, DELETE it. Do not merge from it without explicit use
 
 Always commit with: `Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>`
 
+## Branch Discipline (MANDATORY for every session)
+
+**Never commit directly to local `main`.** Every session — Claude, Codex, or otherwise — must follow this flow:
+
+```bash
+git fetch macos
+git checkout -b claude/your-feature-name macos/main  # or codex/your-feature-name
+# ... do work, commit freely on the branch ...
+git push macos claude/your-feature-name
+# open a PR → auto-merge lands it
+```
+
+- Branch names: `claude/*` for Claude sessions, `codex/*` for Codex sessions
+- Local `main` should only ever be fast-forwarded to `macos/main`, never developed on directly
+- If you find yourself on `main` with uncommitted changes, stash or commit them, then move to a branch before pushing
+- **Why**: Direct commits to local `main` diverge from `macos/main` (which only accepts PRs), causing messy reconciliation across sessions
+
 ## Release Management
 
 - Desktop publishing is **tag-driven**, not `main`-push-driven. Never treat `git push macos main` as a release.
