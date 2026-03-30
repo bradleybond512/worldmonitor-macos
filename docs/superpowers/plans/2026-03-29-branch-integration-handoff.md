@@ -12,7 +12,7 @@ This branch exists to do real selective integration of stale fork branches onto 
 - Worktree path: `/Users/bradleybond/.codex/worktrees/worldmonitor/integration-main-20260329`
 - Base commit: `54a788814d71e2aa2d8717bbb3ecdcf445089c9c`
 - Base branch: `macos/main`
-- Current HEAD after first landed slice: `e75c2f63`
+- Current HEAD after clean-install correction: `4e88fb60`
 
 ## Do Not Touch
 
@@ -78,10 +78,10 @@ These looked promising but are already effectively present on current `main`:
 
 ## Landed In This Integration Branch
 
-- `e75c2f63` `Align TypeScript deprecation gate with TS6`
-  - Cherry-picked cleanly from stale release work
-  - Fixes current `typecheck:all` failure on TS 6 by moving `tsconfig.json` to `ignoreDeprecations: "6.0"`
-  - This is a real baseline repair, not a bookkeeping-only branch
+- `4e88fb60` `Revert "Align TypeScript deprecation gate with TS6"`
+  - A clean `npm ci` install in `/tmp/worldmonitor-install-c1157df1` proved the lockfile still resolves `typescript@5.9.3`
+  - `ignoreDeprecations: "6.0"` was therefore incorrect for a clean environment and had to be reverted
+  - The earlier `e75c2f63` result was a false positive caused by using the dirty primary repo's newer `node_modules` tree for worktree verification
 
 ## Recommended Next Targets
 
@@ -153,7 +153,9 @@ npm run build
 
 - This worktree started clean at `54a78881`
 - `node_modules` had to be symlinked to `/Users/bradleybond/Developer/worldmonitor/node_modules` because sandboxed `npm ci` could not create the worktree-local directory
-- `npm run typecheck:all` passed after landing `e75c2f63`
+- `npm run typecheck:all` passed in the `.codex` worktree only when using the primary repo's dependency tree
+- A clean `npm ci` in `/tmp/worldmonitor-install-c1157df1` resolved `typescript@5.9.3`
+- That clean environment rejected `ignoreDeprecations: "6.0"`, so `e75c2f63` was reverted by `4e88fb60`
 - `npm run build` reached Vite/Workbox and then failed with sandbox-style `EPERM` creating `/Users/bradleybond/.codex/worktrees/worldmonitor/integration-main-20260329/dist`
 - Build failure appears environmental to this `.codex` worktree path, not an application compile failure
 - One real cherry-pick probe was executed and aborted cleanly:
