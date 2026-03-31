@@ -2387,6 +2387,52 @@ async function dispatch(requestUrl, req, routes, context) {
     }
   }
 
+  // ── HDX (UN OCHA) humanitarian crisis datasets ───────────────────────────
+  if (requestUrl.pathname === '/api/hdx-crises') {
+    try {
+      const resp = await fetchWithTimeout(
+        'https://data.humdata.org/api/3/action/package_search?q=crisis+situation+report&sort=metadata_modified+desc&rows=20',
+        { headers: { 'User-Agent': CHROME_UA, Accept: 'application/json' } },
+        15000,
+      );
+      if (!resp.ok) return json([], 200);
+      const data = await resp.json();
+      const results = Array.isArray(data?.result?.results) ? data.result.results : [];
+      const crises = results.map((pkg, i) => {
+        const groups = Array.isArray(pkg.groups) ? pkg.groups : [];
+        const country = groups[0]?.display_name ?? groups[0]?.title ?? '';
+        const countryCode = groups[0]?.name?.toUpperCase() ?? '';
+        const tags = (Array.isArray(pkg.tags) ? pkg.tags.map((t) => (t.name ?? '').toLowerCase()) : []);
+        let crisisType = 'other';
+        if (tags.some(t => t.includes('conflict') || t.includes('war') || t.includes('armed'))) crisisType = 'conflict';
+        else if (tags.some(t => t.includes('displacement') || t.includes('refugee') || t.includes('idp'))) crisisType = 'displacement';
+        else if (tags.some(t => t.includes('food') || t.includes('hunger') || t.includes('famine'))) crisisType = 'food-insecurity';
+        else if (tags.some(t => t.includes('disease') || t.includes('outbreak') || t.includes('epidemic'))) crisisType = 'disease';
+        else if (tags.some(t => t.includes('earthquake') || t.includes('flood') || t.includes('cyclone') || t.includes('hurricane'))) crisisType = 'disaster';
+        const org = Array.isArray(pkg.organization) ? pkg.organization.title ?? '' :
+          (pkg.organization?.title ?? pkg.organization?.name ?? '');
+        const numResources = pkg.num_resources ?? 0;
+        const severity = crisisType === 'conflict' ? 'critical' : crisisType === 'displacement' || crisisType === 'food-insecurity' ? 'high' : crisisType === 'disease' || crisisType === 'disaster' ? 'medium' : 'low';
+        return {
+          id: pkg.id ?? `hdx-${i}`,
+          title: pkg.title ?? pkg.name ?? '',
+          country,
+          countryCode,
+          crisisType,
+          affectedPeople: null,
+          organization: org,
+          updatedAt: pkg.metadata_modified ?? pkg.last_modified ?? new Date().toISOString(),
+          url: `https://data.humdata.org/dataset/${pkg.name ?? pkg.id}`,
+          severity,
+          numResources,
+        };
+      });
+      return json(crises);
+    } catch {
+      return json([], 200);
+    }
+  }
+
   // ── Space Weather proxy (NOAA SWPC, no API key) ───────────────────────────
   if (requestUrl.pathname === '/api/space-weather-feeds') {
     const SW_URLS = {
