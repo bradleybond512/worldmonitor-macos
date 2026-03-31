@@ -254,6 +254,12 @@ export class MapContainer {
     }
   }
 
+  public setAdsbFlights(flights: import('@/services/adsb').AdsbFlight[]): void {
+    if (this.useDeckGL) {
+      this.deckGLMap?.setAdsbFlights(flights);
+    }
+  }
+
   public setCableActivity(advisories: CableAdvisory[], repairShips: RepairShip[]): void {
     if (this.useDeckGL) {
       this.deckGLMap?.setCableActivity(advisories, repairShips);
