@@ -83,6 +83,7 @@ import { analyzeFlightsForSurge, surgeAlertToSignal, detectForeignMilitaryPresen
 import { fetchCachedTheaterPosture, ingestLocalPostures } from '@/services/cached-theater-posture';
 import { ingestProtestsForCII, ingestMilitaryForCII, ingestNewsForCII, ingestOutagesForCII, ingestConflictsForCII, ingestUcdpForCII, ingestHapiForCII, ingestDisplacementForCII, ingestClimateForCII, ingestStrikesForCII, ingestOrefForCII, ingestAviationForCII, ingestAdvisoriesForCII, ingestGpsJammingForCII, ingestAisDisruptionsForCII, ingestSatelliteFiresForCII, ingestCyberThreatsForCII, ingestTemporalAnomaliesForCII, isInLearningMode } from '@/services/country-instability';
 import { fetchGpsInterference } from '@/services/gps-interference';
+import { fetchLocalIDSAlerts } from '@/services/local-ids';
 import { dataFreshness, type DataSourceId } from '@/services/data-freshness';
 import { fetchConflictEvents, fetchUcdpClassifications, fetchHapiSummary, fetchUcdpEvents, deduplicateAgainstAcled, fetchIranEvents } from '@/services/conflict';
 import { fetchUnhcrPopulation } from '@/services/displacement';
@@ -134,10 +135,15 @@ import {
 import { SatelliteFiresPanel } from '@/components/SatelliteFiresPanel';
 import { EarthquakesPanel } from '@/components/EarthquakesPanel';
 import { CyberThreatPanel } from '@/components/CyberThreatPanel';
+import { LocalIDSPanel } from '@/components/LocalIDSPanel';
 import { AlertCenterPanel } from '@/components/AlertCenterPanel';
 import { SpaceWeatherPanel } from '@/components/SpaceWeatherPanel';
 import { DiseaseOutbreakPanel } from '@/components/DiseaseOutbreakPanel';
 import { AirQualityPanel } from '@/components/AirQualityPanel';
+import { WildfireIncidentsPanel } from '@/components/WildfireIncidentsPanel';
+import { HazmatIncidentsPanel } from '@/components/HazmatIncidentsPanel';
+import { OilSpillPanel } from '@/components/OilSpillPanel';
+import { HazardAlertsPanel } from '@/components/HazardAlertsPanel';
 import { AirstrikesPanel } from '@/components/AirstrikesPanel';
 import { fetchAirstrikes } from '@/services/airstrikes';
 import { fetchS2Underground } from '@/services/s2-underground';
@@ -145,6 +151,10 @@ import { fetchThreatFoxIOCs, fetchOpenPhishFeed, fetchSpamhausDrop, fetchCisaKev
 import { fetchSpaceWeather } from '@/services/space-weather';
 import { fetchDiseaseOutbreaks } from '@/services/disease-outbreak';
 import { fetchGlobalAirQuality } from '@/services/air-quality';
+import { fetchInciwebIncidents } from '@/services/inciweb';
+import { fetchHazmatIncidents } from '@/services/hazmat-incidents';
+import { fetchOilSpills } from '@/services/oil-spill-tracker';
+import { proximityAlertService } from '@/services/proximity-alerts';
 import { classifyNewsItem } from '@/services/positive-classifier';
 import { fetchGivingSummary } from '@/services/giving';
 import { fetchVolcanoAlerts } from '@/services/volcano-alerts';
@@ -383,6 +393,9 @@ export class DataLoaderManager implements AppModule {
     if (SITE_VARIANT === 'full') tasks.push({ name: 'spaceWeather', task: runGuarded('spaceWeather', () => this.loadSpaceWeather()) });
     if (SITE_VARIANT === 'full') tasks.push({ name: 'diseaseOutbreaks', task: runGuarded('diseaseOutbreaks', () => this.loadDiseaseOutbreaks()) });
     if (SITE_VARIANT === 'full') tasks.push({ name: 'airQuality', task: runGuarded('airQuality', () => this.loadAirQuality()) });
+    if (SITE_VARIANT === 'full') tasks.push({ name: 'wildfireIncidents', task: runGuarded('wildfireIncidents', () => this.loadWildfireIncidents()) });
+    if (SITE_VARIANT === 'full') tasks.push({ name: 'hazmatIncidents', task: runGuarded('hazmatIncidents', () => this.loadHazmatIncidents()) });
+    if (SITE_VARIANT === 'full') tasks.push({ name: 'oilSpills', task: runGuarded('oilSpills', () => this.loadOilSpills()) });
     if (SITE_VARIANT === 'full') tasks.push({ name: 'gdacsAlerts', task: runGuarded('gdacsAlerts', () => this.loadGDACSAlerts()) });
     if (SITE_VARIANT === 'full') tasks.push({ name: 'volcanoAlerts', task: runGuarded('volcanoAlerts', () => this.loadVolcanoAlerts()) });
     if (SITE_VARIANT === 'full') tasks.push({ name: 'nwsAlerts', task: runGuarded('nwsAlerts', () => this.loadNWSAlerts()) });
@@ -1541,6 +1554,15 @@ export class DataLoaderManager implements AppModule {
     }
   }
 
+  async loadLocalIDS(): Promise<void> {
+    try {
+      const alerts = await fetchLocalIDSAlerts();
+      (this.ctx.panels['local-ids'] as LocalIDSPanel)?.update(alerts);
+    } catch {
+      (this.ctx.panels['local-ids'] as LocalIDSPanel)?.update([]);
+    }
+  }
+
   async loadSpaceWeather(): Promise<void> {
     try {
       const data = await fetchSpaceWeather();
@@ -1568,9 +1590,47 @@ export class DataLoaderManager implements AppModule {
     try {
       const readings = await fetchGlobalAirQuality();
       (this.ctx.panels['air-quality'] as AirQualityPanel)?.update(readings);
+      void proximityAlertService.checkAirQuality(readings);
+      (this.ctx.panels['hazard-alerts'] as HazardAlertsPanel)?.refresh();
     } catch (error) {
       console.warn('[air-quality] fetch failed', error);
       (this.ctx.panels['air-quality'] as AirQualityPanel)?.update([]);
+    }
+  }
+
+  async loadWildfireIncidents(): Promise<void> {
+    try {
+      const incidents = await fetchInciwebIncidents();
+      (this.ctx.panels['wildfire-incidents'] as WildfireIncidentsPanel)?.update(incidents);
+      void proximityAlertService.checkWildfires(incidents);
+      (this.ctx.panels['hazard-alerts'] as HazardAlertsPanel)?.refresh();
+    } catch (error) {
+      console.warn('[wildfire-incidents] fetch failed', error);
+      (this.ctx.panels['wildfire-incidents'] as WildfireIncidentsPanel)?.update([]);
+    }
+  }
+
+  async loadHazmatIncidents(): Promise<void> {
+    try {
+      const incidents = await fetchHazmatIncidents();
+      (this.ctx.panels['hazmat-incidents'] as HazmatIncidentsPanel)?.update(incidents);
+      void proximityAlertService.checkHazmat(incidents);
+      (this.ctx.panels['hazard-alerts'] as HazardAlertsPanel)?.refresh();
+    } catch (error) {
+      console.warn('[hazmat-incidents] fetch failed', error);
+      (this.ctx.panels['hazmat-incidents'] as HazmatIncidentsPanel)?.update([]);
+    }
+  }
+
+  async loadOilSpills(): Promise<void> {
+    try {
+      const incidents = await fetchOilSpills();
+      (this.ctx.panels['oil-spill'] as OilSpillPanel)?.update(incidents);
+      void proximityAlertService.checkOilSpills(incidents);
+      (this.ctx.panels['hazard-alerts'] as HazardAlertsPanel)?.refresh();
+    } catch (error) {
+      console.warn('[oil-spills] fetch failed', error);
+      (this.ctx.panels['oil-spill'] as OilSpillPanel)?.update([]);
     }
   }
 
