@@ -73,6 +73,7 @@ const FULL_PANELS: Record<string, PanelConfig> = {
   'space-weather': { name: 'Space Weather', enabled: true, priority: 2 },
   'spaceflight-news': { name: 'Spaceflight News', enabled: true, priority: 2 },
   'disease-outbreaks': { name: 'Disease Outbreaks', enabled: true, priority: 2 },
+  'humanitarian-crisis': { name: 'Humanitarian Crises', enabled: true, priority: 2 },
   'air-quality': { name: 'Air Quality', enabled: true, priority: 2 },
   'wildfire-incidents': { name: 'Wildfires (InciWeb)', enabled: true, priority: 2 },
   'hazmat-incidents': { name: 'Hazmat Incidents', enabled: true, priority: 2 },
@@ -689,7 +690,7 @@ export const PANEL_CATEGORY_MAP: Record<string, { labelKey: string; panelKeys: s
   },
   healthEnv: {
     labelKey: 'header.panelCatHealthEnv',
-    panelKeys: ['hazard-alerts', 'giving', 'daily-wisdom', 'stoic-reflections', 'biblical-encouragement', 'alan-watts-reflections', 'mckenna-visions', 'disease-outbreaks', 'air-quality', 'food-insecurity', 'radiation-decay', 'resource-inventory'],
+    panelKeys: ['hazard-alerts', 'giving', 'daily-wisdom', 'stoic-reflections', 'biblical-encouragement', 'alan-watts-reflections', 'mckenna-visions', 'disease-outbreaks', 'humanitarian-crisis', 'air-quality', 'food-insecurity', 'radiation-decay', 'resource-inventory'],
     variants: ['full'],
   },
 

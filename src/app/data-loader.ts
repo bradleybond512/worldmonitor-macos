@@ -152,7 +152,9 @@ import { fetchThreatFoxIOCs, fetchOpenPhishFeed, fetchSpamhausDrop, fetchCisaKev
 import { fetchSpaceWeather, fetchDonkiEvents } from '@/services/space-weather';
 import { fetchSpaceflightNews } from '@/services/spaceflight-news';
 import { SpaceflightNewsPanel } from '@/components/SpaceflightNewsPanel';
-import { fetchDiseaseOutbreaks } from '@/services/disease-outbreak';
+import { fetchDiseaseOutbreaks, fetchGlobalDiseaseSnapshots } from '@/services/disease-outbreak';
+import { fetchHdxCrises } from '@/services/hdx-crisis';
+import { HumanitarianCrisisPanel } from '@/components/HumanitarianCrisisPanel';
 import { fetchGlobalAirQuality } from '@/services/air-quality';
 import { fetchInciwebIncidents } from '@/services/inciweb';
 import { fetchHazmatIncidents } from '@/services/hazmat-incidents';
@@ -417,6 +419,7 @@ export class DataLoaderManager implements AppModule {
     if (SITE_VARIANT === 'full') tasks.push({ name: 'spaceWeather', task: runGuarded('spaceWeather', () => this.loadSpaceWeather()) });
     if (SITE_VARIANT === 'full') tasks.push({ name: 'spaceflightNews', task: runGuarded('spaceflightNews', () => this.loadSpaceflightNews()) });
     if (SITE_VARIANT === 'full') tasks.push({ name: 'diseaseOutbreaks', task: runGuarded('diseaseOutbreaks', () => this.loadDiseaseOutbreaks()) });
+    if (SITE_VARIANT === 'full') tasks.push({ name: 'humanitarianCrises', task: runGuarded('humanitarianCrises', () => this.loadHumanitarianCrises()) });
     if (SITE_VARIANT === 'full') tasks.push({ name: 'airQuality', task: runGuarded('airQuality', () => this.loadAirQuality()) });
     if (SITE_VARIANT === 'full') tasks.push({ name: 'wildfireIncidents', task: runGuarded('wildfireIncidents', () => this.loadWildfireIncidents()) });
     if (SITE_VARIANT === 'full') tasks.push({ name: 'hazmatIncidents', task: runGuarded('hazmatIncidents', () => this.loadHazmatIncidents()) });
@@ -1615,11 +1618,21 @@ export class DataLoaderManager implements AppModule {
 
   async loadDiseaseOutbreaks(): Promise<void> {
     try {
-      const outbreaks = await fetchDiseaseOutbreaks();
-      (this.ctx.panels['disease-outbreaks'] as DiseaseOutbreakPanel)?.update(outbreaks);
+      const [outbreaks, snapshots] = await Promise.all([fetchDiseaseOutbreaks(), fetchGlobalDiseaseSnapshots()]);
+      (this.ctx.panels['disease-outbreaks'] as DiseaseOutbreakPanel)?.update(outbreaks, snapshots);
     } catch (error) {
       console.warn('[disease-outbreaks] fetch failed', error);
       (this.ctx.panels['disease-outbreaks'] as DiseaseOutbreakPanel)?.update([]);
+    }
+  }
+
+  async loadHumanitarianCrises(): Promise<void> {
+    try {
+      const crises = await fetchHdxCrises();
+      (this.ctx.panels['humanitarian-crisis'] as HumanitarianCrisisPanel)?.update(crises);
+    } catch (error) {
+      console.warn('[humanitarian-crisis] fetch failed', error);
+      (this.ctx.panels['humanitarian-crisis'] as HumanitarianCrisisPanel)?.update([]);
     }
   }
 
