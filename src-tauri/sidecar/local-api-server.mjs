@@ -2,7 +2,7 @@
 import http, { createServer } from 'node:http';
 import https from 'node:https';
 import dns from 'node:dns/promises';
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync, statSync, openSync, readSync, closeSync } from 'node:fs';
 import { readdir } from 'node:fs/promises';
 import { promisify } from 'node:util';
 import { brotliCompress, gzipSync } from 'node:zlib';
@@ -814,6 +814,29 @@ function getCachedStale(key) {
 }
 function setCached(key, data) {
   _sidecarCache.set(key, { data, ts: Date.now() });
+}
+
+// ── Local IDS log helpers ─────────────────────────────────────────────────
+function _tailFile(filePath, maxBytes) {
+  try {
+    const { size } = statSync(filePath);
+    if (size === 0) return [];
+    const start = Math.max(0, size - maxBytes);
+    const fd = openSync(filePath, 'r');
+    const buf = Buffer.allocUnsafe(size - start);
+    readSync(fd, buf, 0, size - start, start);
+    closeSync(fd);
+    return buf.toString('utf8').split('\n').filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
+function _zeekFields(lines) {
+  for (const line of lines) {
+    if (line.startsWith('#fields\t')) return line.slice('#fields\t'.length).split('\t');
+  }
+  return null;
 }
 
 let _prevEconomicStressIndex = null;
@@ -3224,6 +3247,114 @@ async function dispatch(requestUrl, req, routes, context) {
       status: 200,
       headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-cache' },
     });
+  }
+
+  // ── Local IDS — Suricata + Zeek alerts (desktop-only, reads local log files) ──
+  if (requestUrl.pathname === '/api/local-ids') {
+    try {
+      const alerts = [];
+
+      // ── Suricata eve.json ──────────────────────────────────────────────
+      const evePath = '/opt/homebrew/var/log/suricata/eve.json';
+      if (existsSync(evePath)) {
+        for (const line of _tailFile(evePath, 131072)) {
+          try {
+            const evt = JSON.parse(line);
+            if (evt.event_type !== 'alert') continue;
+            const sev = evt.alert?.severity;
+            const severity = sev === 1 ? 'critical' : sev === 2 ? 'high' : sev === 3 ? 'medium' : 'low';
+            alerts.push({
+              id: `suricata-${evt.flow_id ?? Math.random().toString(36).slice(2)}-${evt.timestamp}`,
+              source: 'suricata',
+              ts: evt.timestamp ?? new Date().toISOString(),
+              severity,
+              category: evt.alert?.category ?? 'Unknown',
+              signature: evt.alert?.signature ?? '',
+              srcIp: evt.src_ip ?? '',
+              destIp: evt.dest_ip ?? '',
+              proto: evt.proto ?? '',
+              action: evt.alert?.action ?? 'alert',
+            });
+          } catch { /* skip malformed */ }
+        }
+      }
+
+      // ── Zeek notice.log ────────────────────────────────────────────────
+      const noticeCandidates = [
+        '/opt/homebrew/Cellar/zeek/8.1.1/spool/manager/notice.log',
+        '/opt/homebrew/var/log/zeek/current/notice.log',
+      ];
+      for (const p of noticeCandidates) {
+        if (!existsSync(p)) continue;
+        const lines = _tailFile(p, 131072);
+        const fields = _zeekFields(lines);
+        if (!fields) break;
+        const [tsI, noteI, msgI, srcI, dstI] = ['ts', 'note', 'msg', 'src', 'dst'].map(f => fields.indexOf(f));
+        for (const line of lines) {
+          if (line.startsWith('#')) continue;
+          const cols = line.split('\t');
+          const ts = cols[tsI];
+          if (!ts || ts === '-') continue;
+          alerts.push({
+            id: `zeek-notice-${ts}-${Math.random().toString(36).slice(2, 6)}`,
+            source: 'zeek_notice',
+            ts: new Date(parseFloat(ts) * 1000).toISOString(),
+            severity: 'medium',
+            category: 'Network Notice',
+            signature: cols[noteI] ?? '',
+            srcIp: cols[srcI] ?? '',
+            destIp: cols[dstI] ?? '',
+            proto: '',
+            action: (cols[msgI] ?? '').slice(0, 120),
+          });
+        }
+        break;
+      }
+
+      // ── Zeek conn.log (suspicious states + large transfers) ───────────
+      const connCandidates = [
+        '/opt/homebrew/Cellar/zeek/8.1.1/spool/manager/conn.log',
+        '/opt/homebrew/var/log/zeek/current/conn.log',
+      ];
+      const SUSPICIOUS_STATES = new Set(['S0', 'REJ', 'RSTRH', 'RSTOS0', 'OTH']);
+      for (const p of connCandidates) {
+        if (!existsSync(p)) continue;
+        const lines = _tailFile(p, 131072);
+        const fields = _zeekFields(lines);
+        if (!fields) break;
+        const [tsI, origI, origPI, respI, respPI, protoI, stateI, bytesI] =
+          ['ts', 'id.orig_h', 'id.orig_p', 'id.resp_h', 'id.resp_p', 'proto', 'conn_state', 'orig_bytes']
+            .map(f => fields.indexOf(f));
+        for (const line of lines) {
+          if (line.startsWith('#')) continue;
+          const cols = line.split('\t');
+          const state = cols[stateI];
+          const bytes = parseInt(cols[bytesI], 10) || 0;
+          if (!SUSPICIOUS_STATES.has(state) && bytes < 5_000_000) continue;
+          const ts = cols[tsI];
+          if (!ts || ts === '-') continue;
+          const severity = bytes > 50_000_000 ? 'high' : SUSPICIOUS_STATES.has(state) ? 'medium' : 'low';
+          alerts.push({
+            id: `zeek-conn-${ts}-${cols[origI]}-${Math.random().toString(36).slice(2, 6)}`,
+            source: 'zeek_conn',
+            ts: new Date(parseFloat(ts) * 1000).toISOString(),
+            severity,
+            category: 'Suspicious Connection',
+            signature: `${state}${bytes > 1_000_000 ? ` · ${Math.round(bytes / 1024)}KB` : ''}`,
+            srcIp: cols[origI] ?? '',
+            destIp: cols[respI] ?? '',
+            proto: cols[protoI] ?? '',
+            action: `${cols[origPI] ?? ''} → ${cols[respPI] ?? ''}`,
+          });
+        }
+        break;
+      }
+
+      alerts.sort((a, b) => b.ts.localeCompare(a.ts));
+      return json(alerts.slice(0, 50));
+    } catch {
+      return json([], 200);
+    }
   }
 
   if (context.cloudFallback && cloudPreferred.has(requestUrl.pathname)) {

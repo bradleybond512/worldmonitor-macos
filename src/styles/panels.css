@@ -377,6 +377,20 @@
 .ct-row-medium .ct-sev { color: var(--semantic-warning, #f59e0b); }
 
 /* ----------------------------------------------------------
+   Local IDS Panel (Suricata + Zeek)
+   ---------------------------------------------------------- */
+.ids-panel-content { font-size: 12px; }
+.ids-table { width: 100%; }
+.ids-sig { font-family: ui-monospace, monospace; font-size: 10px; color: var(--text-secondary); max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ids-ip { font-family: ui-monospace, monospace; font-size: 10px; color: var(--text-dim); white-space: nowrap; }
+.ids-proto { font-size: 10px; color: var(--text-muted); text-transform: uppercase; }
+.ids-time { font-size: 10px; color: var(--text-muted); white-space: nowrap; }
+.ids-src-badge { display: inline-block; font-size: 9px; font-weight: 700; padding: 1px 5px; border-radius: 3px; letter-spacing: 0.3px; text-transform: uppercase; white-space: nowrap; }
+.ids-src-suricata { background: color-mix(in srgb, #f97316 15%, transparent); color: #f97316; }
+.ids-src-zeek_notice { background: color-mix(in srgb, #3b82f6 15%, transparent); color: #3b82f6; }
+.ids-src-zeek_conn { background: color-mix(in srgb, #a855f7 15%, transparent); color: #a855f7; }
+
+/* ----------------------------------------------------------
    Alert Center Panel
    ---------------------------------------------------------- */
 .ac-sev { width: 70px; }

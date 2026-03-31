@@ -51,10 +51,15 @@ import {
 import { SatelliteFiresPanel } from '@/components/SatelliteFiresPanel';
 import { EarthquakesPanel } from '@/components/EarthquakesPanel';
 import { CyberThreatPanel } from '@/components/CyberThreatPanel';
+import { LocalIDSPanel } from '@/components/LocalIDSPanel';
 import { AlertCenterPanel } from '@/components/AlertCenterPanel';
 import { SpaceWeatherPanel } from '@/components/SpaceWeatherPanel';
 import { DiseaseOutbreakPanel } from '@/components/DiseaseOutbreakPanel';
 import { AirQualityPanel } from '@/components/AirQualityPanel';
+import { WildfireIncidentsPanel } from '@/components/WildfireIncidentsPanel';
+import { HazmatIncidentsPanel } from '@/components/HazmatIncidentsPanel';
+import { OilSpillPanel } from '@/components/OilSpillPanel';
+import { HazardAlertsPanel } from '@/components/HazardAlertsPanel';
 import { AirstrikesPanel } from '@/components/AirstrikesPanel';
 import { GDACSAlertsPanel } from '@/components/GDACSAlertsPanel';
 import { VolcanoAlertsPanel } from '@/components/VolcanoAlertsPanel';
@@ -145,9 +150,11 @@ export class PanelLayoutManager implements AppModule {
 
   /** Panels floated to top in Disaster Mode. */
   private static readonly DISASTER_PRIORITY = [
+    'hazard-alerts',
     'alert-center', 'saved-places', 'tropical-cyclones', 'nws-alerts',
     'weather', 'earthquakes', 'gdacs-alerts', 'satellite-fires',
     'volcano-alerts', 'displacement', 'oref-sirens', 'air-quality',
+    'wildfire-incidents', 'hazmat-incidents', 'oil-spill',
     'comms-health', 'economic-stress',
   ];
 
@@ -873,6 +880,9 @@ export class PanelLayoutManager implements AppModule {
       const cyberThreatPanel = new CyberThreatPanel();
       this.ctx.panels['cyber-threats'] = cyberThreatPanel;
 
+      const localIDSPanel = new LocalIDSPanel();
+      this.ctx.panels['local-ids'] = localIDSPanel;
+
       const alertCenterPanel = new AlertCenterPanel();
       this.ctx.panels['alert-center'] = alertCenterPanel;
 
@@ -884,6 +894,18 @@ export class PanelLayoutManager implements AppModule {
 
       const airQualityPanel = new AirQualityPanel();
       this.ctx.panels['air-quality'] = airQualityPanel;
+
+      const wildfireIncidentsPanel = new WildfireIncidentsPanel();
+      this.ctx.panels['wildfire-incidents'] = wildfireIncidentsPanel;
+
+      const hazmatIncidentsPanel = new HazmatIncidentsPanel();
+      this.ctx.panels['hazmat-incidents'] = hazmatIncidentsPanel;
+
+      const oilSpillPanel = new OilSpillPanel();
+      this.ctx.panels['oil-spill'] = oilSpillPanel;
+
+      const hazardAlertsPanel = new HazardAlertsPanel();
+      this.ctx.panels['hazard-alerts'] = hazardAlertsPanel;
 
       const strategicRiskPanel = new StrategicRiskPanel();
       strategicRiskPanel.setLocationClickHandler((lat, lon) => {

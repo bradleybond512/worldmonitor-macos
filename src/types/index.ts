@@ -238,6 +238,22 @@ export interface CyberThreat {
   lastSeen?: string;
 }
 
+export type LocalIDSSource = 'suricata' | 'zeek_notice' | 'zeek_conn';
+export type LocalIDSSeverity = 'low' | 'medium' | 'high' | 'critical';
+
+export interface LocalIDSAlert {
+  id: string;
+  source: LocalIDSSource;
+  ts: string;
+  severity: LocalIDSSeverity;
+  category: string;
+  signature: string;
+  srcIp: string;
+  destIp: string;
+  proto: string;
+  action: string;
+}
+
 export interface ConflictZone {
   id: string;
   name: string;
