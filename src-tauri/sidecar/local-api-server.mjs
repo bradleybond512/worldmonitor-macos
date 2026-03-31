@@ -8,7 +8,8 @@ import { promisify } from 'node:util';
 import { brotliCompress, gzipSync } from 'node:zlib';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { WebSocket as AisWebSocket } from 'ws';
+// Node 22 ships a built-in WebSocket global (WHATWG API) — no external dep needed.
+const AisWebSocket = WebSocket;
 
 const brotliCompressAsync = promisify(brotliCompress);
 
