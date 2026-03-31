@@ -73,6 +73,7 @@ import { InternetDisruptionsPanel } from '@/components/InternetDisruptionsPanel'
 import { NationalDebtPanel } from '@/components/NationalDebtPanel';
 import { FuelPricesPanel } from '@/components/FuelPricesPanel';
 import { EconomicStressPanel } from '@/components/EconomicStressPanel';
+import { FederalRegisterPanel } from '@/components/FederalRegisterPanel';
 import { NuclearRiskPanel } from '@/components/NuclearRiskPanel';
 import { RadiationDecayPanel } from '@/components/RadiationDecayPanel';
 import { ResourceInventoryPanel } from '@/components/ResourceInventoryPanel';
@@ -965,6 +966,7 @@ export class PanelLayoutManager implements AppModule {
       this.ctx.panels['food-insecurity'] = new FoodInsecurityPanel();
       this.ctx.panels['comms-health'] = new CommsHealthPanel();
       this.ctx.panels['economic-stress'] = new EconomicStressPanel();
+      this.ctx.panels['federal-register'] = new FederalRegisterPanel();
       this.ctx.panels['fear-greed'] = new FearGreedPanel();
       this.ctx.panels['internet-disruptions'] = new InternetDisruptionsPanel();
       this.ctx.panels['national-debt'] = new NationalDebtPanel();

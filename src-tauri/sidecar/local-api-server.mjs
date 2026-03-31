@@ -2433,6 +2433,67 @@ async function dispatch(requestUrl, req, routes, context) {
     }
   }
 
+  // ── Federal Register (executive orders, major rules, emergency notices) ────
+  if (requestUrl.pathname === '/api/federal-register') {
+    try {
+      const resp = await fetchWithTimeout(
+        'https://www.federalregister.gov/api/v1/documents.json?fields[]=document_number&fields[]=title&fields[]=type&fields[]=agencies&fields[]=publication_date&fields[]=abstract&conditions[type][]=PRESDOCU&conditions[type][]=RULE&conditions[type][]=PROPOSED_RULE&conditions[type][]=NOTICE&per_page=20&order=newest',
+        { headers: { 'User-Agent': CHROME_UA, Accept: 'application/json' } },
+        15000,
+      );
+      if (!resp.ok) return json({ documents: [] }, 200);
+      const data = await resp.json();
+      const results = Array.isArray(data?.results) ? data.results : [];
+      const documents = results.map((doc, i) => {
+        const agencies = Array.isArray(doc.agencies) ? doc.agencies : [];
+        const agency = agencies[0]?.name ?? agencies[0]?.raw_name ?? '';
+        const title = doc.title ?? '';
+        const abstract = doc.abstract ?? '';
+        let severity = 'normal';
+        if (/emergency|national security|executive order/i.test(title) || /emergency|national security|executive order/i.test(abstract)) {
+          severity = 'critical';
+        } else if (/federal register|major rule|significant/i.test(title) || /federal register|major rule|significant/i.test(abstract)) {
+          severity = 'high';
+        }
+        return {
+          id: doc.document_number ?? `fr-${i}`,
+          title,
+          type: doc.type ?? '',
+          agency,
+          date: doc.publication_date ?? '',
+          abstract,
+          severity,
+        };
+      });
+      return json({ documents });
+    } catch {
+      return json({ documents: [] }, 200);
+    }
+  }
+
+  // ── WallStreetBets retail sentiment (nbshare.io, no API key) ────────────
+  if (requestUrl.pathname === '/api/wsb-sentiment') {
+    try {
+      const resp = await fetchWithTimeout(
+        'https://api.nbshare.io/api/sp500/wsb/',
+        { headers: { 'User-Agent': CHROME_UA, Accept: 'application/json' } },
+        12000,
+      );
+      if (!resp.ok) return json({ snapshots: [] }, 200);
+      const data = await resp.json();
+      const arr = Array.isArray(data) ? data : [];
+      const snapshots = arr.slice(0, 20).map((item, i) => ({
+        ticker: item.Ticker ?? '',
+        mentions: item.No_of_Mentions ?? 0,
+        sentiment: typeof item.Sentiment === 'number' ? item.Sentiment : 0,
+        rank: i + 1,
+      }));
+      return json({ snapshots });
+    } catch {
+      return json({ snapshots: [] }, 200);
+    }
+  }
+
   // ── Space Weather proxy (NOAA SWPC, no API key) ───────────────────────────
   if (requestUrl.pathname === '/api/space-weather-feeds') {
     const SW_URLS = {

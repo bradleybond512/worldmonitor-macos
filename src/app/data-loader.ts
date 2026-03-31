@@ -169,6 +169,9 @@ import { FAAWeatherCamsPanel } from '@/components/FAAWeatherCamsPanel';
 import type { ModeChangedDetail } from '@/services/mode-manager';
 import { fetchCommsHealth } from '@/services/comms-health';
 import { fetchEconomicStress } from '@/services/economic-stress';
+import { fetchWsbSentiment } from '@/services/wsb-sentiment';
+import { fetchFederalRegister } from '@/services/federal-register';
+import { FederalRegisterPanel } from '@/components/FederalRegisterPanel';
 import { updateRegionCount, getHighRiskRegions } from '@/services/ema-forecast';
 import { GDACSAlertsPanel } from '@/components/GDACSAlertsPanel';
 import { VolcanoAlertsPanel } from '@/components/VolcanoAlertsPanel';
@@ -420,6 +423,7 @@ export class DataLoaderManager implements AppModule {
     if (SITE_VARIANT === 'full') tasks.push({ name: 'spaceflightNews', task: runGuarded('spaceflightNews', () => this.loadSpaceflightNews()) });
     if (SITE_VARIANT === 'full') tasks.push({ name: 'diseaseOutbreaks', task: runGuarded('diseaseOutbreaks', () => this.loadDiseaseOutbreaks()) });
     if (SITE_VARIANT === 'full') tasks.push({ name: 'humanitarianCrises', task: runGuarded('humanitarianCrises', () => this.loadHumanitarianCrises()) });
+    if (SITE_VARIANT === 'full') tasks.push({ name: 'federalRegister', task: runGuarded('federalRegister', () => this.loadFederalRegister()) });
     if (SITE_VARIANT === 'full') tasks.push({ name: 'airQuality', task: runGuarded('airQuality', () => this.loadAirQuality()) });
     if (SITE_VARIANT === 'full') tasks.push({ name: 'wildfireIncidents', task: runGuarded('wildfireIncidents', () => this.loadWildfireIncidents()) });
     if (SITE_VARIANT === 'full') tasks.push({ name: 'hazmatIncidents', task: runGuarded('hazmatIncidents', () => this.loadHazmatIncidents()) });
@@ -1780,12 +1784,19 @@ export class DataLoaderManager implements AppModule {
 
   async loadEconomicStress(): Promise<void> {
     try {
-      const data = await fetchEconomicStress();
-      (this.ctx.panels['economic-stress'] as EconomicStressPanel)?.update(data);
+      const [data, snapshots] = await Promise.all([fetchEconomicStress(), fetchWsbSentiment()]);
+      (this.ctx.panels['economic-stress'] as EconomicStressPanel)?.update(data, snapshots);
     } catch (error) {
       console.warn('[economic-stress] fetch failed', error);
       (this.ctx.panels['economic-stress'] as EconomicStressPanel)?.update(null);
     }
+  }
+
+  async loadFederalRegister(): Promise<void> {
+    const panel = this.ctx.panels['federal-register'] as FederalRegisterPanel | undefined;
+    if (!panel) return;
+    const docs = await fetchFederalRegister();
+    panel.update(docs);
   }
 
   async runEMAForecast(): Promise<void> {

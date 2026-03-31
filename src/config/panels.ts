@@ -38,6 +38,7 @@ const FULL_PANELS: Record<string, PanelConfig> = {
   markets: { name: 'Markets', enabled: true, priority: 1 },
   economic: { name: 'Economic Indicators', enabled: true, priority: 1 },
   'economic-stress': { name: 'Economic Stress', enabled: true, priority: 2 },
+  'federal-register': { name: 'Federal Register', enabled: true, priority: 2 },
   'trade-policy': { name: 'Trade Policy', enabled: true, priority: 1 },
   'supply-chain': { name: 'Supply Chain', enabled: true, priority: 1 },
   finance: { name: 'Financial', enabled: true, priority: 1 },
@@ -669,7 +670,7 @@ export const PANEL_CATEGORY_MAP: Record<string, { labelKey: string; panelKeys: s
   },
   marketsFinance: {
     labelKey: 'header.panelCatMarketsFinance',
-    panelKeys: ['commodities', 'markets', 'economic', 'economic-stress', 'trade-policy', 'supply-chain', 'finance', 'polymarket', 'macro-signals', 'etf-flows', 'stablecoins', 'crypto', 'heatmap', 'fear-greed', 'national-debt', 'fuel-prices'],
+    panelKeys: ['commodities', 'markets', 'economic', 'economic-stress', 'federal-register', 'trade-policy', 'supply-chain', 'finance', 'polymarket', 'macro-signals', 'etf-flows', 'stablecoins', 'crypto', 'heatmap', 'fear-greed', 'national-debt', 'fuel-prices'],
     variants: ['full'],
   },
   topical: {
