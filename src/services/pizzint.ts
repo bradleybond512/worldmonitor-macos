@@ -57,7 +57,7 @@ function computeDefcon(locations: RawLocation[]): {
   const open = locations.filter(l => !l.is_closed_now);
   const locationsMonitored = locations.length;
   const locationsOpen = open.length;
-  const activeSpikes = locations.filter(l => l.is_spike).length;
+  const activeSpikes = open.filter(l => l.is_spike).length;
   const aggregateActivity = open.length > 0
     ? open.reduce((sum, l) => sum + l.current_popularity, 0) / open.length
     : 0;
@@ -153,7 +153,7 @@ export async function fetchGdeltTensions(): Promise<GdeltTensionPair[]> {
     const resp = await fetch(`${getApiBaseUrl()}/api/pizzint/gdelt`);
     if (!resp.ok) throw new Error(`GDELT tensions returned ${resp.status}`);
     const raw = await resp.json() as RawTensionPair[];
-    if (!Array.isArray(raw)) return [];
+    if (!Array.isArray(raw)) throw new Error('Unexpected GDELT tensions response shape');
     return raw.map(r => ({
       id: r.id,
       countries: r.countries,
