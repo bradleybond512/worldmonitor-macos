@@ -96,6 +96,14 @@ const SECRET_ANALYTICS_NAMES: Record<RuntimeSecretKey, string> = {
   OWM_API_KEY: 'owm',
   GREYNOISE_API_KEY: 'greynoise',
   NASA_API_KEY: 'nasa',
+  URLSCAN_API_KEY: 'urlscan',
+  BITCOINABUSE_API_KEY: 'bitcoinabuse',
+  VULNERS_API_KEY: 'vulners',
+  MEDIASTACK_API_KEY: 'mediastack',
+  PULSEDIVE_API_KEY: 'pulsedive',
+  HIBP_API_KEY: 'hibp',
+  GEONAMES_USERNAME: 'geonames',
+  IPINFO_TOKEN: 'ipinfo',
 };
 
 // ── Typed event schemas (allowlisted properties per event) ──

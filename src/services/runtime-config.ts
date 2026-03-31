@@ -37,7 +37,15 @@ export type RuntimeSecretKey =
   | 'FMP_API_KEY'
   | 'OWM_API_KEY'
   | 'GREYNOISE_API_KEY'
-  | 'NASA_API_KEY';
+  | 'NASA_API_KEY'
+  | 'URLSCAN_API_KEY'
+  | 'BITCOINABUSE_API_KEY'
+  | 'VULNERS_API_KEY'
+  | 'MEDIASTACK_API_KEY'
+  | 'PULSEDIVE_API_KEY'
+  | 'HIBP_API_KEY'
+  | 'GEONAMES_USERNAME'
+  | 'IPINFO_TOKEN';
 
 export type RuntimeFeatureId =
   | 'cloudApiFallbackAuth'
@@ -75,7 +83,21 @@ export type RuntimeFeatureId =
   | 'openWeatherMap'
   | 'greynoiseIntel'
   | 'openSanctions'
-  | 'secEdgar';
+  | 'secEdgar'
+  | 'phishstatsFeed'
+  | 'urlscanThreatIntel'
+  | 'bitcoinabuseIocs'
+  | 'cveTracker'
+  | 'vulnersCve'
+  | 'mediastackNews'
+  | 'pulsediveThreatIntel'
+  | 'hibpBreach'
+  | 'redditOsint'
+  | 'geoDbCities'
+  | 'openAqMonitor'
+  | 'geoNames'
+  | 'ripeNccData'
+  | 'ipInfoLookup';
 
 export interface RuntimeFeatureDefinition {
   id: RuntimeFeatureId;
@@ -141,6 +163,20 @@ const defaultToggles: Record<RuntimeFeatureId, boolean> = {
   greynoiseIntel: true,
   openSanctions: true,
   secEdgar: true,
+  phishstatsFeed: true,
+  urlscanThreatIntel: true,
+  bitcoinabuseIocs: true,
+  cveTracker: true,
+  vulnersCve: true,
+  mediastackNews: true,
+  pulsediveThreatIntel: true,
+  hibpBreach: true,
+  redditOsint: true,
+  geoDbCities: true,
+  openAqMonitor: true,
+  geoNames: true,
+  ripeNccData: true,
+  ipInfoLookup: true,
 };
 
 export const RUNTIME_FEATURES: RuntimeFeatureDefinition[] = [
@@ -421,6 +457,118 @@ export const RUNTIME_FEATURES: RuntimeFeatureDefinition[] = [
     requiredSecrets: [],
     desktopRequiredSecrets: [],
     fallback: 'SEC EDGAR filing feed is disabled.',
+  },
+  {
+    id: 'phishstatsFeed',
+    name: 'PhishStats phishing database',
+    description: 'Crowdsourced phishing URL database from PhishStats — no key required.',
+    requiredSecrets: [],
+    desktopRequiredSecrets: [],
+    fallback: 'PhishStats feed is disabled.',
+  },
+  {
+    id: 'urlscanThreatIntel',
+    name: 'URLScan.io threat feed',
+    description: 'Malicious URL scanner results and threat intelligence from URLScan.io — free key required.',
+    requiredSecrets: ['URLSCAN_API_KEY'],
+    desktopRequiredSecrets: [],
+    fallback: 'URLScan threat feed is disabled.',
+  },
+  {
+    id: 'bitcoinabuseIocs',
+    name: 'Bitcoin Abuse ransomware tracker',
+    description: 'Bitcoin addresses linked to ransomware, blackmail, and fraud from the Bitcoin Abuse database.',
+    requiredSecrets: ['BITCOINABUSE_API_KEY'],
+    desktopRequiredSecrets: [],
+    fallback: 'Bitcoin Abuse IOC feed is disabled.',
+  },
+  {
+    id: 'cveTracker',
+    name: 'NVD CVE vulnerability tracker',
+    description: 'Recent CVEs from NIST National Vulnerability Database — no key required.',
+    requiredSecrets: [],
+    desktopRequiredSecrets: [],
+    fallback: 'CVE tracker is disabled.',
+  },
+  {
+    id: 'vulnersCve',
+    name: 'Vulners CVE intelligence',
+    description: 'Vulnerability intelligence and exploit availability from Vulners — free API key required.',
+    requiredSecrets: ['VULNERS_API_KEY'],
+    desktopRequiredSecrets: [],
+    fallback: 'Vulners CVE enrichment is disabled.',
+  },
+  {
+    id: 'mediastackNews',
+    name: 'MediaStack news feed',
+    description: 'Real-time global news from 7,500+ sources via MediaStack API — free tier: 500 req/month.',
+    requiredSecrets: ['MEDIASTACK_API_KEY'],
+    desktopRequiredSecrets: [],
+    fallback: 'MediaStack news augmentation is disabled.',
+  },
+  {
+    id: 'pulsediveThreatIntel',
+    name: 'Pulsedive threat intelligence',
+    description: 'IP/domain/URL threat enrichment and risk scoring from Pulsedive — free tier.',
+    requiredSecrets: ['PULSEDIVE_API_KEY'],
+    desktopRequiredSecrets: [],
+    fallback: 'Pulsedive threat enrichment is disabled.',
+  },
+  {
+    id: 'hibpBreach',
+    name: 'Have I Been Pwned breach data',
+    description: 'Domain-level breach exposure data from Have I Been Pwned — free key required.',
+    requiredSecrets: ['HIBP_API_KEY'],
+    desktopRequiredSecrets: [],
+    fallback: 'HIBP breach data is disabled.',
+  },
+  {
+    id: 'redditOsint',
+    name: 'Reddit geopolitical signals',
+    description: 'Real-time posts from r/worldnews and r/geopolitics via public RSS — no key required.',
+    requiredSecrets: [],
+    desktopRequiredSecrets: [],
+    fallback: 'Reddit OSINT feed is disabled.',
+  },
+  {
+    id: 'geoDbCities',
+    name: 'GeoDB Cities',
+    description: 'Population-weighted city data and administrative regions from GeoDB Cities — no key required.',
+    requiredSecrets: [],
+    desktopRequiredSecrets: [],
+    fallback: 'GeoDB city data is disabled.',
+  },
+  {
+    id: 'openAqMonitor',
+    name: 'OpenAQ air quality monitor',
+    description: 'Real-time air quality readings (PM2.5, PM10, NO2, O3) from 10,000+ stations worldwide via OpenAQ — no key required.',
+    requiredSecrets: [],
+    desktopRequiredSecrets: [],
+    fallback: 'OpenAQ readings are disabled.',
+  },
+  {
+    id: 'geoNames',
+    name: 'GeoNames place database',
+    description: 'Global geographic name lookup and place disambiguation via GeoNames — free username required.',
+    requiredSecrets: ['GEONAMES_USERNAME'],
+    desktopRequiredSecrets: [],
+    fallback: 'GeoNames place lookup is disabled.',
+  },
+  {
+    id: 'ripeNccData',
+    name: 'RIPE NCC BGP data',
+    description: 'BGP routing data, ASN registrations, and prefix announcements from RIPE NCC — no key required.',
+    requiredSecrets: [],
+    desktopRequiredSecrets: [],
+    fallback: 'RIPE NCC BGP data is disabled.',
+  },
+  {
+    id: 'ipInfoLookup',
+    name: 'IPInfo IP intelligence',
+    description: 'IP geolocation, ASN, and abuse contact data from IPInfo — free tier: 50,000 req/month.',
+    requiredSecrets: ['IPINFO_TOKEN'],
+    desktopRequiredSecrets: [],
+    fallback: 'IPInfo IP lookup is disabled.',
   },
 ];
 

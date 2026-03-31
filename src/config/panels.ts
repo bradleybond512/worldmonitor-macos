@@ -96,6 +96,18 @@ const FULL_PANELS: Record<string, PanelConfig> = {
   'global-weather': { name: 'Global Weather', enabled: true, priority: 2 },
   'opensanctions': { name: 'Global Sanctions', enabled: true, priority: 2 },
   'edgar-filings': { name: 'SEC EDGAR Filings', enabled: true, priority: 2 },
+  'phishstats-feed': { name: 'PhishStats Threats', enabled: true, priority: 2 },
+  'urlscan-threats': { name: 'URLScan Threat Feed', enabled: true, priority: 2 },
+  'bitcoin-abuse': { name: 'Bitcoin Abuse Tracker', enabled: true, priority: 2 },
+  'cve-tracker': { name: 'CVE Tracker', enabled: true, priority: 2 },
+  'vulners-cve': { name: 'Vulners CVE Intel', enabled: true, priority: 2 },
+  'mediastack-news': { name: 'MediaStack News', enabled: true, priority: 2 },
+  'pulsedive-intel': { name: 'Pulsedive Threat Intel', enabled: true, priority: 2 },
+  'hibp-breaches': { name: 'Breach Exposure', enabled: true, priority: 2 },
+  'reddit-osint': { name: 'Reddit Signals', enabled: true, priority: 2 },
+  'openaq-monitor': { name: 'OpenAQ Air Quality', enabled: true, priority: 2 },
+  'ripe-ncc': { name: 'RIPE NCC BGP', enabled: true, priority: 2 },
+  'ipinfo-lookup': { name: 'IPInfo Lookup', enabled: true, priority: 2 },
 };
 
 const FULL_MAP_LAYERS: MapLayers = {
