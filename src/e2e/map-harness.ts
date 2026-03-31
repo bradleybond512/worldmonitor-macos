@@ -183,6 +183,7 @@ const allLayersEnabled: MapLayers = {
   s2pimu: false,
   dayNight: true,
   faaWeatherCams: true,
+  adsb: false,
 };
 
 const allLayersDisabled: MapLayers = {
@@ -233,6 +234,7 @@ const allLayersDisabled: MapLayers = {
   s2pimu: false,
   dayNight: false,
   faaWeatherCams: false,
+  adsb: false,
 };
 
 const SEEDED_NEWS_LOCATIONS: {
@@ -719,6 +721,14 @@ const VISUAL_SCENARIOS: VisualScenario[] = [
     enabledLayers: ['commodityHubs'],
     camera: toCamera(commodityHubLon, commodityHubLat, 5.2),
     expectedDeckLayers: ['commodity-hubs-layer'],
+    expectedSelectors: [],
+  },
+  {
+    id: 'adsb-z3',
+    variant: 'both',
+    enabledLayers: ['adsb'],
+    camera: seededCameras.flights,
+    expectedDeckLayers: ['adsb-layer'],
     expectedSelectors: [],
   },
   // Note: `sanctions` has no map renderer in DeckGLMap today; excluded from visual scenarios.

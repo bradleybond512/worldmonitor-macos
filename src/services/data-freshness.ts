@@ -40,7 +40,8 @@ export type DataSourceId =
   | 'gpsjam'               // GPS/GNSS interference
   | 'acled_airstrikes'     // ACLED air/drone strikes & missile attacks
   | 's2_underground'       // S2 Underground intelligence (GhostMaps)
-  | 'faa_weather_cams';    // FAA weather camera network
+  | 'faa_weather_cams'    // FAA weather camera network
+  | 'adsb';               // ADS-B live aircraft tracking (OpenSky)
 
 export type FreshnessStatus = 'fresh' | 'stale' | 'very_stale' | 'no_data' | 'disabled' | 'error';
 
@@ -111,6 +112,7 @@ const SOURCE_METADATA: Record<DataSourceId, { name: string; requiredForRisk: boo
   acled_airstrikes: { name: 'Air Strikes & Drones (ACLED)', requiredForRisk: false, panelId: 'airstrikes' },
   s2_underground: { name: 'S2 Underground Intelligence', requiredForRisk: false, panelId: 'map' },
   faa_weather_cams: { name: 'FAA Weather Cameras', requiredForRisk: false, panelId: 'faa-weather-cams' },
+  adsb: { name: 'ADS-B Aircraft', requiredForRisk: false, panelId: 'air-traffic' },
 };
 
 class DataFreshnessTracker {
@@ -386,6 +388,7 @@ const INTELLIGENCE_GAP_MESSAGES: Record<DataSourceId, string> = {
   acled_airstrikes: 'Air strike & drone event data unavailable—ACLED feed not responding',
   s2_underground: 'S2 Underground intelligence data unavailable—GhostMaps CIP feed not responding',
   faa_weather_cams: 'FAA weather camera data unavailable—camera feed not responding',
+  adsb: 'Live aircraft positions unavailable—ADS-B tracking offline',
 };
 
 /**

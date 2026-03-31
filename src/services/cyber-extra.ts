@@ -98,6 +98,7 @@ export async function lookupVtIndicator(
 
 // ── PhishStats phishing database ───────────────────────────────────────────
 export async function fetchPhishStatsFeed(): Promise<CyberThreat[]> {
+  if (!isFeatureAvailable('phishstatsFeed')) return [];
   try {
     const res = await fetch(`${getApiBaseUrl()}/api/phishstats-feed`);
     if (!res.ok) return [];

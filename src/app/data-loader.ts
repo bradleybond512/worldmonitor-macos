@@ -167,6 +167,8 @@ import { fetchVolcanoAlerts } from '@/services/volcano-alerts';
 import { fetchNWSAlerts } from '@/services/nws-alerts';
 import { fetchFAACameras, scoreCamerasAgainstAlerts, getDisasterProximateCameras } from '@/services/faa-cameras';
 import { FAAWeatherCamsPanel } from '@/components/FAAWeatherCamsPanel';
+import { fetchAdsbSnapshot } from '@/services/adsb';
+import type { AirTrafficPanel } from '@/components/AirTrafficPanel';
 import type { ModeChangedDetail } from '@/services/mode-manager';
 import { fetchCommsHealth } from '@/services/comms-health';
 import { fetchEconomicStress } from '@/services/economic-stress';
@@ -197,6 +199,12 @@ import { fetchNewsApiHeadlines } from '@/services/newsapi';
 import { fetchNewsDataFeed } from '@/services/newsdata';
 import type { ThreatLevel as ClientThreatLevel } from '@/services/threat-classifier';
 import type { NewsItem as ProtoNewsItem, ThreatLevel as ProtoThreatLevel } from '@/generated/client/worldmonitor/news/v1/service_client';
+import { GlobalWeatherPanel } from '@/components/GlobalWeatherPanel';
+import { OpenSanctionsPanel } from '@/components/OpenSanctionsPanel';
+import { EdgarFilingsPanel } from '@/components/EdgarFilingsPanel';
+import { fetchGlobalWeather } from '@/services/global-weather';
+import { fetchRecentSanctions } from '@/services/opensanctions';
+import { fetchRecentEdgarFilings } from '@/services/sec-edgar';
 
 const PROTO_TO_CLIENT_LEVEL: Record<ProtoThreatLevel, ClientThreatLevel> = {
   THREAT_LEVEL_UNSPECIFIED: 'info',
@@ -415,6 +423,7 @@ export class DataLoaderManager implements AppModule {
     if (this.ctx.mapLayers.natural) tasks.push({ name: 'natural', task: runGuarded('natural', () => this.loadNatural()) });
     if (SITE_VARIANT !== 'happy' && this.ctx.mapLayers.weather) tasks.push({ name: 'weather', task: runGuarded('weather', () => this.loadWeatherAlerts()) });
     if (SITE_VARIANT !== 'happy' && this.ctx.mapLayers.ais) tasks.push({ name: 'ais', task: runGuarded('ais', () => this.loadAisSignals()) });
+    if (SITE_VARIANT !== 'happy' && this.ctx.mapLayers.adsb) tasks.push({ name: 'adsb', task: runGuarded('adsb', () => this.loadAdsb()) });
     if (SITE_VARIANT !== 'happy' && this.ctx.mapLayers.cables) tasks.push({ name: 'cables', task: runGuarded('cables', () => this.loadCableActivity()) });
     if (SITE_VARIANT !== 'happy' && this.ctx.mapLayers.cables) tasks.push({ name: 'cableHealth', task: runGuarded('cableHealth', () => this.loadCableHealth()) });
     if (SITE_VARIANT !== 'happy' && this.ctx.mapLayers.flights) tasks.push({ name: 'flights', task: runGuarded('flights', () => this.loadFlightDelays()) });
@@ -436,6 +445,9 @@ export class DataLoaderManager implements AppModule {
     if (SITE_VARIANT === 'full') tasks.push({ name: 'faaCameras', task: runGuarded('faaCameras', () => this.loadFAACameras()) });
     if (SITE_VARIANT === 'full') tasks.push({ name: 'savedPlaceWeather', task: runGuarded('savedPlaceWeather', () => this.loadSavedPlaceWeather()) });
     if (SITE_VARIANT === 'full') tasks.push({ name: 'emaForecast', task: runGuarded('emaForecast', () => this.runEMAForecast()) });
+    if (SITE_VARIANT === 'full') tasks.push({ name: 'globalWeather', task: runGuarded('globalWeather', () => this.loadGlobalWeather()) });
+    if (SITE_VARIANT === 'full') tasks.push({ name: 'openSanctions', task: runGuarded('openSanctions', () => this.loadOpenSanctions()) });
+    if (SITE_VARIANT === 'full') tasks.push({ name: 'edgarFilings', task: runGuarded('edgarFilings', () => this.loadEdgarFilings()) });
 
     if (SITE_VARIANT === 'tech') {
       tasks.push({ name: 'techReadiness', task: runGuarded('techReadiness', () => (this.ctx.panels['tech-readiness'] as TechReadinessPanel)?.refresh()) });
@@ -522,6 +534,10 @@ export class DataLoaderManager implements AppModule {
         case 'climate':
         case 'gpsJamming': {
           await this.loadIntelligenceSignals();
+          break;
+        }
+        case 'adsb': {
+          await this.loadAdsb();
           break;
         }
       }
@@ -1867,6 +1883,36 @@ export class DataLoaderManager implements AppModule {
     }
   }
 
+  async loadGlobalWeather(): Promise<void> {
+    try {
+      const readings = await fetchGlobalWeather();
+      (this.ctx.panels['global-weather'] as GlobalWeatherPanel)?.update(readings);
+    } catch (error) {
+      console.warn('[global-weather] fetch failed', error);
+      (this.ctx.panels['global-weather'] as GlobalWeatherPanel)?.update([]);
+    }
+  }
+
+  async loadOpenSanctions(): Promise<void> {
+    try {
+      const entities = await fetchRecentSanctions();
+      (this.ctx.panels['opensanctions'] as OpenSanctionsPanel)?.update(entities);
+    } catch (error) {
+      console.warn('[opensanctions] fetch failed', error);
+      (this.ctx.panels['opensanctions'] as OpenSanctionsPanel)?.update([]);
+    }
+  }
+
+  async loadEdgarFilings(): Promise<void> {
+    try {
+      const filings = await fetchRecentEdgarFilings();
+      (this.ctx.panels['edgar-filings'] as EdgarFilingsPanel)?.update(filings);
+    } catch (error) {
+      console.warn('[edgar-filings] fetch failed', error);
+      (this.ctx.panels['edgar-filings'] as EdgarFilingsPanel)?.update([]);
+    }
+  }
+
   async loadIranEvents(): Promise<void> {
     try {
       const events = await fetchIranEvents();
@@ -2720,6 +2766,18 @@ export class DataLoaderManager implements AppModule {
       (this.ctx.panels['food-insecurity'] as FoodInsecurityPanel | undefined)?.update(data);
     } catch (error) {
       console.error('[App] Food insecurity fetch failed:', error);
+    }
+  }
+
+  async loadAdsb(): Promise<void> {
+    try {
+      const snapshot = await fetchAdsbSnapshot();
+      this.ctx.map?.setAdsbFlights(snapshot.flights);
+      this.ctx.map?.setLayerReady?.('adsb', snapshot.flights.length > 0);
+      (this.ctx.panels['air-traffic'] as AirTrafficPanel | undefined)?.update(snapshot);
+    } catch (error) {
+      this.ctx.map?.setLayerReady?.('adsb', false);
+      dataFreshness.recordError('adsb', error instanceof Error ? error.message : 'Unknown error');
     }
   }
 

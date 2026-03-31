@@ -132,6 +132,7 @@ const layers = {
   s2pimu: false,
   dayNight: false,
   faaWeatherCams: false,
+  adsb: false,
 };
 
 await initI18n();

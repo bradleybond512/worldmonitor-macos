@@ -57,6 +57,9 @@ import { SpaceWeatherPanel } from '@/components/SpaceWeatherPanel';
 import { SpaceflightNewsPanel } from '@/components/SpaceflightNewsPanel';
 import { DiseaseOutbreakPanel } from '@/components/DiseaseOutbreakPanel';
 import { HumanitarianCrisisPanel } from '@/components/HumanitarianCrisisPanel';
+import { GlobalWeatherPanel } from '@/components/GlobalWeatherPanel';
+import { OpenSanctionsPanel } from '@/components/OpenSanctionsPanel';
+import { EdgarFilingsPanel } from '@/components/EdgarFilingsPanel';
 import { AirQualityPanel } from '@/components/AirQualityPanel';
 import { WildfireIncidentsPanel } from '@/components/WildfireIncidentsPanel';
 import { HazmatIncidentsPanel } from '@/components/HazmatIncidentsPanel';
@@ -72,6 +75,7 @@ import { FearGreedPanel } from '@/components/FearGreedPanel';
 import { InternetDisruptionsPanel } from '@/components/InternetDisruptionsPanel';
 import { NationalDebtPanel } from '@/components/NationalDebtPanel';
 import { FuelPricesPanel } from '@/components/FuelPricesPanel';
+import { AirTrafficPanel } from '@/components/AirTrafficPanel';
 import { EconomicStressPanel } from '@/components/EconomicStressPanel';
 import { FederalRegisterPanel } from '@/components/FederalRegisterPanel';
 import { NuclearRiskPanel } from '@/components/NuclearRiskPanel';
@@ -902,6 +906,15 @@ export class PanelLayoutManager implements AppModule {
       const humanitarianCrisisPanel = new HumanitarianCrisisPanel();
       this.ctx.panels['humanitarian-crisis'] = humanitarianCrisisPanel;
 
+      const globalWeatherPanel = new GlobalWeatherPanel();
+      this.ctx.panels['global-weather'] = globalWeatherPanel;
+
+      const openSanctionsPanel = new OpenSanctionsPanel();
+      this.ctx.panels['opensanctions'] = openSanctionsPanel;
+
+      const edgarFilingsPanel = new EdgarFilingsPanel();
+      this.ctx.panels['edgar-filings'] = edgarFilingsPanel;
+
       const airQualityPanel = new AirQualityPanel();
       this.ctx.panels['air-quality'] = airQualityPanel;
 
@@ -971,6 +984,7 @@ export class PanelLayoutManager implements AppModule {
       this.ctx.panels['internet-disruptions'] = new InternetDisruptionsPanel();
       this.ctx.panels['national-debt'] = new NationalDebtPanel();
       this.ctx.panels['fuel-prices'] = new FuelPricesPanel();
+      this.ctx.panels['air-traffic'] = new AirTrafficPanel();
       this.ctx.panels['stoic-reflections'] = new StoicQuotePanel();
       this.ctx.panels['biblical-encouragement'] = new BiblicalQuotePanel();
       this.ctx.panels['alan-watts-reflections'] = new AlanWattsQuotePanel();

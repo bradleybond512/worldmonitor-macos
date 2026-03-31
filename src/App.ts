@@ -572,6 +572,9 @@ export class App {
         { name: 'tropicalCyclones', fn: () => this.dataLoader.loadTropicalCyclones(), intervalMs: 30 * 60 * 1000, condition: () => SITE_VARIANT === 'full' },
         { name: 'savedPlaceWeather', fn: () => this.dataLoader.loadSavedPlaceWeather(), intervalMs: 30 * 60 * 1000, condition: () => SITE_VARIANT === 'full' },
         { name: 'foodInsecurity', fn: () => this.dataLoader.loadFoodInsecurity(), intervalMs: 4 * 60 * 60 * 1000, condition: () => SITE_VARIANT === 'full' },
+        { name: 'globalWeather', fn: () => this.dataLoader.loadGlobalWeather(), intervalMs: 30 * 60 * 1000, condition: () => SITE_VARIANT === 'full' },
+        { name: 'openSanctions', fn: () => this.dataLoader.loadOpenSanctions(), intervalMs: 60 * 60 * 1000, condition: () => SITE_VARIANT === 'full' },
+        { name: 'edgarFilings', fn: () => this.dataLoader.loadEdgarFilings(), intervalMs: 30 * 60 * 1000, condition: () => SITE_VARIANT === 'full' },
       ]);
     }
 
@@ -626,6 +629,16 @@ export class App {
         () => this.dataLoader.loadFAACameras(),
         20 * 60_000,
         () => !!this.state.panels['faa-weather-cams']
+      );
+    }
+
+    // ADS-B live aircraft tracking (OpenSky, 60s)
+    if (SITE_VARIANT !== 'happy') {
+      this.refreshScheduler.scheduleRefresh(
+        'adsb',
+        () => this.dataLoader.loadAdsb(),
+        60_000,
+        () => this.state.mapLayers.adsb || !!this.state.panels['air-traffic']
       );
     }
 

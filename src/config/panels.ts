@@ -93,9 +93,22 @@ const FULL_PANELS: Record<string, PanelConfig> = {
   'internet-disruptions': { name: 'Internet Disruptions', enabled: true, priority: 2 },
   'national-debt': { name: 'National Debt', enabled: true, priority: 2 },
   'fuel-prices': { name: 'Fuel Prices', enabled: true, priority: 2 },
+  'air-traffic': { name: 'Air Traffic', enabled: true, priority: 2 },
   'global-weather': { name: 'Global Weather', enabled: true, priority: 2 },
   'opensanctions': { name: 'Global Sanctions', enabled: true, priority: 2 },
   'edgar-filings': { name: 'SEC EDGAR Filings', enabled: true, priority: 2 },
+  'phishstats-feed': { name: 'PhishStats Threats', enabled: true, priority: 2 },
+  'urlscan-threats': { name: 'URLScan Threat Feed', enabled: true, priority: 2 },
+  'bitcoin-abuse': { name: 'Bitcoin Abuse Tracker', enabled: true, priority: 2 },
+  'cve-tracker': { name: 'CVE Tracker', enabled: true, priority: 2 },
+  'vulners-cve': { name: 'Vulners CVE Intel', enabled: true, priority: 2 },
+  'mediastack-news': { name: 'MediaStack News', enabled: true, priority: 2 },
+  'pulsedive-intel': { name: 'Pulsedive Threat Intel', enabled: true, priority: 2 },
+  'hibp-breaches': { name: 'Breach Exposure', enabled: true, priority: 2 },
+  'reddit-osint': { name: 'Reddit Signals', enabled: true, priority: 2 },
+  'openaq-monitor': { name: 'OpenAQ Air Quality', enabled: true, priority: 2 },
+  'ripe-ncc': { name: 'RIPE NCC BGP', enabled: true, priority: 2 },
+  'ipinfo-lookup': { name: 'IPInfo Lookup', enabled: true, priority: 2 },
 };
 
 const FULL_MAP_LAYERS: MapLayers = {
@@ -150,6 +163,7 @@ const FULL_MAP_LAYERS: MapLayers = {
   s2pimu: false,
   dayNight: false,
   faaWeatherCams: true,
+  adsb: false,
 };
 
 const FULL_MOBILE_MAP_LAYERS: MapLayers = {
@@ -204,6 +218,7 @@ const FULL_MOBILE_MAP_LAYERS: MapLayers = {
   s2pimu: false,
   dayNight: false,
   faaWeatherCams: false,
+  adsb: false,
 };
 
 // ============================================
@@ -299,6 +314,7 @@ const TECH_MAP_LAYERS: MapLayers = {
   s2pimu: false,
   dayNight: false,
   faaWeatherCams: false,
+  adsb: false,
 };
 
 const TECH_MOBILE_MAP_LAYERS: MapLayers = {
@@ -353,6 +369,7 @@ const TECH_MOBILE_MAP_LAYERS: MapLayers = {
   s2pimu: false,
   dayNight: false,
   faaWeatherCams: false,
+  adsb: false,
 };
 
 // ============================================
@@ -444,6 +461,7 @@ const FINANCE_MAP_LAYERS: MapLayers = {
   s2pimu: false,
   dayNight: false,
   faaWeatherCams: false,
+  adsb: false,
 };
 
 const FINANCE_MOBILE_MAP_LAYERS: MapLayers = {
@@ -498,6 +516,7 @@ const FINANCE_MOBILE_MAP_LAYERS: MapLayers = {
   s2pimu: false,
   dayNight: false,
   faaWeatherCams: false,
+  adsb: false,
 };
 
 // ============================================
@@ -568,6 +587,7 @@ const HAPPY_MAP_LAYERS: MapLayers = {
   s2pimu: false,
   dayNight: false,
   faaWeatherCams: false,
+  adsb: false,
 };
 
 const HAPPY_MOBILE_MAP_LAYERS: MapLayers = {
@@ -622,6 +642,7 @@ const HAPPY_MOBILE_MAP_LAYERS: MapLayers = {
   s2pimu: false,
   dayNight: false,
   faaWeatherCams: false,
+  adsb: false,
 };
 
 // ============================================
@@ -644,6 +665,7 @@ export const LAYER_TO_SOURCE: Partial<Record<keyof MapLayers, DataSourceId[]>> =
   displacement: ['unhcr'],
   climate: ['climate'],
   faaWeatherCams: ['faa_weather_cams'],
+  adsb: ['adsb'],
 };
 
 // ============================================
@@ -683,7 +705,7 @@ export const PANEL_CATEGORY_MAP: Record<string, { labelKey: string; panelKeys: s
   },
   dataTracking: {
     labelKey: 'header.panelCatDataTracking',
-    panelKeys: ['monitors', 'cyber-threats', 'local-ids', 'comms-health', 'ucdp-events', 'nuclear-risk', 'airstrikes', 'displacement', 'security-advisories', 'oref-sirens', 'space-weather', 'spaceflight-news', 'population-exposure', 'internet-disruptions'],
+    panelKeys: ['monitors', 'cyber-threats', 'local-ids', 'comms-health', 'ucdp-events', 'nuclear-risk', 'airstrikes', 'displacement', 'security-advisories', 'oref-sirens', 'space-weather', 'spaceflight-news', 'population-exposure', 'internet-disruptions', 'air-traffic'],
     variants: ['full'],
   },
   hazards: {
