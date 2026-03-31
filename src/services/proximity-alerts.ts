@@ -118,7 +118,6 @@ class ProximityAlertService {
       if (distKm > (RADII_KM[radiusKey] ?? 80.5)) continue;
 
       const distMiles = Math.round((distKm / 1.60934) * 10) / 10;
-      const checklistKey = inc.evacuationOrders ? 'wildfire-evac' : 'wildfire-no-evac';
       found.push({
         id: inc.id,
         type: 'wildfire',
@@ -128,11 +127,12 @@ class ProximityAlertService {
         severity: inc.severity,
         evacuationOrder: inc.evacuationOrders,
         url: inc.url,
-        checklist: CHECKLISTS[checklistKey] ?? [],
+        checklist: CHECKLISTS[radiusKey] ?? [],
         reportedAt: inc.updatedAt,
       });
 
       if (shouldAlert(inc.id, alerted) && !isGhostMode()) {
+        alerted[inc.id] = Date.now();
         const body = inc.evacuationOrders
           ? `Evacuation order — ${inc.name}, ${inc.state} (${Math.round(distMiles)} mi away)`
           : `${inc.acresBurned?.toLocaleString() ?? '?'} acres, ${inc.percentContained ?? '?'}% contained — ${Math.round(distMiles)} mi away`;
@@ -141,7 +141,6 @@ class ProximityAlertService {
           body,
           sound: inc.evacuationOrders ? 'Basso' : 'Ping',
         });
-        alerted[inc.id] = Date.now();
       }
     }
 
@@ -163,7 +162,6 @@ class ProximityAlertService {
       if (distKm > (RADII_KM[radiusKey] ?? 40.2)) continue;
 
       const distMiles = Math.round((distKm / 1.60934) * 10) / 10;
-      const checklistKey = inc.incidentType === 'pipeline' ? 'hazmat-pipeline' : 'hazmat-chemical';
       found.push({
         id: inc.id,
         type: 'hazmat',
@@ -173,17 +171,17 @@ class ProximityAlertService {
         severity: inc.severity,
         evacuationOrder: false,
         url: inc.url,
-        checklist: CHECKLISTS[checklistKey] ?? [],
+        checklist: CHECKLISTS[radiusKey] ?? [],
         reportedAt: inc.reportedAt,
       });
 
       if (shouldAlert(inc.id, alerted) && !isGhostMode()) {
+        alerted[inc.id] = Date.now();
         await tryInvokeTauri<void>('send_notification', {
           title: `Hazmat: ${inc.chemical}`,
           body: `${inc.title} — ${Math.round(distMiles)} mi away`,
           sound: inc.severity === 'critical' ? 'Basso' : 'Ping',
         });
-        alerted[inc.id] = Date.now();
       }
     }
 
@@ -219,12 +217,12 @@ class ProximityAlertService {
       });
 
       if (shouldAlert(inc.id, alerted) && !isGhostMode()) {
+        alerted[inc.id] = Date.now();
         await tryInvokeTauri<void>('send_notification', {
           title: `Spill: ${inc.name}`,
           body: `${inc.pollutant || 'Unknown pollutant'} — ${Math.round(distMiles)} mi away`,
           sound: 'Ping',
         });
-        alerted[inc.id] = Date.now();
       }
     }
 
@@ -263,12 +261,12 @@ class ProximityAlertService {
       });
 
       if (shouldAlert(id, alerted) && !isGhostMode()) {
+        alerted[id] = Date.now();
         await tryInvokeTauri<void>('send_notification', {
           title: `Air Quality Alert: ${r.city}`,
           body: `AQI ${r.aqi} — ${Math.round(distMiles)} mi away. Wear N95 outdoors.`,
           sound: 'Ping',
         });
-        alerted[id] = Date.now();
       }
     }
 
