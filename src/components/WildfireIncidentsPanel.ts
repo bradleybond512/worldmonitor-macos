@@ -32,15 +32,15 @@ export class WildfireIncidentsPanel extends Panel {
     const rows = this.incidents.slice(0, 50).map(r => {
       const rowClass = inciwebSeverityClass(r.severity);
       const evac = r.evacuationOrders
-        ? '<span class="sev-badge" style="background:var(--color-critical)">EVAC</span>'
+        ? '<span class="sev-badge" style="background:var(--semantic-critical)">EVAC</span>'
         : r.evacuationWarnings
-          ? '<span class="sev-badge" style="background:var(--color-high)">WARN</span>'
+          ? '<span class="sev-badge" style="background:var(--semantic-high)">WARN</span>'
           : '';
       const acres = r.acresBurned !== null ? r.acresBurned.toLocaleString() : '—';
       // All dynamic content is escaped with escapeHtml() before insertion
       return `<tr class="${rowClass}">
         <td>${evac}</td>
-        <td class="eq-location">${escapeHtml(r.name.length > 45 ? r.name.slice(0, 43) + '…' : r.name)}</td>
+        <td>${escapeHtml(r.name.length > 45 ? r.name.slice(0, 43) + '…' : r.name)}</td>
         <td>${escapeHtml(r.state)}</td>
         <td>${acres}</td>
         <td>${containmentBar(r.percentContained)}</td>
