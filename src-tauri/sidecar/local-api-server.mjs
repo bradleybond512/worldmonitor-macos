@@ -248,6 +248,7 @@ const ALLOWED_ENV_KEYS = new Set([
   'NEWSAPI_KEY', 'NEWSDATA_API_KEY', 'VIRUSTOTAL_API_KEY', 'BGPVIEW_API_KEY',
   'SHODAN_API_KEY', 'FMP_API_KEY',
   'OWM_API_KEY', 'GREYNOISE_API_KEY',
+  'NASA_API_KEY',
 ]);
 
 const CHROME_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
@@ -2198,6 +2199,84 @@ async function dispatch(requestUrl, req, routes, context) {
       return json(result);
     } catch (error) {
       return json({ error: `space-weather-feeds fetch error: ${error.message ?? error}` }, 502);
+    }
+  }
+
+  // ── NASA DONKI space weather events ─────────────────────────────────────
+  if (requestUrl.pathname === '/api/donki-events') {
+    const apiKey = process.env.NASA_API_KEY ?? 'DEMO_KEY';
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    const today = new Date().toISOString().slice(0, 10);
+    const base = `https://api.nasa.gov/DONKI`;
+    const params = `startDate=${sevenDaysAgo}&endDate=${today}&api_key=${apiKey}`;
+    try {
+      const [flrResp, cmeResp, gstResp] = await Promise.allSettled([
+        fetchWithTimeout(`${base}/FLR?${params}`, { headers: { 'User-Agent': CHROME_UA } }, 12000),
+        fetchWithTimeout(`${base}/CME?${params}`, { headers: { 'User-Agent': CHROME_UA } }, 12000),
+        fetchWithTimeout(`${base}/GST?${params}`, { headers: { 'User-Agent': CHROME_UA } }, 12000),
+      ]);
+      const events = [];
+      if (flrResp.status === 'fulfilled' && flrResp.value.ok) {
+        const flares = await flrResp.value.json();
+        for (const f of (Array.isArray(flares) ? flares : [])) {
+          const cls = f.classType ?? '';
+          events.push({
+            id: f.flrID ?? `flr-${events.length}`,
+            type: 'flare',
+            startTime: f.beginTime ?? null,
+            peakTime: f.peakTime ?? null,
+            endTime: f.endTime ?? null,
+            classType: cls,
+            kpIndex: null,
+            estimatedArrival: null,
+            severity: cls.startsWith('X') ? 'critical' : cls.startsWith('M') ? 'high' : cls.startsWith('C') ? 'medium' : 'low',
+            url: f.link ?? `https://kauai.ccmc.gsfc.nasa.gov/DONKI/`,
+          });
+        }
+      }
+      if (cmeResp.status === 'fulfilled' && cmeResp.value.ok) {
+        const cmes = await cmeResp.value.json();
+        for (const c of (Array.isArray(cmes) ? cmes : [])) {
+          const analysis = Array.isArray(c.cmeAnalyses) ? c.cmeAnalyses[0] : null;
+          const arrival = analysis?.time21_5 ?? null;
+          events.push({
+            id: c.activityID ?? `cme-${events.length}`,
+            type: 'cme',
+            startTime: c.startTime ?? null,
+            peakTime: null,
+            endTime: null,
+            classType: null,
+            kpIndex: null,
+            estimatedArrival: arrival,
+            severity: analysis?.isMostAccurate ? 'high' : 'medium',
+            url: c.link ?? `https://kauai.ccmc.gsfc.nasa.gov/DONKI/`,
+          });
+        }
+      }
+      if (gstResp.status === 'fulfilled' && gstResp.value.ok) {
+        const storms = await gstResp.value.json();
+        for (const g of (Array.isArray(storms) ? storms : [])) {
+          const maxKp = Array.isArray(g.allKpIndex)
+            ? Math.max(...g.allKpIndex.map((k) => k.kpIndex ?? 0))
+            : null;
+          events.push({
+            id: g.gstID ?? `gst-${events.length}`,
+            type: 'geomagnetic-storm',
+            startTime: g.startTime ?? null,
+            peakTime: null,
+            endTime: null,
+            classType: null,
+            kpIndex: maxKp,
+            estimatedArrival: null,
+            severity: maxKp !== null ? (maxKp >= 7 ? 'critical' : maxKp >= 5 ? 'high' : maxKp >= 4 ? 'medium' : 'low') : 'low',
+            url: g.link ?? `https://kauai.ccmc.gsfc.nasa.gov/DONKI/`,
+          });
+        }
+      }
+      events.sort((a, b) => new Date(b.startTime ?? 0).getTime() - new Date(a.startTime ?? 0).getTime());
+      return json(events.slice(0, 30));
+    } catch {
+      return json([], 200);
     }
   }
 

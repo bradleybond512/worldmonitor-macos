@@ -33,6 +33,7 @@ export const SIGNUP_URLS: Partial<Record<RuntimeSecretKey, string>> = {
   SHODAN_API_KEY: 'https://account.shodan.io/',
   OWM_API_KEY: 'https://openweathermap.org/api',
   GREYNOISE_API_KEY: 'https://www.greynoise.io/plans/community',
+  NASA_API_KEY: 'https://api.nasa.gov/#signUp',
 };
 
 export const PLAINTEXT_KEYS = new Set<RuntimeSecretKey>([
@@ -81,6 +82,7 @@ export const HUMAN_LABELS: Record<RuntimeSecretKey, string> = {
   SHODAN_API_KEY: 'Shodan API Key',
   OWM_API_KEY: 'OpenWeatherMap API Key',
   GREYNOISE_API_KEY: 'GreyNoise API Key',
+  NASA_API_KEY: 'NASA API Key (optional — improves DONKI rate limit)',
 };
 
 export interface SettingsCategory {

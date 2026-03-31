@@ -36,7 +36,8 @@ export type RuntimeSecretKey =
   | 'SHODAN_API_KEY'
   | 'FMP_API_KEY'
   | 'OWM_API_KEY'
-  | 'GREYNOISE_API_KEY';
+  | 'GREYNOISE_API_KEY'
+  | 'NASA_API_KEY';
 
 export type RuntimeFeatureId =
   | 'cloudApiFallbackAuth'
