@@ -249,6 +249,8 @@ const ALLOWED_ENV_KEYS = new Set([
   'SHODAN_API_KEY', 'FMP_API_KEY',
   'OWM_API_KEY', 'GREYNOISE_API_KEY',
   'NASA_API_KEY',
+  'URLSCAN_API_KEY', 'BITCOINABUSE_API_KEY', 'VULNERS_API_KEY', 'MEDIASTACK_API_KEY',
+  'PULSEDIVE_API_KEY', 'HIBP_API_KEY', 'GEONAMES_USERNAME', 'IPINFO_TOKEN',
 ]);
 
 const CHROME_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
@@ -3157,6 +3159,435 @@ async function dispatch(requestUrl, req, routes, context) {
       });
     } catch (e) {
       return json({ error: `edgar-search error: ${e.message ?? e}` }, 502);
+    }
+  }
+
+  // ── URLScan.io recent malicious submissions ─────────────────────────────
+  if (requestUrl.pathname === '/api/urlscan-feed') {
+    const apiKey = process.env.URLSCAN_API_KEY ?? '';
+    if (!apiKey) return json({ error: 'URLSCAN_API_KEY not configured' }, 403);
+    const cached = getCached('urlscan-feed');
+    if (cached) return json(cached);
+    try {
+      const r = await fetchWithTimeout(
+        'https://urlscan.io/api/v1/search/?q=task.tags:malicious&size=50&sort=_score',
+        { headers: { 'API-Key': apiKey, Accept: 'application/json' } },
+        12000,
+      );
+      if (!r.ok) throw new Error(`URLScan ${r.status}`);
+      const data = await r.json();
+      const results = (data.results ?? []).map((item, i) => ({
+        id: item._id ?? `urlscan-${i}`,
+        url: item.page?.url ?? null,
+        domain: item.page?.domain ?? null,
+        ip: item.page?.ip ?? null,
+        country: item.page?.country ?? null,
+        score: item.verdicts?.overall?.score ?? 0,
+        malicious: item.verdicts?.overall?.malicious ?? false,
+        tags: item.verdicts?.overall?.tags ?? [],
+        submittedAt: item.task?.time ?? null,
+        screenshot: item.screenshot ?? null,
+      }));
+      setCached('urlscan-feed', results, 30 * 60 * 1000);
+      return json(results);
+    } catch (e) {
+      return json({ error: `urlscan error: ${e.message ?? e}` }, 502);
+    }
+  }
+
+  // ── Bitcoin Abuse ransomware/fraud address feed ──────────────────────────
+  if (requestUrl.pathname === '/api/bitcoinabuse-feed') {
+    const apiKey = process.env.BITCOINABUSE_API_KEY ?? '';
+    if (!apiKey) return json({ error: 'BITCOINABUSE_API_KEY not configured' }, 403);
+    const cached = getCached('bitcoinabuse-feed');
+    if (cached) return json(cached);
+    try {
+      const r = await fetchWithTimeout(
+        `https://www.bitcoinabuse.com/api/reports/check?address=1&api_token=${apiKey}&page=1`,
+        { headers: { Accept: 'application/json' } },
+        12000,
+      );
+      // Fall back to the recent reports endpoint
+      const r2 = await fetchWithTimeout(
+        `https://www.bitcoinabuse.com/api/reports?api_token=${apiKey}&page=1`,
+        { headers: { Accept: 'application/json' } },
+        12000,
+      );
+      if (!r2.ok) throw new Error(`BitcoinAbuse ${r2.status}`);
+      const data = await r2.json();
+      const reports = (data.data ?? []).map((item, i) => ({
+        id: item.id ?? `ba-${i}`,
+        address: item.address ?? null,
+        abuseType: item.abuse_type_id ?? null,
+        abuseTypeOther: item.abuse_type_other ?? null,
+        description: item.description ?? null,
+        reportedAt: item.created_at ?? null,
+      }));
+      setCached('bitcoinabuse-feed', reports, 60 * 60 * 1000);
+      return json(reports);
+    } catch (e) {
+      return json({ error: `bitcoinabuse error: ${e.message ?? e}` }, 502);
+    }
+  }
+
+  // ── NVD CVE recent vulnerability feed ──────────────────────────────────
+  if (requestUrl.pathname === '/api/nvd-cve') {
+    const cached = getCached('nvd-cve');
+    if (cached) return json(cached);
+    try {
+      const pubStartDate = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().replace('Z', '+00:00');
+      const pubEndDate = new Date().toISOString().replace('Z', '+00:00');
+      const params = new URLSearchParams({ pubStartDate, pubEndDate, resultsPerPage: '50' });
+      const r = await fetchWithTimeout(
+        `https://services.nvd.nist.gov/rest/json/cves/2.0?${params}`,
+        { headers: { Accept: 'application/json' } },
+        15000,
+      );
+      if (!r.ok) throw new Error(`NVD ${r.status}`);
+      const data = await r.json();
+      const cves = (data.vulnerabilities ?? []).map(v => {
+        const cve = v.cve ?? {};
+        const metrics = cve.metrics ?? {};
+        const cvssV3 = metrics.cvssMetricV31?.[0]?.cvssData ?? metrics.cvssMetricV30?.[0]?.cvssData ?? null;
+        const desc = (cve.descriptions ?? []).find(d => d.lang === 'en')?.value ?? '';
+        return {
+          id: cve.id ?? null,
+          description: desc,
+          published: cve.published ?? null,
+          lastModified: cve.lastModified ?? null,
+          severity: cvssV3?.baseSeverity ?? null,
+          cvssScore: cvssV3?.baseScore ?? null,
+          attackVector: cvssV3?.attackVector ?? null,
+          references: (cve.references ?? []).slice(0, 3).map(r => r.url),
+        };
+      });
+      setCached('nvd-cve', cves, 2 * 60 * 60 * 1000);
+      return json(cves);
+    } catch (e) {
+      return json({ error: `nvd-cve error: ${e.message ?? e}` }, 502);
+    }
+  }
+
+  // ── Vulners CVE intelligence ─────────────────────────────────────────────
+  if (requestUrl.pathname === '/api/vulners-search') {
+    const apiKey = process.env.VULNERS_API_KEY ?? '';
+    if (!apiKey) return json({ error: 'VULNERS_API_KEY not configured' }, 403);
+    const q = requestUrl.searchParams.get('q') ?? 'type:cve order:publishDate';
+    const cached = getCached(`vulners-${q}`);
+    if (cached) return json(cached);
+    try {
+      const r = await fetchWithTimeout(
+        'https://vulners.com/api/v3/search/lucene/',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify({ query: q, size: 20, apiKey }),
+        },
+        12000,
+      );
+      if (!r.ok) throw new Error(`Vulners ${r.status}`);
+      const data = await r.json();
+      const results = (data.data?.search ?? []).map(item => ({
+        id: item._id ?? null,
+        title: item._source?.title ?? null,
+        description: item._source?.description ?? null,
+        cvss: item._source?.cvss?.score ?? null,
+        published: item._source?.published ?? null,
+        type: item._source?.type ?? null,
+        href: item._source?.href ?? null,
+      }));
+      setCached(`vulners-${q}`, results, 2 * 60 * 60 * 1000);
+      return json(results);
+    } catch (e) {
+      return json({ error: `vulners error: ${e.message ?? e}` }, 502);
+    }
+  }
+
+  // ── MediaStack global news ───────────────────────────────────────────────
+  if (requestUrl.pathname === '/api/mediastack-news') {
+    const apiKey = process.env.MEDIASTACK_API_KEY ?? '';
+    if (!apiKey) return json({ error: 'MEDIASTACK_API_KEY not configured' }, 403);
+    const cached = getCached('mediastack-news');
+    if (cached) return json(cached);
+    try {
+      const params = new URLSearchParams({
+        access_key: apiKey,
+        categories: 'general,politics,business,technology,science',
+        languages: 'en',
+        limit: '50',
+        sort: 'published_desc',
+      });
+      const r = await fetchWithTimeout(
+        `http://api.mediastack.com/v1/news?${params}`,
+        { headers: { Accept: 'application/json' } },
+        12000,
+      );
+      if (!r.ok) throw new Error(`MediaStack ${r.status}`);
+      const data = await r.json();
+      const articles = (data.data ?? []).map((item, i) => ({
+        id: `ms-${i}`,
+        title: item.title ?? null,
+        description: item.description ?? null,
+        url: item.url ?? null,
+        source: item.source ?? null,
+        category: item.category ?? null,
+        country: item.country ?? null,
+        language: item.language ?? null,
+        publishedAt: item.published_at ?? null,
+      }));
+      setCached('mediastack-news', articles, 15 * 60 * 1000);
+      return json(articles);
+    } catch (e) {
+      return json({ error: `mediastack error: ${e.message ?? e}` }, 502);
+    }
+  }
+
+  // ── Pulsedive threat intelligence ───────────────────────────────────────
+  if (requestUrl.pathname === '/api/pulsedive-feed') {
+    const apiKey = process.env.PULSEDIVE_API_KEY ?? '';
+    if (!apiKey) return json({ error: 'PULSEDIVE_API_KEY not configured' }, 403);
+    const cached = getCached('pulsedive-feed');
+    if (cached) return json(cached);
+    try {
+      const params = new URLSearchParams({ key: apiKey, limit: '50', pretty: '0' });
+      const r = await fetchWithTimeout(
+        `https://pulsedive.com/api/explore.php?${params}`,
+        { headers: { Accept: 'application/json' } },
+        12000,
+      );
+      if (!r.ok) throw new Error(`Pulsedive ${r.status}`);
+      const data = await r.json();
+      const indicators = (data.results ?? []).map(item => ({
+        id: item.iid ?? null,
+        indicator: item.indicator ?? null,
+        type: item.type ?? null,
+        risk: item.risk ?? null,
+        stamp_added: item.stamp_added ?? null,
+        stamp_updated: item.stamp_updated ?? null,
+        tags: (item.tags ?? []).map(t => t.name ?? t),
+        feeds: (item.feeds ?? []).map(f => f.name ?? f),
+      }));
+      setCached('pulsedive-feed', indicators, 30 * 60 * 1000);
+      return json(indicators);
+    } catch (e) {
+      return json({ error: `pulsedive error: ${e.message ?? e}` }, 502);
+    }
+  }
+
+  // ── Have I Been Pwned domain breach check ───────────────────────────────
+  if (requestUrl.pathname === '/api/hibp-breaches') {
+    const apiKey = process.env.HIBP_API_KEY ?? '';
+    if (!apiKey) return json({ error: 'HIBP_API_KEY not configured' }, 403);
+    const domain = requestUrl.searchParams.get('domain');
+    const cacheKey = `hibp-${domain ?? 'recent'}`;
+    const cached = getCached(cacheKey);
+    if (cached) return json(cached);
+    try {
+      const endpoint = domain
+        ? `https://haveibeenpwned.com/api/v3/breacheddomain/${encodeURIComponent(domain)}`
+        : 'https://haveibeenpwned.com/api/v3/breaches';
+      const r = await fetchWithTimeout(
+        endpoint,
+        { headers: { 'hibp-api-key': apiKey, Accept: 'application/json', 'User-Agent': 'WorldMonitor/1.0' } },
+        12000,
+      );
+      if (r.status === 404) { setCached(cacheKey, [], 60 * 60 * 1000); return json([]); }
+      if (!r.ok) throw new Error(`HIBP ${r.status}`);
+      const data = await r.json();
+      const breaches = Array.isArray(data) ? data.map(b => ({
+        name: b.Name ?? null,
+        title: b.Title ?? null,
+        domain: b.Domain ?? null,
+        breachDate: b.BreachDate ?? null,
+        pwnCount: b.PwnCount ?? null,
+        dataClasses: b.DataClasses ?? [],
+        isVerified: b.IsVerified ?? false,
+        isSensitive: b.IsSensitive ?? false,
+      })) : data;
+      setCached(cacheKey, breaches, 4 * 60 * 60 * 1000);
+      return json(breaches);
+    } catch (e) {
+      return json({ error: `hibp error: ${e.message ?? e}` }, 502);
+    }
+  }
+
+  // ── Reddit geopolitical OSINT (public RSS) ───────────────────────────────
+  if (requestUrl.pathname === '/api/reddit-geo') {
+    const sub = requestUrl.searchParams.get('sub') ?? 'worldnews+geopolitics+worldevents';
+    const cacheKey = `reddit-${sub}`;
+    const cached = getCached(cacheKey);
+    if (cached) return json(cached);
+    try {
+      const r = await fetchWithTimeout(
+        `https://www.reddit.com/r/${sub}/hot.json?limit=50`,
+        { headers: { 'User-Agent': 'WorldMonitor/1.0 (news aggregation)' } },
+        10000,
+      );
+      if (!r.ok) throw new Error(`Reddit ${r.status}`);
+      const data = await r.json();
+      const posts = (data.data?.children ?? []).map(child => {
+        const p = child.data ?? {};
+        return {
+          id: p.id ?? null,
+          title: p.title ?? null,
+          subreddit: p.subreddit ?? null,
+          url: p.url ?? null,
+          permalink: `https://www.reddit.com${p.permalink ?? ''}`,
+          score: p.score ?? 0,
+          numComments: p.num_comments ?? 0,
+          flair: p.link_flair_text ?? null,
+          createdUtc: p.created_utc ?? null,
+          domain: p.domain ?? null,
+        };
+      });
+      setCached(cacheKey, posts, 10 * 60 * 1000);
+      return json(posts);
+    } catch (e) {
+      return json({ error: `reddit error: ${e.message ?? e}` }, 502);
+    }
+  }
+
+  // ── OpenAQ real-time air quality readings ────────────────────────────────
+  if (requestUrl.pathname === '/api/openaq-readings') {
+    const cached = getCached('openaq-readings');
+    if (cached) return json(cached);
+    try {
+      const params = new URLSearchParams({
+        limit: '100',
+        page: '1',
+        offset: '0',
+        sort: 'desc',
+        parameter: 'pm25',
+        has_geo: 'true',
+        order_by: 'lastUpdated',
+      });
+      const r = await fetchWithTimeout(
+        `https://api.openaq.org/v2/latest?${params}`,
+        { headers: { Accept: 'application/json', 'X-API-Key': '' } },
+        12000,
+      );
+      if (!r.ok) throw new Error(`OpenAQ ${r.status}`);
+      const data = await r.json();
+      const readings = (data.results ?? []).map(item => ({
+        id: item.location ?? null,
+        locationId: item.locationId ?? null,
+        city: item.city ?? null,
+        country: item.country ?? null,
+        coordinates: item.coordinates ?? null,
+        measurements: (item.measurements ?? []).map(m => ({
+          parameter: m.parameter ?? null,
+          value: m.value ?? null,
+          unit: m.unit ?? null,
+          lastUpdated: m.lastUpdated ?? null,
+        })),
+      }));
+      setCached('openaq-readings', readings, 30 * 60 * 1000);
+      return json(readings);
+    } catch (e) {
+      return json({ error: `openaq error: ${e.message ?? e}` }, 502);
+    }
+  }
+
+  // ── GeoNames place search ────────────────────────────────────────────────
+  if (requestUrl.pathname === '/api/geonames-search') {
+    const username = process.env.GEONAMES_USERNAME ?? '';
+    if (!username) return json({ error: 'GEONAMES_USERNAME not configured' }, 403);
+    const q = requestUrl.searchParams.get('q');
+    if (!q) return json({ error: 'q parameter required' }, 400);
+    const cacheKey = `geonames-${q}`;
+    const cached = getCached(cacheKey);
+    if (cached) return json(cached);
+    try {
+      const params = new URLSearchParams({ q, maxRows: '20', username, type: 'json', style: 'MEDIUM' });
+      const r = await fetchWithTimeout(
+        `https://secure.geonames.org/searchJSON?${params}`,
+        { headers: { Accept: 'application/json' } },
+        10000,
+      );
+      if (!r.ok) throw new Error(`GeoNames ${r.status}`);
+      const data = await r.json();
+      const places = (data.geonames ?? []).map(p => ({
+        id: p.geonameId ?? null,
+        name: p.name ?? null,
+        toponym: p.toponymName ?? null,
+        country: p.countryName ?? null,
+        countryCode: p.countryCode ?? null,
+        lat: p.lat != null ? parseFloat(p.lat) : null,
+        lon: p.lng != null ? parseFloat(p.lng) : null,
+        population: p.population ?? null,
+        featureClass: p.fcl ?? null,
+        featureCode: p.fcode ?? null,
+        adminName1: p.adminName1 ?? null,
+      }));
+      setCached(cacheKey, places, 24 * 60 * 60 * 1000);
+      return json(places);
+    } catch (e) {
+      return json({ error: `geonames error: ${e.message ?? e}` }, 502);
+    }
+  }
+
+  // ── RIPE NCC BGP data ────────────────────────────────────────────────────
+  if (requestUrl.pathname === '/api/ripe-ncc') {
+    const asn = requestUrl.searchParams.get('asn');
+    const type = requestUrl.searchParams.get('type') ?? 'overview';
+    const cacheKey = `ripe-${type}-${asn ?? 'routing-status'}`;
+    const cached = getCached(cacheKey);
+    if (cached) return json(cached);
+    try {
+      let endpoint;
+      if (asn) {
+        endpoint = `https://stat.ripe.net/data/as-overview/data.json?resource=AS${asn}`;
+      } else {
+        endpoint = 'https://stat.ripe.net/data/routing-status/data.json?resource=8.8.8.8';
+      }
+      const r = await fetchWithTimeout(
+        endpoint,
+        { headers: { Accept: 'application/json' } },
+        10000,
+      );
+      if (!r.ok) throw new Error(`RIPE NCC ${r.status}`);
+      const data = await r.json();
+      setCached(cacheKey, data.data ?? data, 60 * 60 * 1000);
+      return json(data.data ?? data);
+    } catch (e) {
+      return json({ error: `ripe-ncc error: ${e.message ?? e}` }, 502);
+    }
+  }
+
+  // ── IPInfo IP intelligence lookup ────────────────────────────────────────
+  if (requestUrl.pathname === '/api/ipinfo-lookup') {
+    const token = process.env.IPINFO_TOKEN ?? '';
+    if (!token) return json({ error: 'IPINFO_TOKEN not configured' }, 403);
+    const ip = requestUrl.searchParams.get('ip');
+    if (!ip) return json({ error: 'ip parameter required' }, 400);
+    const cacheKey = `ipinfo-${ip}`;
+    const cached = getCached(cacheKey);
+    if (cached) return json(cached);
+    try {
+      const r = await fetchWithTimeout(
+        `https://ipinfo.io/${ip}?token=${token}`,
+        { headers: { Accept: 'application/json' } },
+        8000,
+      );
+      if (!r.ok) throw new Error(`IPInfo ${r.status}`);
+      const data = await r.json();
+      const result = {
+        ip: data.ip ?? ip,
+        hostname: data.hostname ?? null,
+        city: data.city ?? null,
+        region: data.region ?? null,
+        country: data.country ?? null,
+        loc: data.loc ?? null,
+        org: data.org ?? null,
+        postal: data.postal ?? null,
+        timezone: data.timezone ?? null,
+        asn: data.asn ?? null,
+        abuse: data.abuse ?? null,
+      };
+      setCached(cacheKey, result, 6 * 60 * 60 * 1000);
+      return json(result);
+    } catch (e) {
+      return json({ error: `ipinfo error: ${e.message ?? e}` }, 502);
     }
   }
 

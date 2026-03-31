@@ -34,6 +34,14 @@ export const SIGNUP_URLS: Partial<Record<RuntimeSecretKey, string>> = {
   OWM_API_KEY: 'https://openweathermap.org/api',
   GREYNOISE_API_KEY: 'https://www.greynoise.io/plans/community',
   NASA_API_KEY: 'https://api.nasa.gov/#signUp',
+  URLSCAN_API_KEY: 'https://urlscan.io/user/signup',
+  BITCOINABUSE_API_KEY: 'https://www.bitcoinabuse.com/api-docs',
+  VULNERS_API_KEY: 'https://vulners.com/docs/api/',
+  MEDIASTACK_API_KEY: 'https://mediastack.com/signup/free',
+  PULSEDIVE_API_KEY: 'https://pulsedive.com/api/',
+  HIBP_API_KEY: 'https://haveibeenpwned.com/API/Key',
+  GEONAMES_USERNAME: 'https://www.geonames.org/login',
+  IPINFO_TOKEN: 'https://ipinfo.io/signup',
 };
 
 export const PLAINTEXT_KEYS = new Set<RuntimeSecretKey>([
@@ -83,6 +91,14 @@ export const HUMAN_LABELS: Record<RuntimeSecretKey, string> = {
   OWM_API_KEY: 'OpenWeatherMap API Key',
   GREYNOISE_API_KEY: 'GreyNoise API Key',
   NASA_API_KEY: 'NASA API Key (optional — improves DONKI rate limit)',
+  URLSCAN_API_KEY: 'URLScan.io API Key',
+  BITCOINABUSE_API_KEY: 'Bitcoin Abuse API Key',
+  VULNERS_API_KEY: 'Vulners API Key',
+  MEDIASTACK_API_KEY: 'MediaStack API Key',
+  PULSEDIVE_API_KEY: 'Pulsedive API Key',
+  HIBP_API_KEY: 'Have I Been Pwned API Key',
+  GEONAMES_USERNAME: 'GeoNames Username',
+  IPINFO_TOKEN: 'IPInfo Token',
 };
 
 export interface SettingsCategory {
@@ -110,16 +126,16 @@ export const SETTINGS_CATEGORIES: SettingsCategory[] = [
   {
     id: 'security',
     label: 'Security & Threats',
-    features: ['cloudApiFallbackAuth', 'internetOutages', 'acledConflicts', 'acledAirstrikes', 'abuseChThreatIntel', 'alienvaultOtxThreatIntel', 'abuseIpdbThreatIntel', 'threatfoxThreatIntel', 'openPhishThreatIntel', 'spamhausDrop', 'cisaKev', 'virusTotalEnrichment', 'bgpViewEnrichment', 'shodanIcsExposure', 'greynoiseIntel', 'openSanctions'],
+    features: ['cloudApiFallbackAuth', 'internetOutages', 'acledConflicts', 'acledAirstrikes', 'abuseChThreatIntel', 'alienvaultOtxThreatIntel', 'abuseIpdbThreatIntel', 'threatfoxThreatIntel', 'openPhishThreatIntel', 'phishstatsFeed', 'spamhausDrop', 'cisaKev', 'cveTracker', 'vulnersCve', 'virusTotalEnrichment', 'bgpViewEnrichment', 'shodanIcsExposure', 'greynoiseIntel', 'urlscanThreatIntel', 'bitcoinabuseIocs', 'pulsediveThreatIntel', 'hibpBreach', 'ripeNccData', 'openSanctions'],
   },
   {
     id: 'tracking',
     label: 'Tracking & Sensing',
-    features: ['aisRelay', 'openskyRelay', 'wingbitsEnrichment', 'nasaFirms', 'aviationStack', 'icaoNotams', 'openWeatherMap'],
+    features: ['aisRelay', 'openskyRelay', 'wingbitsEnrichment', 'nasaFirms', 'aviationStack', 'icaoNotams', 'openWeatherMap', 'openAqMonitor', 'geoDbCities', 'geoNames', 'ipInfoLookup'],
   },
   {
     id: 'news',
     label: 'News & Media',
-    features: ['newsApiHeadlines', 'newsDataFeed'],
+    features: ['newsApiHeadlines', 'newsDataFeed', 'mediastackNews', 'redditOsint'],
   },
 ];
