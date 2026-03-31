@@ -1,7 +1,7 @@
 {
   "name": "worldmonitor-macos",
   "private": true,
-  "version": "2.8.0",
+  "version": "2.9.0",
   "license": "AGPL-3.0-only",
   "type": "module",
   "scripts": {
@@ -19,6 +19,7 @@
     "lockfile:check": "node scripts/check-package-lock.mjs",
     "version:sync": "node scripts/sync-desktop-version.mjs",
     "version:check": "node scripts/sync-desktop-version.mjs --check",
+    "release:prepare": "node scripts/release-prepare.mjs",
     "dev": "vite",
     "dev:tech": "cross-env VITE_VARIANT=tech vite",
     "dev:finance": "cross-env VITE_VARIANT=finance vite",
