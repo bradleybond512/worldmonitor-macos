@@ -147,7 +147,7 @@ import { HazardAlertsPanel } from '@/components/HazardAlertsPanel';
 import { AirstrikesPanel } from '@/components/AirstrikesPanel';
 import { fetchAirstrikes } from '@/services/airstrikes';
 import { fetchS2Underground } from '@/services/s2-underground';
-import { fetchThreatFoxIOCs, fetchOpenPhishFeed, fetchSpamhausDrop, fetchCisaKev, fetchOtxIOCs } from '@/services/cyber-extra';
+import { fetchThreatFoxIOCs, fetchOpenPhishFeed, fetchSpamhausDrop, fetchCisaKev, fetchOtxIOCs, fetchPhishStatsFeed } from '@/services/cyber-extra';
 import { fetchSpaceWeather } from '@/services/space-weather';
 import { fetchDiseaseOutbreaks } from '@/services/disease-outbreak';
 import { fetchGlobalAirQuality } from '@/services/air-quality';
@@ -1527,15 +1527,16 @@ export class DataLoaderManager implements AppModule {
     }
 
     try {
-      const [threats, tfIocs, openPhish, spamhaus, cisaKev, otxIocs] = await Promise.all([
+      const [threats, tfIocs, openPhish, spamhaus, cisaKev, otxIocs, phishStats] = await Promise.all([
         fetchCyberThreats({ limit: 500, days: 14 }),
         fetchThreatFoxIOCs(),
         fetchOpenPhishFeed(),
         fetchSpamhausDrop(),
         fetchCisaKev(),
         fetchOtxIOCs(),
+        fetchPhishStatsFeed(),
       ]);
-      const allThreats = [...threats, ...tfIocs, ...openPhish, ...spamhaus, ...cisaKev, ...otxIocs];
+      const allThreats = [...threats, ...tfIocs, ...openPhish, ...spamhaus, ...cisaKev, ...otxIocs, ...phishStats];
       this.ctx.cyberThreatsCache = allThreats;
       this.ctx.map?.setCyberThreats(allThreats);
       this.ctx.map?.setLayerReady('cyberThreats', allThreats.length > 0);

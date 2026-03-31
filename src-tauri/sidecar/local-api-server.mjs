@@ -247,6 +247,7 @@ const ALLOWED_ENV_KEYS = new Set([
   'ICAO_API_KEY', 'THREATFOX_API_KEY',
   'NEWSAPI_KEY', 'NEWSDATA_API_KEY', 'VIRUSTOTAL_API_KEY', 'BGPVIEW_API_KEY',
   'SHODAN_API_KEY', 'FMP_API_KEY',
+  'OWM_API_KEY', 'GREYNOISE_API_KEY',
 ]);
 
 const CHROME_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
@@ -1782,6 +1783,96 @@ async function dispatch(requestUrl, req, routes, context) {
     }
   }
 
+  // ── PhishStats phishing database ─────────────────────────────────────────
+  if (requestUrl.pathname === '/api/phishstats-feed') {
+    try {
+      const resp = await fetchWithTimeout(
+        'https://phishstats.info:2096/api/phishing?_sort=-date&_size=50',
+        { headers: { 'User-Agent': CHROME_UA, Accept: 'application/json' } },
+        12000,
+      );
+      if (!resp.ok) return json([], 200);
+      const data = await resp.json();
+      const records = Array.isArray(data) ? data : [];
+      const threats = records.slice(0, 100).map((r, i) => ({
+        id: `phishstats-${r.id ?? i}`,
+        type: 'phishing',
+        source: 'phishstats',
+        indicator: String(r.url ?? r.ip ?? ''),
+        indicatorType: r.ip && !r.url ? 'ip' : 'url',
+        lat: typeof r.asn_geoip_lat === 'number' ? r.asn_geoip_lat : 0,
+        lon: typeof r.asn_geoip_lng === 'number' ? r.asn_geoip_lng : 0,
+        country: String(r.countrycode ?? ''),
+        severity: 'high',
+        malwareFamily: '',
+        tags: ['phishing'],
+        firstSeen: r.date ?? new Date().toISOString(),
+        lastSeen: r.date ?? new Date().toISOString(),
+      }));
+      return json(threats);
+    } catch {
+      return json([], 200);
+    }
+  }
+
+  // ── OpenSanctions — global consolidated sanctions database (free, no key) ──
+  if (requestUrl.pathname === '/api/opensanctions-recent') {
+    const cached = getCached('opensanctions-recent', 4 * 60 * 60 * 1000); // 4h
+    if (cached) return json(cached);
+    try {
+      const params = new URLSearchParams({ limit: '50', sort: 'first_seen:desc', schema: 'LegalEntity,Person', target: 'true' });
+      const r = await fetchWithTimeout(
+        `https://api.opensanctions.org/entities?${params}`,
+        { headers: { Accept: 'application/json' } },
+        12000,
+      );
+      if (!r.ok) throw new Error(`OpenSanctions ${r.status}`);
+      const data = await r.json();
+      const items = (data.results ?? []).map((e, i) => ({
+        id: e.id ?? `os-${i}`,
+        name: e.caption ?? e.id ?? 'Unknown',
+        schema: e.schema ?? 'Unknown',
+        countries: e.properties?.country ?? [],
+        datasets: e.datasets ?? [],
+        topics: e.properties?.topics ?? [],
+        firstSeen: e.first_seen ?? null,
+        lastSeen: e.last_seen ?? null,
+        sanctionPrograms: (e.properties?.program ?? []).join(', ') || null,
+      }));
+      setCached('opensanctions-recent', items);
+      return json(items);
+    } catch (e) {
+      return json({ error: `opensanctions-recent error: ${e.message ?? e}` }, 502);
+    }
+  }
+
+  if (requestUrl.pathname === '/api/opensanctions-search') {
+    const q = requestUrl.searchParams.get('q');
+    if (!q || q.trim().length < 2) return json({ error: 'Query too short' }, 400);
+    try {
+      const params = new URLSearchParams({ q: q.trim(), limit: '20', target: 'true' });
+      const r = await fetchWithTimeout(
+        `https://api.opensanctions.org/search/default?${params}`,
+        { headers: { Accept: 'application/json' } },
+        10000,
+      );
+      if (!r.ok) throw new Error(`OpenSanctions search ${r.status}`);
+      const data = await r.json();
+      const results = (data.results ?? []).map(e => ({
+        id: e.id ?? '',
+        name: e.caption ?? '',
+        schema: e.schema ?? '',
+        countries: e.properties?.country ?? [],
+        datasets: e.datasets ?? [],
+        topics: e.properties?.topics ?? [],
+        score: e.score ?? null,
+      }));
+      return json({ query: q, results, total: data.total ?? results.length });
+    } catch (e) {
+      return json({ error: `opensanctions-search error: ${e.message ?? e}` }, 502);
+    }
+  }
+
   // ── AlienVault OTX pulse/IOC feed ────────────────────────────────────────
   if (requestUrl.pathname === '/api/otx-iocs') {
     const apiKey = process.env.OTX_API_KEY;
@@ -1872,6 +1963,37 @@ async function dispatch(requestUrl, req, routes, context) {
       });
     } catch (e) {
       return json({ error: String(e.message ?? e) }, 502);
+    }
+  }
+
+  // ── GreyNoise Community — IP noise/riot classification ────────────────────
+  if (requestUrl.pathname === '/api/greynoise-lookup') {
+    const ip = requestUrl.searchParams.get('ip');
+    if (!ip || !/^(\d{1,3}\.){3}\d{1,3}$/.test(ip)) return json({ error: 'Missing or invalid ip parameter' }, 400);
+    const apiKey = process.env.GREYNOISE_API_KEY;
+    if (!apiKey) return json({ error: 'GREYNOISE_API_KEY not set' }, 503);
+    try {
+      const r = await fetchWithTimeout(
+        `https://api.greynoise.io/v3/community/${ip}`,
+        { headers: { key: apiKey, Accept: 'application/json' } },
+        8000,
+      );
+      if (r.status === 404) return json({ ip, seen: false, noise: false, riot: false, classification: 'unknown', message: 'Not seen in GreyNoise' });
+      if (!r.ok) return json({ error: `GreyNoise ${r.status}` }, 502);
+      const d = await r.json();
+      return json({
+        ip: d.ip ?? ip,
+        seen: d.seen ?? false,
+        noise: d.noise ?? false,
+        riot: d.riot ?? false,
+        classification: d.classification ?? 'unknown',
+        name: d.name ?? null,
+        link: d.link ?? null,
+        lastSeen: d.last_seen ?? null,
+        message: d.message ?? null,
+      });
+    } catch (e) {
+      return json({ error: `greynoise-lookup error: ${e.message ?? e}` }, 502);
     }
   }
 
@@ -2183,6 +2305,59 @@ async function dispatch(requestUrl, req, routes, context) {
       });
     } catch (error) {
       return json({ timestamp: new Date().toISOString(), rateLimited: false, etfs: [], error: String(error.message ?? error) });
+    }
+  }
+
+  // ── OpenWeatherMap — current conditions for major global cities ───────────
+  if (requestUrl.pathname === '/api/owm-current') {
+    const cached = getCached('owm-current', 30 * 60 * 1000); // 30 min
+    if (cached) return json(cached);
+    const apiKey = process.env.OWM_API_KEY;
+    if (!apiKey) return json({ error: 'OWM_API_KEY not set' }, 503);
+    const CITIES = [
+      { name: 'New York', lat: 40.71, lon: -74.01 }, { name: 'Los Angeles', lat: 34.05, lon: -118.24 },
+      { name: 'Chicago', lat: 41.85, lon: -87.65 }, { name: 'London', lat: 51.51, lon: -0.13 },
+      { name: 'Paris', lat: 48.85, lon: 2.35 }, { name: 'Berlin', lat: 52.52, lon: 13.40 },
+      { name: 'Moscow', lat: 55.75, lon: 37.62 }, { name: 'Dubai', lat: 25.20, lon: 55.27 },
+      { name: 'Riyadh', lat: 24.69, lon: 46.72 }, { name: 'Tehran', lat: 35.69, lon: 51.39 },
+      { name: 'Beijing', lat: 39.91, lon: 116.39 }, { name: 'Tokyo', lat: 35.68, lon: 139.69 },
+      { name: 'Shanghai', lat: 31.23, lon: 121.47 }, { name: 'Delhi', lat: 28.61, lon: 77.21 },
+      { name: 'Mumbai', lat: 19.08, lon: 72.88 }, { name: 'Karachi', lat: 24.86, lon: 67.01 },
+      { name: 'Dhaka', lat: 23.73, lon: 90.41 }, { name: 'Jakarta', lat: -6.21, lon: 106.85 },
+      { name: 'Cairo', lat: 30.04, lon: 31.24 }, { name: 'Lagos', lat: 6.45, lon: 3.40 },
+      { name: 'Nairobi', lat: -1.29, lon: 36.82 }, { name: 'Johannesburg', lat: -26.20, lon: 28.04 },
+      { name: 'São Paulo', lat: -23.55, lon: -46.63 }, { name: 'Mexico City', lat: 19.43, lon: -99.13 },
+      { name: 'Sydney', lat: -33.87, lon: 151.21 }, { name: 'Kyiv', lat: 50.45, lon: 30.52 },
+      { name: 'Tel Aviv', lat: 32.08, lon: 34.78 }, { name: 'Islamabad', lat: 33.72, lon: 73.04 },
+    ];
+    try {
+      const results = await Promise.allSettled(CITIES.map(async (city) => {
+        const r = await fetchWithTimeout(
+          `https://api.openweathermap.org/data/2.5/weather?lat=${city.lat}&lon=${city.lon}&appid=${apiKey}&units=metric`,
+          { headers: { 'User-Agent': CHROME_UA } },
+          8000,
+        );
+        if (!r.ok) return null;
+        const d = await r.json();
+        return {
+          city: city.name, lat: city.lat, lon: city.lon,
+          tempC: Math.round(d.main?.temp ?? 0),
+          feelsLikeC: Math.round(d.main?.feels_like ?? 0),
+          humidity: d.main?.humidity ?? null,
+          condition: d.weather?.[0]?.main ?? 'Unknown',
+          description: d.weather?.[0]?.description ?? '',
+          icon: d.weather?.[0]?.icon ?? '',
+          windMps: d.wind?.speed ?? null,
+          visibility: d.visibility ?? null,
+          clouds: d.clouds?.all ?? null,
+          updatedAt: new Date().toISOString(),
+        };
+      }));
+      const items = results.filter(r => r.status === 'fulfilled' && r.value !== null).map(r => r.value);
+      setCached('owm-current', items);
+      return json(items);
+    } catch (e) {
+      return json({ error: `owm-current error: ${e.message ?? e}` }, 502);
     }
   }
 
@@ -2509,6 +2684,83 @@ async function dispatch(requestUrl, req, routes, context) {
       return json({ series, source: 'free-fallback' });
     } catch (error) {
       return json({ series: [], error: String(error.message ?? error) }, 500);
+    }
+  }
+
+  // ── SEC EDGAR — recent 8-K material event filings (free, no key) ─────────
+  if (requestUrl.pathname === '/api/edgar-filings') {
+    const cached = getCached('edgar-filings', 2 * 60 * 60 * 1000); // 2h
+    if (cached) return json(cached);
+    try {
+      const params = new URLSearchParams({
+        q: '"material definitive agreement" OR "entry into a material" OR "results of operations"',
+        dateRange: 'custom',
+        startdt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        forms: '8-K',
+        hits: '20',
+      });
+      const r = await fetchWithTimeout(
+        `https://efts.sec.gov/LATEST/search-index?${params}`,
+        { headers: { 'User-Agent': 'WorldMonitor contact@worldmonitor.app', Accept: 'application/json' } },
+        12000,
+      );
+      if (!r.ok) throw new Error(`EDGAR ${r.status}`);
+      const data = await r.json();
+      const hits = data.hits?.hits ?? [];
+      const items = hits.map((h, i) => {
+        const src = h._source ?? {};
+        return {
+          id: h._id ?? `edgar-${i}`,
+          company: src.entity_name ?? src.display_names?.[0] ?? 'Unknown',
+          cik: src.entity_id ?? null,
+          formType: src.file_type ?? '8-K',
+          filedAt: src.file_date ?? null,
+          description: src.period_of_report ? `Period: ${src.period_of_report}` : '',
+          accessionNo: src.accession_no ?? null,
+        };
+      });
+      setCached('edgar-filings', items);
+      return json(items);
+    } catch (e) {
+      return json({ error: `edgar-filings error: ${e.message ?? e}` }, 502);
+    }
+  }
+
+  if (requestUrl.pathname === '/api/edgar-search') {
+    const q = requestUrl.searchParams.get('q');
+    if (!q || q.trim().length < 2) return json({ error: 'Query required' }, 400);
+    try {
+      const params = new URLSearchParams({
+        q: q.trim(),
+        dateRange: 'custom',
+        startdt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        hits: '15',
+      });
+      const r = await fetchWithTimeout(
+        `https://efts.sec.gov/LATEST/search-index?${params}`,
+        { headers: { 'User-Agent': 'WorldMonitor contact@worldmonitor.app', Accept: 'application/json' } },
+        10000,
+      );
+      if (!r.ok) throw new Error(`EDGAR search ${r.status}`);
+      const data = await r.json();
+      const hits = data.hits?.hits ?? [];
+      return json({
+        query: q,
+        total: data.hits?.total?.value ?? hits.length,
+        results: hits.map((h, i) => {
+          const src = h._source ?? {};
+          return {
+            id: h._id ?? `edgar-s-${i}`,
+            company: src.entity_name ?? src.display_names?.[0] ?? 'Unknown',
+            cik: src.entity_id ?? null,
+            formType: src.file_type ?? '',
+            filedAt: src.file_date ?? null,
+            accessionNo: src.accession_no ?? null,
+          };
+        }),
+      });
+    } catch (e) {
+      return json({ error: `edgar-search error: ${e.message ?? e}` }, 502);
     }
   }
 
