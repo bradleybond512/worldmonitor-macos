@@ -45,6 +45,7 @@ export const COMMANDS: Command[] = [
 
   // Individual layer toggles
   { id: 'layer:ais', keywords: ['ais', 'ships', 'vessels', 'maritime'], label: 'Toggle AIS vessel tracking', icon: '\u{1F6A2}', category: 'layers' },
+  { id: 'layer:adsb', keywords: ['adsb', 'aircraft', 'planes', 'air traffic', 'live flights'], label: 'Toggle ADS-B aircraft', icon: '✈️', category: 'layers' },
   { id: 'layer:flights', keywords: ['flights', 'aircraft', 'planes'], label: 'Toggle military flights', icon: '\u2708\uFE0F', category: 'layers' },
   { id: 'layer:conflicts', keywords: ['conflicts', 'battles'], label: 'Toggle conflict zones', icon: '\u2694\uFE0F', category: 'layers' },
   { id: 'layer:hotspots', keywords: ['hotspots', 'crises'], label: 'Toggle intel hotspots', icon: '\u{1F4CD}', category: 'layers' },

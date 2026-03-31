@@ -4198,6 +4198,40 @@ async function dispatch(requestUrl, req, routes, context) {
     }
   }
 
+  // ── ADS-B live aircraft tracking (OpenSky Network, no key required) ──────
+  if (requestUrl.pathname === '/api/adsb') {
+    const CACHE_TTL = 55 * 1000;
+    const cached = getCached('adsb', CACHE_TTL);
+    if (cached) return json(cached);
+
+    const clientId = process.env.OPENSKY_CLIENT_ID?.trim() || '';
+    const clientSecret = process.env.OPENSKY_CLIENT_SECRET?.trim() || '';
+    const headers = { 'User-Agent': CHROME_UA };
+    if (clientId && clientSecret) {
+      const creds = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
+      headers['Authorization'] = `Basic ${creds}`;
+    }
+
+    try {
+      const res = await fetchWithTimeout(
+        'https://opensky-network.org/api/states/all',
+        { headers },
+        12_000
+      );
+      if (res.status === 429) {
+        return new Response(JSON.stringify({ states: null, time: Math.floor(Date.now() / 1000), rateLimited: true }), {
+          status: 429, headers: { 'Content-Type': 'application/json' },
+        });
+      }
+      if (!res.ok) throw new Error(`OpenSky HTTP ${res.status}`);
+      const data = await res.json();
+      setCached('adsb', data);
+      return json(data);
+    } catch (error) {
+      return json({ states: null, time: Math.floor(Date.now() / 1000), error: error?.message ?? 'unknown' });
+    }
+  }
+
   // ── GDELT Intelligence (no key required, public API) ──────────────────────
   if (requestUrl.pathname === '/api/gdelt-intel') {
     const cached = getCached('gdelt-intel', 15 * 60 * 1000); // 15 minutes

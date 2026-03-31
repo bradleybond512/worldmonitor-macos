@@ -632,6 +632,16 @@ export class App {
       );
     }
 
+    // ADS-B live aircraft tracking (OpenSky, 60s)
+    if (SITE_VARIANT !== 'happy') {
+      this.refreshScheduler.scheduleRefresh(
+        'adsb',
+        () => this.dataLoader.loadAdsb(),
+        60_000,
+        () => this.state.mapLayers.adsb || !!this.state.panels['air-traffic']
+      );
+    }
+
     // Telegram Intel (near real-time, 60s refresh)
     this.refreshScheduler.scheduleRefresh(
       'telegram-intel',

@@ -339,6 +339,7 @@ export class DeckGLMap {
   private iranEvents: IranEvent[] = [];
   private aisDisruptions: AisDisruptionEvent[] = [];
   private aisDensity: AisDensityZone[] = [];
+  private adsbFlights: import('@/services/adsb').AdsbFlight[] = [];
   private cableAdvisories: CableAdvisory[] = [];
   private repairShips: RepairShip[] = [];
   private healthByCableId: Record<string, CableHealthRecord> = {};
@@ -1207,6 +1208,11 @@ export class DeckGLMap {
       layers.push(this.createGpsJammingLayer());
     }
 
+    // ADS-B live aircraft layer
+    if (mapLayers.adsb && this.adsbFlights.length > 0) {
+      layers.push(this.createAdsbLayer());
+    }
+
     // Strategic ports layer (shown with AIS)
     if (mapLayers.ais) {
       layers.push(this.createPortsLayer());
@@ -1956,6 +1962,26 @@ export class DeckGLMap {
       stroked: true,
       getLineColor: [255, 255, 255, 150] as [number, number, number, number],
       lineWidthMinPixels: 1,
+    });
+  }
+
+  private createAdsbLayer(): ScatterplotLayer {
+    return new ScatterplotLayer({
+      id: 'adsb-layer',
+      data: this.adsbFlights,
+      getPosition: (d) => [d.lon, d.lat],
+      getRadius: 25_000,
+      radiusMinPixels: 2,
+      radiusMaxPixels: 6,
+      getFillColor: (d) => {
+        if (d.squawk === '7700' || d.squawk === '7600' || d.squawk === '7500') return [255, 50, 50, 255];
+        const alt = d.altitude ?? 0;
+        if (alt < 3000) return [100, 200, 100, 180];
+        if (alt < 10000) return [255, 200, 50, 180];
+        return [200, 220, 255, 200];
+      },
+      pickable: true,
+      updateTriggers: { getFillColor: [this.adsbFlights] },
     });
   }
 
@@ -3203,6 +3229,12 @@ export class DeckGLMap {
         const alertStr = obj.alertLabel ? `<br/><span style="color:#ffa03c">${text(obj.alertLabel)}</span>` : '';
         return { html: `<div class="deckgl-tooltip">&#128247; <strong>${text(obj.name)}</strong><br/>${text(obj.state)} · ${text(obj.category)}${alertStr}</div>` };
       }
+      case 'adsb-layer': {
+        const altFt = obj.altitude != null ? `${Math.round(obj.altitude * 3.281).toLocaleString()} ft` : '—';
+        const spdKt = obj.velocity != null ? `${Math.round(obj.velocity * 1.944)} kt` : '—';
+        const callsign = obj.callsign || obj.icao24;
+        return { html: `<div class="deckgl-tooltip"><strong>&#9992; ${escapeHtml(callsign)}</strong><br/>${escapeHtml(obj.originCountry)}<br/>${altFt} · ${spdKt}</div>` };
+      }
       default: {
         return null;
       }
@@ -3572,6 +3604,7 @@ export class DeckGLMap {
         { key: 'ais', label: t('components.deckgl.layers.shipTraffic'), icon: '&#128674;' },
         { key: 'tradeRoutes', label: t('components.deckgl.layers.tradeRoutes'), icon: '&#9875;' },
         { key: 'flights', label: t('components.deckgl.layers.flightDelays'), icon: '&#9992;' },
+        { key: 'adsb', label: t('components.deckgl.layers.adsbAircraft'), icon: '&#9992;' },
         { key: 'faaWeatherCams', label: t('components.deckgl.layers.faaWeatherCams'), icon: '&#128247;' },
         { key: 'protests', label: t('components.deckgl.layers.protests'), icon: '&#128226;' },
         { key: 'ucdpEvents', label: t('components.deckgl.layers.ucdpEvents'), icon: '&#9876;' },
@@ -3781,6 +3814,7 @@ export class DeckGLMap {
           helpItem(label('shipTraffic'), 'transportShipping'),
           helpItem(label('tradeRoutes'), 'tradeRoutes'),
           helpItem(label('flightDelays'), 'transportDelays'),
+          helpItem(label('adsbAircraft'), 'transportAdsb'),
         ])}
         ${helpSection('naturalEconomic', [
           helpItem(label('naturalEvents'), 'naturalEventsFull'),
@@ -4310,6 +4344,11 @@ export class DeckGLMap {
   public setAisData(disruptions: AisDisruptionEvent[], density: AisDensityZone[]): void {
     this.aisDisruptions = disruptions;
     this.aisDensity = density;
+    this.render();
+  }
+
+  public setAdsbFlights(flights: import('@/services/adsb').AdsbFlight[]): void {
+    this.adsbFlights = flights;
     this.render();
   }
 

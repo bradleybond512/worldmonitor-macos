@@ -582,6 +582,8 @@ export interface MapLayers {
   dayNight: boolean;
   // FAA Weather Cameras layer
   faaWeatherCams: boolean;
+  // ADS-B live aircraft tracking layer
+  adsb: boolean;
 }
 
 export interface AIDataCenter {
