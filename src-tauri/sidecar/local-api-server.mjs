@@ -3288,25 +3288,28 @@ async function dispatch(requestUrl, req, routes, context) {
         if (!existsSync(p)) continue;
         const lines = _tailFile(p, 131072);
         const fields = _zeekFields(lines);
-        if (!fields) break;
+        if (!fields) continue;
+        if (fields.indexOf('ts') === -1) continue;
         const [tsI, noteI, msgI, srcI, dstI] = ['ts', 'note', 'msg', 'src', 'dst'].map(f => fields.indexOf(f));
         for (const line of lines) {
           if (line.startsWith('#')) continue;
-          const cols = line.split('\t');
-          const ts = cols[tsI];
-          if (!ts || ts === '-') continue;
-          alerts.push({
-            id: `zeek-notice-${ts}-${Math.random().toString(36).slice(2, 6)}`,
-            source: 'zeek_notice',
-            ts: new Date(parseFloat(ts) * 1000).toISOString(),
-            severity: 'medium',
-            category: 'Network Notice',
-            signature: cols[noteI] ?? '',
-            srcIp: cols[srcI] ?? '',
-            destIp: cols[dstI] ?? '',
-            proto: '',
-            action: (cols[msgI] ?? '').slice(0, 120),
-          });
+          try {
+            const cols = line.split('\t');
+            const ts = cols[tsI];
+            if (!ts || ts === '-') continue;
+            alerts.push({
+              id: `zeek-notice-${ts}-${Math.random().toString(36).slice(2, 6)}`,
+              source: 'zeek_notice',
+              ts: new Date(parseFloat(ts) * 1000).toISOString(),
+              severity: 'medium',
+              category: 'Network Notice',
+              signature: cols[noteI] ?? '',
+              srcIp: cols[srcI] ?? '',
+              destIp: cols[dstI] ?? '',
+              proto: '',
+              action: (cols[msgI] ?? '').slice(0, 120),
+            });
+          } catch { /* skip malformed row */ }
         }
         break;
       }
@@ -3321,37 +3324,71 @@ async function dispatch(requestUrl, req, routes, context) {
         if (!existsSync(p)) continue;
         const lines = _tailFile(p, 131072);
         const fields = _zeekFields(lines);
-        if (!fields) break;
+        if (!fields) continue;
+        if (fields.indexOf('ts') === -1) continue;
         const [tsI, origI, origPI, respI, respPI, protoI, stateI, bytesI] =
           ['ts', 'id.orig_h', 'id.orig_p', 'id.resp_h', 'id.resp_p', 'proto', 'conn_state', 'orig_bytes']
             .map(f => fields.indexOf(f));
         for (const line of lines) {
           if (line.startsWith('#')) continue;
-          const cols = line.split('\t');
-          const state = cols[stateI];
-          const bytes = parseInt(cols[bytesI], 10) || 0;
-          if (!SUSPICIOUS_STATES.has(state) && bytes < 5_000_000) continue;
-          const ts = cols[tsI];
-          if (!ts || ts === '-') continue;
-          const severity = bytes > 50_000_000 ? 'high' : SUSPICIOUS_STATES.has(state) ? 'medium' : 'low';
-          alerts.push({
-            id: `zeek-conn-${ts}-${cols[origI]}-${Math.random().toString(36).slice(2, 6)}`,
-            source: 'zeek_conn',
-            ts: new Date(parseFloat(ts) * 1000).toISOString(),
-            severity,
-            category: 'Suspicious Connection',
-            signature: `${state}${bytes > 1_000_000 ? ` · ${Math.round(bytes / 1024)}KB` : ''}`,
-            srcIp: cols[origI] ?? '',
-            destIp: cols[respI] ?? '',
-            proto: cols[protoI] ?? '',
-            action: `${cols[origPI] ?? ''} → ${cols[respPI] ?? ''}`,
-          });
+          try {
+            const cols = line.split('\t');
+            const state = cols[stateI];
+            const bytes = parseInt(cols[bytesI], 10) || 0;
+            if (!SUSPICIOUS_STATES.has(state) && bytes < 5_000_000) continue;
+            const ts = cols[tsI];
+            if (!ts || ts === '-') continue;
+            const severity = bytes > 50_000_000 ? 'high' : SUSPICIOUS_STATES.has(state) ? 'medium' : 'low';
+            alerts.push({
+              id: `zeek-conn-${ts}-${cols[origI]}-${Math.random().toString(36).slice(2, 6)}`,
+              source: 'zeek_conn',
+              ts: new Date(parseFloat(ts) * 1000).toISOString(),
+              severity,
+              category: 'Suspicious Connection',
+              signature: `${state}${bytes > 1_000_000 ? ` · ${Math.round(bytes / 1024)}KB` : ''}`,
+              srcIp: cols[origI] ?? '',
+              destIp: cols[respI] ?? '',
+              proto: cols[protoI] ?? '',
+              action: `${cols[origPI] ?? ''} → ${cols[respPI] ?? ''}`,
+            });
+          } catch { /* skip malformed row */ }
         }
         break;
       }
 
       alerts.sort((a, b) => b.ts.localeCompare(a.ts));
       return json(alerts.slice(0, 50));
+    } catch {
+      return json([], 200);
+    }
+  }
+
+  // ── PizzINT — Pentagon Pizza Index ────────────────────────────────────────
+  if (requestUrl.pathname === '/api/pizzint/dashboard') {
+    try {
+      const resp = await fetchWithTimeout(
+        'https://www.pizzint.watch/api/dashboard-data',
+        { headers: { Accept: 'application/json', 'User-Agent': CHROME_UA } },
+        12_000,
+      );
+      if (!resp.ok) return json({ success: false, data: [] }, resp.status);
+      const data = await resp.json();
+      return json(data);
+    } catch {
+      return json({ success: false, data: [] }, 200);
+    }
+  }
+
+  if (requestUrl.pathname === '/api/pizzint/gdelt') {
+    try {
+      const resp = await fetchWithTimeout(
+        'https://www.pizzint.watch/api/gdelt/batch?pairs=usa_russia,russia_ukraine,usa_china,china_taiwan,usa_iran,usa_venezuela',
+        { headers: { Accept: 'application/json', 'User-Agent': CHROME_UA } },
+        12_000,
+      );
+      if (!resp.ok) return json([], resp.status);
+      const data = await resp.json();
+      return json(Array.isArray(data) ? data : []);
     } catch {
       return json([], 200);
     }
