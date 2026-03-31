@@ -115,3 +115,54 @@ export function getSeverityColor(severity: WeatherAlert['severity']): string {
     }
   }
 }
+
+export interface OpenMeteoConditions {
+  temperature: number;
+  windSpeed: number;
+  windDirection: number;
+  precipitation: number;
+  weatherCode: number;
+  isDay: boolean;
+  uvIndex: number | null;
+  fetchedAt: Date;
+  source: 'open-meteo';
+}
+
+const _openMeteoCache = new Map<string, { data: OpenMeteoConditions; ts: number }>();
+const OPEN_METEO_TTL_MS = 10 * 60 * 1000;
+
+export async function fetchOpenMeteoConditions(
+  lat: number,
+  lon: number,
+): Promise<OpenMeteoConditions | null> {
+  const cacheKey = `${lat.toFixed(2)},${lon.toFixed(2)}`;
+  const cached = _openMeteoCache.get(cacheKey);
+  if (cached && Date.now() - cached.ts < OPEN_METEO_TTL_MS) return cached.data;
+
+  try {
+    const url = `https://api.open-meteo.com/v1/forecast` +
+      `?latitude=${lat}&longitude=${lon}` +
+      `&current=temperature_2m,wind_speed_10m,wind_direction_10m,precipitation,weather_code,is_day,uv_index` +
+      `&wind_speed_unit=kmh&timezone=auto`;
+    const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
+    if (!res.ok) return null;
+    const raw = await res.json() as { current?: Record<string, number | boolean | null> };
+    const c = raw.current;
+    if (!c) return null;
+    const data: OpenMeteoConditions = {
+      temperature: typeof c.temperature_2m === 'number' ? c.temperature_2m : 0,
+      windSpeed: typeof c.wind_speed_10m === 'number' ? c.wind_speed_10m : 0,
+      windDirection: typeof c.wind_direction_10m === 'number' ? c.wind_direction_10m : 0,
+      precipitation: typeof c.precipitation === 'number' ? c.precipitation : 0,
+      weatherCode: typeof c.weather_code === 'number' ? c.weather_code : 0,
+      isDay: c.is_day === 1,
+      uvIndex: typeof c.uv_index === 'number' ? c.uv_index : null,
+      fetchedAt: new Date(),
+      source: 'open-meteo',
+    };
+    _openMeteoCache.set(cacheKey, { data, ts: Date.now() });
+    return data;
+  } catch {
+    return null;
+  }
+}

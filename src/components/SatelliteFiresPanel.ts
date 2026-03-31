@@ -1,11 +1,13 @@
 import { Panel } from './Panel';
 import type { FireRegionStats } from '@/services/wildfires';
+import type { InpeHotspot } from '@/services/inpe-fires';
 import { t } from '@/services/i18n';
 
 export class SatelliteFiresPanel extends Panel {
   private stats: FireRegionStats[] = [];
   private totalCount = 0;
   private lastUpdated: Date | null = null;
+  private inpeHotspots: InpeHotspot[] = [];
 
   constructor() {
     super({
@@ -16,6 +18,11 @@ export class SatelliteFiresPanel extends Panel {
       infoTooltip: t('components.satelliteFires.infoTooltip'),
     });
     this.showLoading(t('common.scanningThermalData'));
+  }
+
+  public updateInpe(hotspots: InpeHotspot[]): void {
+    this.inpeHotspots = hotspots;
+    if (this.stats.length > 0) this.render();
   }
 
   public update(stats: FireRegionStats[], totalCount: number): void {
@@ -77,7 +84,7 @@ export class SatelliteFiresPanel extends Panel {
           </tfoot>
         </table>
         <div class="fires-footer">
-          <span class="fires-source">NASA FIRMS (VIIRS SNPP)</span>
+          <span class="fires-source">NASA FIRMS (VIIRS SNPP)${this.inpeHotspots.length > 0 ? ` · INPE (${this.inpeHotspots.length})` : ''}</span>
           <span class="fires-updated">${ago}</span>
         </div>
       </div>

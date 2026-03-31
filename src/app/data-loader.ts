@@ -79,6 +79,7 @@ import { ingestProtests, ingestFlights, ingestVessels, ingestEarthquakes, detect
 import { signalAggregator } from '@/services/signal-aggregator';
 import { updateAndCheck } from '@/services/temporal-baseline';
 import { fetchAllFires, flattenFires, computeRegionStats, toMapFires } from '@/services/wildfires';
+import { fetchInpeFires } from '@/services/inpe-fires';
 import { analyzeFlightsForSurge, surgeAlertToSignal, detectForeignMilitaryPresence, foreignPresenceToSignal, getTheaterPostureSummaries, type TheaterPostureSummary } from '@/services/military-surge';
 import { fetchCachedTheaterPosture, ingestLocalPostures } from '@/services/cached-theater-posture';
 import { ingestProtestsForCII, ingestMilitaryForCII, ingestNewsForCII, ingestOutagesForCII, ingestConflictsForCII, ingestUcdpForCII, ingestHapiForCII, ingestDisplacementForCII, ingestClimateForCII, ingestStrikesForCII, ingestOrefForCII, ingestAviationForCII, ingestAdvisoriesForCII, ingestGpsJammingForCII, ingestAisDisruptionsForCII, ingestSatelliteFiresForCII, ingestCyberThreatsForCII, ingestTemporalAnomaliesForCII, isInLearningMode } from '@/services/country-instability';
@@ -410,6 +411,7 @@ export class DataLoaderManager implements AppModule {
     }
 
     if (SITE_VARIANT === 'full') tasks.push({ name: 'firms', task: runGuarded('firms', () => this.loadFirmsData()) });
+    if (SITE_VARIANT === 'full') tasks.push({ name: 'inpeFires', task: runGuarded('inpeFires', () => this.loadInpeFires()) });
     if (this.ctx.mapLayers.natural) tasks.push({ name: 'natural', task: runGuarded('natural', () => this.loadNatural()) });
     if (SITE_VARIANT !== 'happy' && this.ctx.mapLayers.weather) tasks.push({ name: 'weather', task: runGuarded('weather', () => this.loadWeatherAlerts()) });
     if (SITE_VARIANT !== 'happy' && this.ctx.mapLayers.ais) tasks.push({ name: 'ais', task: runGuarded('ais', () => this.loadAisSignals()) });
@@ -2451,6 +2453,16 @@ export class DataLoaderManager implements AppModule {
       (this.ctx.panels['satellite-fires'] as SatelliteFiresPanel)?.update([], 0);
       this.ctx.statusPanel?.updateApi('FIRMS', { status: 'error' });
       dataFreshness.recordError('firms', String(error));
+    }
+  }
+
+  async loadInpeFires(): Promise<void> {
+    try {
+      const hotspots = await fetchInpeFires();
+      (this.ctx.panels['satellite-fires'] as SatelliteFiresPanel | undefined)?.updateInpe(hotspots);
+    } catch (error) {
+      console.warn('[inpe-fires] fetch failed', error);
+      (this.ctx.panels['satellite-fires'] as SatelliteFiresPanel | undefined)?.updateInpe([]);
     }
   }
 

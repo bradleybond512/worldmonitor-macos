@@ -3322,6 +3322,48 @@ async function dispatch(requestUrl, req, routes, context) {
     }
   }
 
+  // ── INPE Queimadas — Brazil wildfire hotspots (last 48h) ─────────────────
+  if (requestUrl.pathname === '/api/inpe-fires') {
+    try {
+      const resp = await fetchWithTimeout(
+        'https://queimadas.dgi.inpe.br/api/focos/?pais_id=33&limit=200',
+        { headers: { 'User-Agent': CHROME_UA, Accept: 'application/json' } },
+        15000,
+      );
+      if (!resp.ok) return json([], 200);
+      const data = await resp.json();
+      const foci = Array.isArray(data) ? data :
+        (Array.isArray(data?.features) ? data.features.map((f) => f.properties ?? f) : []);
+      const hotspots = foci.slice(0, 200).map((f, i) => {
+        const lat = typeof f.latitude === 'number' ? f.latitude :
+          typeof f.lat === 'number' ? f.lat : null;
+        const lon = typeof f.longitude === 'number' ? f.longitude :
+          typeof f.lon === 'number' ? f.lon : null;
+        if (lat === null || lon === null) return null;
+        const frp = typeof f.frp === 'number' ? f.frp : 0;
+        const riskScore = typeof f.risco_fogo === 'number' ? f.risco_fogo : 0.5;
+        const confidence = riskScore >= 0.8 ? 'high' : riskScore >= 0.5 ? 'nominal' : 'low';
+        return {
+          id: `inpe-${f.id ?? i}`,
+          lat,
+          lon,
+          frp,
+          riskScore,
+          biome: f.bioma ?? f.nome_bioma ?? null,
+          state: f.estado ?? f.nome_estado ?? null,
+          municipality: f.municipio ?? f.nome_municipio ?? null,
+          acqTime: f.datahora ?? f.data_hora_gmt ?? new Date().toISOString(),
+          confidence,
+          source: 'INPE',
+          brightness: Math.min(500, 300 + frp * 2),
+        };
+      }).filter(Boolean);
+      return json(hotspots);
+    } catch {
+      return json([], 200);
+    }
+  }
+
   // RSS proxy — fetch public feeds with SSRF protection
   if (requestUrl.pathname === '/api/rss-proxy') {
     const feedUrl = requestUrl.searchParams.get('url');
