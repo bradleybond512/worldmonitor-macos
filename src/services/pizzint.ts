@@ -1,19 +1,78 @@
 import type { PizzIntStatus, PizzIntLocation, PizzIntDefconLevel, GdeltTensionPair } from '@/types';
+import { getApiBaseUrl } from '@/services/runtime';
 import { createCircuitBreaker } from '@/utils';
-import { t } from '@/services/i18n';
-import {
-  IntelligenceServiceClient,
-  type GetPizzintStatusResponse,
-  type PizzintStatus as ProtoPizzintStatus,
-  type PizzintLocation as ProtoLocation,
-  type GdeltTensionPair as ProtoTensionPair,
-} from '@/generated/client/worldmonitor/intelligence/v1/service_client';
 
-// ---- Sebuf client ----
+// ── Raw API shapes ──────────────────────────────────────────────────────────
 
-const client = new IntelligenceServiceClient('', { fetch: (...args) => globalThis.fetch(...args) });
+interface RawLocation {
+  place_id: string;
+  name: string;
+  address: string;
+  current_popularity: number;
+  percentage_of_usual: number | null;
+  is_spike: boolean;
+  spike_magnitude: number | null;
+  data_source: string;
+  recorded_at: string;
+  data_freshness: string;
+  is_closed_now?: boolean;
+  lat?: number;
+  lng?: number;
+}
 
-// ---- Circuit breakers ----
+interface DashboardResponse {
+  success: boolean;
+  data: RawLocation[];
+}
+
+interface RawTensionPair {
+  id: string;
+  countries: [string, string];
+  label: string;
+  score: number;
+  trend: 'rising' | 'stable' | 'falling';
+  change_percent: number;
+  region: string;
+}
+
+// ── DEFCON labels ───────────────────────────────────────────────────────────
+
+const DEFCON_LABELS: Record<number, string> = {
+  1: 'MAXIMUM ALERT',
+  2: 'ELEVATED ALERT',
+  3: 'HEIGHTENED',
+  4: 'GUARDED',
+  5: 'NORMAL',
+};
+
+// ── DEFCON computation ──────────────────────────────────────────────────────
+
+function computeDefcon(locations: RawLocation[]): {
+  defconLevel: PizzIntDefconLevel;
+  aggregateActivity: number;
+  activeSpikes: number;
+  locationsMonitored: number;
+  locationsOpen: number;
+} {
+  const open = locations.filter(l => !l.is_closed_now);
+  const locationsMonitored = locations.length;
+  const locationsOpen = open.length;
+  const activeSpikes = locations.filter(l => l.is_spike).length;
+  const aggregateActivity = open.length > 0
+    ? open.reduce((sum, l) => sum + l.current_popularity, 0) / open.length
+    : 0;
+
+  let defconLevel: PizzIntDefconLevel;
+  if (activeSpikes >= 7 || aggregateActivity >= 85) defconLevel = 1;
+  else if (activeSpikes >= 4 || aggregateActivity >= 70) defconLevel = 2;
+  else if (activeSpikes >= 2 || aggregateActivity >= 50) defconLevel = 3;
+  else if (activeSpikes >= 1 || aggregateActivity >= 30) defconLevel = 4;
+  else defconLevel = 5;
+
+  return { defconLevel, aggregateActivity, activeSpikes, locationsMonitored, locationsOpen };
+}
+
+// ── Circuit breakers ────────────────────────────────────────────────────────
 
 const pizzintBreaker = createCircuitBreaker<PizzIntStatus>({
   name: 'PizzINT',
@@ -31,100 +90,79 @@ const gdeltBreaker = createCircuitBreaker<GdeltTensionPair[]>({
   persistCache: true,
 });
 
-// ---- Proto → legacy adapters ----
-
-const DEFCON_LABELS: Record<number, string> = {
-  1: 'components.pizzint.defconLabels.1',
-  2: 'components.pizzint.defconLabels.2',
-  3: 'components.pizzint.defconLabels.3',
-  4: 'components.pizzint.defconLabels.4',
-  5: 'components.pizzint.defconLabels.5',
-};
-
-const FRESHNESS_REVERSE: Record<string, 'fresh' | 'stale'> = {
-  DATA_FRESHNESS_FRESH: 'fresh',
-  DATA_FRESHNESS_STALE: 'stale',
-};
-
-const TREND_REVERSE: Record<string, 'rising' | 'stable' | 'falling'> = {
-  TREND_DIRECTION_RISING: 'rising',
-  TREND_DIRECTION_STABLE: 'stable',
-  TREND_DIRECTION_FALLING: 'falling',
-};
-
-function toLocation(proto: ProtoLocation): PizzIntLocation {
-  return {
-    place_id: proto.placeId,
-    name: proto.name,
-    address: proto.address,
-    current_popularity: proto.currentPopularity,
-    percentage_of_usual: proto.percentageOfUsual || null,
-    is_spike: proto.isSpike,
-    spike_magnitude: proto.spikeMagnitude || null,
-    data_source: proto.dataSource,
-    recorded_at: proto.recordedAt,
-    data_freshness: FRESHNESS_REVERSE[proto.dataFreshness] || 'stale',
-    is_closed_now: proto.isClosedNow,
-    lat: proto.lat || undefined,
-    lng: proto.lng || undefined,
-  };
-}
-
-function toStatus(proto: ProtoPizzintStatus): PizzIntStatus {
-  const level = (proto.defconLevel >= 1 && proto.defconLevel <= 5 ? proto.defconLevel : 5) as PizzIntDefconLevel;
-  return {
-    defconLevel: level,
-    defconLabel: t(DEFCON_LABELS[level] ?? DEFCON_LABELS[5]!),
-    aggregateActivity: proto.aggregateActivity,
-    activeSpikes: proto.activeSpikes,
-    locationsMonitored: proto.locationsMonitored,
-    locationsOpen: proto.locationsOpen,
-    lastUpdate: proto.updatedAt ? new Date(proto.updatedAt) : new Date(),
-    dataFreshness: FRESHNESS_REVERSE[proto.dataFreshness] || 'stale',
-    locations: proto.locations.map(toLocation),
-  };
-}
-
-function toTensionPair(proto: ProtoTensionPair): GdeltTensionPair {
-  return {
-    id: proto.id,
-    countries: [proto.countries[0] || '', proto.countries[1] || ''] as [string, string],
-    label: proto.label,
-    score: proto.score,
-    trend: TREND_REVERSE[proto.trend] || 'stable',
-    changePercent: proto.changePercent,
-    region: proto.region,
-  };
-}
-
-// ---- Default / fallback values ----
+// ── Defaults ────────────────────────────────────────────────────────────────
 
 const defaultStatus: PizzIntStatus = {
   defconLevel: 5,
-  defconLabel: t('components.pizzint.defconLabels.5'),
+  defconLabel: DEFCON_LABELS[5]!,
   aggregateActivity: 0,
   activeSpikes: 0,
   locationsMonitored: 0,
   locationsOpen: 0,
   lastUpdate: new Date(),
   dataFreshness: 'stale',
-  locations: []
+  locations: [],
 };
 
-// ---- Public API ----
+// ── Public API ──────────────────────────────────────────────────────────────
 
 export async function fetchPizzIntStatus(): Promise<PizzIntStatus> {
   return pizzintBreaker.execute(async () => {
-    const resp: GetPizzintStatusResponse = await client.getPizzintStatus({ includeGdelt: false });
-    if (!resp.pizzint) throw new Error('No PizzINT data');
-    return toStatus(resp.pizzint);
+    const resp = await fetch(`${getApiBaseUrl()}/api/pizzint/dashboard`);
+    if (!resp.ok) throw new Error(`PizzINT dashboard returned ${resp.status}`);
+    const raw = await resp.json() as DashboardResponse;
+    if (!raw.success || !Array.isArray(raw.data) || raw.data.length === 0) {
+      throw new Error('No PizzINT locations in response');
+    }
+
+    const { defconLevel, aggregateActivity, activeSpikes, locationsMonitored, locationsOpen } =
+      computeDefcon(raw.data);
+
+    const locations: PizzIntLocation[] = raw.data.map(d => ({
+      place_id: d.place_id,
+      name: d.name,
+      address: d.address,
+      current_popularity: d.current_popularity,
+      percentage_of_usual: d.percentage_of_usual,
+      is_spike: d.is_spike,
+      spike_magnitude: d.spike_magnitude,
+      data_source: d.data_source,
+      recorded_at: d.recorded_at,
+      data_freshness: d.data_freshness === 'fresh' ? 'fresh' : 'stale',
+      is_closed_now: d.is_closed_now ?? false,
+      lat: d.lat,
+      lng: d.lng,
+    }));
+
+    return {
+      defconLevel,
+      defconLabel: DEFCON_LABELS[defconLevel]!,
+      aggregateActivity,
+      activeSpikes,
+      locationsMonitored,
+      locationsOpen,
+      lastUpdate: new Date(),
+      dataFreshness: raw.data.some(d => d.data_freshness === 'fresh') ? 'fresh' : 'stale',
+      locations,
+    };
   }, defaultStatus);
 }
 
 export async function fetchGdeltTensions(): Promise<GdeltTensionPair[]> {
   return gdeltBreaker.execute(async () => {
-    const resp: GetPizzintStatusResponse = await client.getPizzintStatus({ includeGdelt: true });
-    return resp.tensionPairs.map(toTensionPair);
+    const resp = await fetch(`${getApiBaseUrl()}/api/pizzint/gdelt`);
+    if (!resp.ok) throw new Error(`GDELT tensions returned ${resp.status}`);
+    const raw = await resp.json() as RawTensionPair[];
+    if (!Array.isArray(raw)) return [];
+    return raw.map(r => ({
+      id: r.id,
+      countries: r.countries,
+      label: r.label,
+      score: r.score,
+      trend: r.trend,
+      changePercent: r.change_percent,
+      region: r.region,
+    }));
   }, []);
 }
 
