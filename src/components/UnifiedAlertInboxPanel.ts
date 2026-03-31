@@ -103,7 +103,7 @@ export class UnifiedAlertInboxPanel extends Panel {
     unifiedAlertStore.ingest(alerts);
   }
 
-  // ── Filtering & Sorting ─────────────────────────────────────────────────
+  // ── Filtering & Sorting ─────────────────────────────────────────────
 
   private getFilteredAlerts(): UnifiedAlert[] {
     let alerts = unifiedAlertStore.getAll();
@@ -155,7 +155,7 @@ export class UnifiedAlertInboxPanel extends Panel {
     this.setCount(unifiedAlertStore.getUnacknowledgedCount());
   }
 
-  // ── Event Handlers ──────────────────────────────────────────────────────
+  // ── Event Handlers ──────────────────────────────────────────────────
 
   private handleClick(e: Event): void {
     const target = e.target as HTMLElement;
@@ -278,7 +278,7 @@ export class UnifiedAlertInboxPanel extends Panel {
     }
   }
 
-  // ── Render ──────────────────────────────────────────────────────────────
+  // ── Render ────────────────────────────────────────────────────────
 
   private render(): void {
     const alerts = this.getFilteredAlerts();
@@ -424,7 +424,7 @@ export class UnifiedAlertInboxPanel extends Panel {
   }
 }
 
-// ── Helpers ──────────────────────────────────────────────────────────────
+// ── Helpers ──────────────────────────────────────────────────────────
 
 function esc(s: string): string {
   return s
