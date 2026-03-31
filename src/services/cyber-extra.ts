@@ -95,3 +95,32 @@ export async function lookupVtIndicator(
     return null;
   }
 }
+
+// ── PhishStats phishing database ───────────────────────────────────────────
+export async function fetchPhishStatsFeed(): Promise<CyberThreat[]> {
+  try {
+    const res = await fetch(`${getApiBaseUrl()}/api/phishstats-feed`);
+    if (!res.ok) return [];
+    return (await res.json()) as CyberThreat[];
+  } catch {
+    return [];
+  }
+}
+
+// ── GreyNoise Community IP enrichment ──────────────────────────────────────
+export interface GreyNoiseResult {
+  classification: 'malicious' | 'benign' | 'unknown';
+  noise: boolean;
+  name: string | null;
+}
+
+export async function enrichWithGreyNoise(ip: string): Promise<GreyNoiseResult | null> {
+  try {
+    const params = new URLSearchParams({ ip });
+    const res = await fetch(`${getApiBaseUrl()}/api/greynoise-lookup?${params}`);
+    if (!res.ok) return null;
+    return (await res.json()) as GreyNoiseResult;
+  } catch {
+    return null;
+  }
+}

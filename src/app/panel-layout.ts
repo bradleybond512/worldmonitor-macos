@@ -44,24 +44,36 @@ import {
   CommsPlanPanel,
   StoicQuotePanel,
   BiblicalQuotePanel,
+  AlanWattsQuotePanel,
+  McKennaQuotePanel,
+  DailyWisdomPanel,
 } from '@/components';
 import { SatelliteFiresPanel } from '@/components/SatelliteFiresPanel';
 import { EarthquakesPanel } from '@/components/EarthquakesPanel';
 import { CyberThreatPanel } from '@/components/CyberThreatPanel';
+import { LocalIDSPanel } from '@/components/LocalIDSPanel';
 import { AlertCenterPanel } from '@/components/AlertCenterPanel';
 import { SpaceWeatherPanel } from '@/components/SpaceWeatherPanel';
+import { SpaceflightNewsPanel } from '@/components/SpaceflightNewsPanel';
 import { DiseaseOutbreakPanel } from '@/components/DiseaseOutbreakPanel';
+import { HumanitarianCrisisPanel } from '@/components/HumanitarianCrisisPanel';
 import { AirQualityPanel } from '@/components/AirQualityPanel';
+import { WildfireIncidentsPanel } from '@/components/WildfireIncidentsPanel';
+import { HazmatIncidentsPanel } from '@/components/HazmatIncidentsPanel';
+import { OilSpillPanel } from '@/components/OilSpillPanel';
+import { HazardAlertsPanel } from '@/components/HazardAlertsPanel';
 import { AirstrikesPanel } from '@/components/AirstrikesPanel';
 import { GDACSAlertsPanel } from '@/components/GDACSAlertsPanel';
 import { VolcanoAlertsPanel } from '@/components/VolcanoAlertsPanel';
 import { NWSAlertsPanel } from '@/components/NWSAlertsPanel';
+import { FAAWeatherCamsPanel } from '@/components/FAAWeatherCamsPanel';
 import { CommsHealthPanel } from '@/components/CommsHealthPanel';
 import { FearGreedPanel } from '@/components/FearGreedPanel';
 import { InternetDisruptionsPanel } from '@/components/InternetDisruptionsPanel';
 import { NationalDebtPanel } from '@/components/NationalDebtPanel';
 import { FuelPricesPanel } from '@/components/FuelPricesPanel';
 import { EconomicStressPanel } from '@/components/EconomicStressPanel';
+import { FederalRegisterPanel } from '@/components/FederalRegisterPanel';
 import { NuclearRiskPanel } from '@/components/NuclearRiskPanel';
 import { RadiationDecayPanel } from '@/components/RadiationDecayPanel';
 import { ResourceInventoryPanel } from '@/components/ResourceInventoryPanel';
@@ -96,10 +108,11 @@ import { getCurrentTheme } from '@/utils';
 import { trackCriticalBannerAction } from '@/services/analytics';
 import { initMode, setMode, alertFamily, getMode, toggleGhostMode, type AppMode } from '@/services/mode-manager';
 import { isLowPowerMode, setLowPowerMode } from '@/services/low-power';
-import { tryInvokeTauri } from '@/services/tauri-bridge';
+import { tryInvokeTauri, invokeTauri } from '@/services/tauri-bridge';
 import { initModeTransitionCards } from '@/services/mode-transition-card';
 import { initPanelCorrelation } from '@/services/panel-correlation';
 import { getPrimarySavedPlace, getSavedPlace } from '@/services/saved-places';
+import { SavedPlaceModal } from '@/components/SavedPlaceModal';
 import type { GeoHubActivity } from '@/services/geo-activity';
 import type { TechHubActivity } from '@/services/tech-activity';
 
@@ -118,6 +131,7 @@ export class PanelLayoutManager implements AppModule {
   private panelDragCleanupHandlers: (() => void)[] = [];
   private criticalBannerEl: HTMLElement | null = null;
   private readonly applyTimeRangeFilterDebounced: () => void;
+  private readonly _onUpdateState = () => { this.renderSidebarUpdateBtn(); };
 
   /** Saved panel order from before a mode switch so Peace Mode can restore it. */
   private _preModeOrder: string[] = [];
@@ -140,9 +154,11 @@ export class PanelLayoutManager implements AppModule {
 
   /** Panels floated to top in Disaster Mode. */
   private static readonly DISASTER_PRIORITY = [
+    'hazard-alerts',
     'alert-center', 'saved-places', 'tropical-cyclones', 'nws-alerts',
     'weather', 'earthquakes', 'gdacs-alerts', 'satellite-fires',
     'volcano-alerts', 'displacement', 'oref-sirens', 'air-quality',
+    'wildfire-incidents', 'hazmat-incidents', 'oil-spill',
     'comms-health', 'economic-stress',
   ];
 
@@ -156,9 +172,11 @@ export class PanelLayoutManager implements AppModule {
 
   init(): void {
     this.renderLayout();
+    document.addEventListener('wm:update-state', this._onUpdateState);
   }
 
   destroy(): void {
+    document.removeEventListener('wm:update-state', this._onUpdateState);
     this.panelDragCleanupHandlers.forEach((cleanup) => cleanup());
     this.panelDragCleanupHandlers = [];
     if (this.criticalBannerEl) {
@@ -183,6 +201,33 @@ export class PanelLayoutManager implements AppModule {
       document.title = `World Monitor v${__APP_VERSION__}`;
     }
     this.createPanels();
+    if (this.ctx.isDesktopApp) {
+      this.renderSidebarUpdateBtn();
+    }
+  }
+
+  renderSidebarUpdateBtn(): void {
+    const container = document.getElementById('sidebarUpdateBtn');
+    if (!container) return;
+    // Safe: buildSidebarUpdateBtnHtml() uses escapeHtml() on all API-sourced strings.
+    // Only other content is hardcoded markup (class names, "Installing…", "✓", button structure).
+    container.innerHTML = this.buildSidebarUpdateBtnHtml(); // safe-html: escapeHtml applied to all dynamic strings
+
+    const installBtn = container.querySelector<HTMLButtonElement>('#sidebarUpdateInstall');
+    if (!installBtn) return;
+
+    const state = this.ctx.updateState;
+    if (state?.phase !== 'available' || !state.downloadUrl) return;
+
+    const { version, downloadUrl } = state;
+    installBtn.addEventListener('click', () => {
+      this.ctx.updateState = { phase: 'installing' };
+      this.renderSidebarUpdateBtn();
+      invokeTauri<void>('install_update', { downloadUrl }).catch(() => {
+        this.ctx.updateState = { phase: 'available', version, downloadUrl };
+        this.renderSidebarUpdateBtn();
+      });
+    });
   }
 
   private buildVariantSwitcherItems(): string {
@@ -251,6 +296,25 @@ export class PanelLayoutManager implements AppModule {
     return getCurrentTheme() === 'dark'
       ? '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>'
       : '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>';
+  }
+
+  private buildSidebarUpdateBtnHtml(): string {
+    const versionLabel = escapeHtml(`v${__APP_VERSION__}${BETA_MODE ? ' β' : ''}`);
+    const state = this.ctx.updateState;
+    if (!state || state.phase === 'checking') {
+      return `<span class="mac-sidebar-version">${versionLabel}</span>`;
+    }
+    if (state.phase === 'up-to-date') {
+      return `<span class="mac-sidebar-version mac-sidebar-version--ok">${versionLabel} ✓</span>`;
+    }
+    if (state.phase === 'available' && state.version) {
+      const remoteLabel = escapeHtml(`v${state.version}`);
+      return `<button class="mac-sidebar-update-btn" id="sidebarUpdateInstall">${versionLabel} → ${remoteLabel}</button>`;
+    }
+    if (state.phase === 'installing') {
+      return `<span class="mac-sidebar-version mac-sidebar-version--installing">Installing…</span>`;
+    }
+    return `<span class="mac-sidebar-version">${versionLabel}</span>`;
   }
 
   private buildSidebarNav(): string {
@@ -333,7 +397,7 @@ export class PanelLayoutManager implements AppModule {
             </button>
             <button class="mac-sidebar-footer-btn" id="lowPowerBtn" title="Low Power Mode — disable animations and spatial audio">⚡</button>
             <span id="unifiedSettingsMount"></span>
-            <span class="mac-sidebar-version">v${__APP_VERSION__}${BETA_MODE ? ' β' : ''}</span>
+            <span id="sidebarUpdateBtn">${this.buildSidebarUpdateBtnHtml()}</span>
           </div>
         </aside>
 
@@ -760,10 +824,26 @@ export class PanelLayoutManager implements AppModule {
       });
       this.ctx.panels.watchlist = watchlistPanel;
 
+      const savedPlaceModal = new SavedPlaceModal({
+        onPickLocationMode: (active, callback) => {
+          this.ctx.map?.setPickLocationMode(active ? callback : null);
+        },
+      });
+
+      const openCreate = () => savedPlaceModal.openCreate();
+      const openEdit = (placeId: string) => {
+        const place = getSavedPlace(placeId);
+        if (place) savedPlaceModal.openEdit(place);
+      };
+
       const savedPlacesPanel = new SavedPlacesPanel({
         focusPlace: focusSavedPlace,
+        createPlace: openCreate,
+        editPlace: openEdit,
       });
       this.ctx.panels['saved-places'] = savedPlacesPanel;
+
+      this.ctx.unifiedSettings?.setPlaceCallbacks(openCreate, openEdit);
 
       localLogisticsPanel = new LocalLogisticsPanel({
         focusNode: (lat, lon) => {
@@ -804,17 +884,38 @@ export class PanelLayoutManager implements AppModule {
       const cyberThreatPanel = new CyberThreatPanel();
       this.ctx.panels['cyber-threats'] = cyberThreatPanel;
 
+      const localIDSPanel = new LocalIDSPanel();
+      this.ctx.panels['local-ids'] = localIDSPanel;
+
       const alertCenterPanel = new AlertCenterPanel();
       this.ctx.panels['alert-center'] = alertCenterPanel;
 
       const spaceWeatherPanel = new SpaceWeatherPanel();
       this.ctx.panels['space-weather'] = spaceWeatherPanel;
 
+      const spaceflightNewsPanel = new SpaceflightNewsPanel();
+      this.ctx.panels['spaceflight-news'] = spaceflightNewsPanel;
+
       const diseaseOutbreakPanel = new DiseaseOutbreakPanel();
       this.ctx.panels['disease-outbreaks'] = diseaseOutbreakPanel;
 
+      const humanitarianCrisisPanel = new HumanitarianCrisisPanel();
+      this.ctx.panels['humanitarian-crisis'] = humanitarianCrisisPanel;
+
       const airQualityPanel = new AirQualityPanel();
       this.ctx.panels['air-quality'] = airQualityPanel;
+
+      const wildfireIncidentsPanel = new WildfireIncidentsPanel();
+      this.ctx.panels['wildfire-incidents'] = wildfireIncidentsPanel;
+
+      const hazmatIncidentsPanel = new HazmatIncidentsPanel();
+      this.ctx.panels['hazmat-incidents'] = hazmatIncidentsPanel;
+
+      const oilSpillPanel = new OilSpillPanel();
+      this.ctx.panels['oil-spill'] = oilSpillPanel;
+
+      const hazardAlertsPanel = new HazardAlertsPanel();
+      this.ctx.panels['hazard-alerts'] = hazardAlertsPanel;
 
       const strategicRiskPanel = new StrategicRiskPanel();
       strategicRiskPanel.setLocationClickHandler((lat, lon) => {
@@ -858,17 +959,23 @@ export class PanelLayoutManager implements AppModule {
       const nwsAlertsPanel = new NWSAlertsPanel();
       this.ctx.panels['nws-alerts'] = nwsAlertsPanel;
 
+      this.ctx.panels['faa-weather-cams'] = new FAAWeatherCamsPanel();
+
       this.ctx.panels['tsunami-alerts'] = new TsunamiAlertsPanel();
       this.ctx.panels['tropical-cyclones'] = new TropicalCyclonesPanel();
       this.ctx.panels['food-insecurity'] = new FoodInsecurityPanel();
       this.ctx.panels['comms-health'] = new CommsHealthPanel();
       this.ctx.panels['economic-stress'] = new EconomicStressPanel();
+      this.ctx.panels['federal-register'] = new FederalRegisterPanel();
       this.ctx.panels['fear-greed'] = new FearGreedPanel();
       this.ctx.panels['internet-disruptions'] = new InternetDisruptionsPanel();
       this.ctx.panels['national-debt'] = new NationalDebtPanel();
       this.ctx.panels['fuel-prices'] = new FuelPricesPanel();
       this.ctx.panels['stoic-reflections'] = new StoicQuotePanel();
       this.ctx.panels['biblical-encouragement'] = new BiblicalQuotePanel();
+      this.ctx.panels['alan-watts-reflections'] = new AlanWattsQuotePanel();
+      this.ctx.panels['mckenna-visions'] = new McKennaQuotePanel();
+      this.ctx.panels['daily-wisdom'] = new DailyWisdomPanel();
 
       this.ctx.panels['radiation-decay'] = new RadiationDecayPanel();
       this.ctx.panels['resource-inventory'] = new ResourceInventoryPanel();

@@ -282,6 +282,7 @@ export class App {
       initialUrlState,
       PANEL_ORDER_KEY,
       PANEL_SPANS_KEY,
+      updateState: null,
     };
 
     // Instantiate modules (callbacks wired after all modules exist)
@@ -549,6 +550,7 @@ export class App {
         { name: 'spending', fn: () => this.dataLoader.loadGovernmentSpending(), intervalMs: 60 * 60 * 1000 },
         { name: 'bis', fn: () => this.dataLoader.loadBisData(), intervalMs: 60 * 60 * 1000 },
         { name: 'firms', fn: () => this.dataLoader.loadFirmsData(), intervalMs: 30 * 60 * 1000 },
+        { name: 'inpeFires', fn: () => this.dataLoader.loadInpeFires(), intervalMs: 20 * 60 * 1000, condition: () => SITE_VARIANT === 'full' },
         { name: 'ais', fn: () => this.dataLoader.loadAisSignals(), intervalMs: REFRESH_INTERVALS.ais, condition: () => this.state.mapLayers.ais },
         { name: 'cables', fn: () => this.dataLoader.loadCableActivity(), intervalMs: 30 * 60 * 1000, condition: () => this.state.mapLayers.cables },
         { name: 'cableHealth', fn: () => this.dataLoader.loadCableHealth(), intervalMs: 2 * 60 * 60 * 1000, condition: () => this.state.mapLayers.cables },
@@ -558,7 +560,11 @@ export class App {
           return this.dataLoader.loadCyberThreats();
         }, intervalMs: 10 * 60 * 1000, condition: () => CYBER_LAYER_ENABLED && this.state.mapLayers.cyberThreats },
         { name: 'spaceWeather', fn: () => this.dataLoader.loadSpaceWeather(), intervalMs: 5 * 60 * 1000, condition: () => SITE_VARIANT === 'full' },
+        { name: 'spaceflightNews', fn: () => this.dataLoader.loadSpaceflightNews(), intervalMs: 60 * 60 * 1000, condition: () => SITE_VARIANT === 'full' },
+        { name: 'localIDS', fn: () => this.dataLoader.loadLocalIDS(), intervalMs: 5 * 60 * 1000, condition: () => SITE_VARIANT === 'full' },
         { name: 'diseaseOutbreaks', fn: () => this.dataLoader.loadDiseaseOutbreaks(), intervalMs: 15 * 60 * 1000, condition: () => SITE_VARIANT === 'full' },
+        { name: 'humanitarianCrises', fn: () => this.dataLoader.loadHumanitarianCrises(), intervalMs: 60 * 60 * 1000, condition: () => SITE_VARIANT === 'full' },
+        { name: 'federalRegister', fn: () => this.dataLoader.loadFederalRegister(), intervalMs: 60 * 60 * 1000, condition: () => SITE_VARIANT === 'full' },
         { name: 'airQuality', fn: () => this.dataLoader.loadAirQuality(), intervalMs: 30 * 60 * 1000, condition: () => SITE_VARIANT === 'full' },
         { name: 'commsHealth', fn: () => this.dataLoader.loadCommsHealth(), intervalMs: 2 * 60 * 1000, condition: () => SITE_VARIANT === 'full' },
         { name: 'economicStress', fn: () => this.dataLoader.loadEconomicStress(), intervalMs: 15 * 60 * 1000, condition: () => SITE_VARIANT === 'full' },
@@ -611,6 +617,16 @@ export class App {
     if (SITE_VARIANT === 'full' || SITE_VARIANT === 'finance') {
       this.refreshScheduler.scheduleRefresh('tradePolicy', () => this.dataLoader.loadTradePolicy(), 10 * 60 * 1000);
       this.refreshScheduler.scheduleRefresh('supplyChain', () => this.dataLoader.loadSupplyChain(), 10 * 60 * 1000);
+    }
+
+    // FAA weather cameras — scored against NWS/GDACS alerts, slow-changing data
+    if (SITE_VARIANT === 'full') {
+      this.refreshScheduler.scheduleRefresh(
+        'faa-weather-cams',
+        () => this.dataLoader.loadFAACameras(),
+        20 * 60_000,
+        () => !!this.state.panels['faa-weather-cams']
+      );
     }
 
     // Telegram Intel (near real-time, 60s refresh)

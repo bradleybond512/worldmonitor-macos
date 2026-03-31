@@ -11,6 +11,7 @@ export interface SpaceWeatherData {
   xrayClass: string | null;         // 'A', 'B', 'C', 'M', 'X' + number
   alertMessages: SpaceWeatherAlert[];
   fetchedAt: Date;
+  donkiEvents: DonkiEvent[];
 }
 
 export interface SpaceWeatherAlert {
@@ -134,9 +135,43 @@ export async function fetchSpaceWeather(): Promise<SpaceWeatherData> {
     bz,
     xrayClass,
     alertMessages,
+    donkiEvents: [],
     fetchedAt: new Date(),
   };
 
   cache = { data, fetchedAt: Date.now() };
   return data;
+}
+
+export interface DonkiEvent {
+  id: string;
+  type: 'flare' | 'cme' | 'geomagnetic-storm';
+  startTime: string | null;
+  peakTime: string | null;
+  endTime: string | null;
+  classType: string | null;
+  kpIndex: number | null;
+  estimatedArrival: string | null;
+  severity: 'critical' | 'high' | 'medium' | 'low';
+  url: string;
+}
+
+let donkiCache: { events: DonkiEvent[]; ts: number } | null = null;
+const DONKI_CACHE_TTL_MS = 30 * 60 * 1000;
+
+export async function fetchDonkiEvents(): Promise<DonkiEvent[]> {
+  if (donkiCache && Date.now() - donkiCache.ts < DONKI_CACHE_TTL_MS) return donkiCache.events;
+  try {
+    const res = await fetch(`${getApiBaseUrl()}/api/donki-events`, { signal: AbortSignal.timeout(15000) });
+    if (!res.ok) {
+      donkiCache = { events: [], ts: Date.now() };
+      return [];
+    }
+    const events = (await res.json()) as DonkiEvent[];
+    donkiCache = { events, ts: Date.now() };
+    return events;
+  } catch {
+    donkiCache = { events: [], ts: Date.now() };
+    return [];
+  }
 }

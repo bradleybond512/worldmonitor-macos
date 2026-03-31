@@ -1,6 +1,7 @@
 import { Panel } from './Panel';
 import { renderStatusCard } from './StatusCard';
 import type { EconomicStressData } from '@/services/economic-stress';
+import type { WsbSnapshot } from '@/services/wsb-sentiment';
 import { tryInvokeTauri } from '@/services/tauri-bridge';
 import { isGhostMode } from '@/services/mode-manager';
 
@@ -12,11 +13,11 @@ export class EconomicStressPanel extends Panel {
     this.showLoading('Fetching economic indicators...');
   }
 
-  update(data: EconomicStressData | null): void {
+  update(data: EconomicStressData | null, snapshots: WsbSnapshot[] = []): void {
     if (!data) { this._renderError(); return; }
     if (data.fredKeyMissing) { this._renderKeyRequired(); return; }
     void this._checkNotification(data.stressIndex);
-    this._render(data);
+    this._render(data, snapshots);
   }
 
   private async _checkNotification(index: number): Promise<void> {
@@ -35,7 +36,7 @@ export class EconomicStressPanel extends Panel {
     this._previousStressIndex = index;
   }
 
-  private _render(data: EconomicStressData): void {
+  private _render(data: EconomicStressData, snapshots: WsbSnapshot[] = []): void {
     const el = this.getContentElement();
     const { stressIndex, trend, indicators, foodSecurity } = data;
     const pct = Math.min(100, stressIndex);
@@ -65,6 +66,10 @@ export class EconomicStressPanel extends Panel {
 
     const ts = new Date(data.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
+    const wsbText = snapshots.length > 0
+      ? snapshots.slice(0, 3).map(s => `${s.ticker} ${s.sentiment >= 0 ? '+' : ''}${s.sentiment.toFixed(2)}`).join(' · ')
+      : '';
+
     el.innerHTML = `
 <div style="padding:0.8rem;display:flex;flex-direction:column;gap:0.7rem;">
   <div>
@@ -83,6 +88,7 @@ export class EconomicStressPanel extends Panel {
   <div style="padding:0.4rem 0.55rem;background:rgba(255,255,255,0.04);border-radius:5px;font-size:0.7rem;opacity:0.75;">
     Global Food Security: <strong style="color:${fsColor};">${fsVal} / 100</strong> — ${fsLabel}
   </div>
+  ${wsbText ? `<div style="padding:0.4rem 0.55rem;background:rgba(255,255,255,0.04);border-radius:5px;font-size:0.7rem;opacity:0.75;">WSB Retail: ${wsbText}</div>` : ''}
 </div>`;
   }
 

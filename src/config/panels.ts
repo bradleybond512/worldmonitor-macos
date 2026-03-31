@@ -38,6 +38,7 @@ const FULL_PANELS: Record<string, PanelConfig> = {
   markets: { name: 'Markets', enabled: true, priority: 1 },
   economic: { name: 'Economic Indicators', enabled: true, priority: 1 },
   'economic-stress': { name: 'Economic Stress', enabled: true, priority: 2 },
+  'federal-register': { name: 'Federal Register', enabled: true, priority: 2 },
   'trade-policy': { name: 'Trade Policy', enabled: true, priority: 1 },
   'supply-chain': { name: 'Supply Chain', enabled: true, priority: 1 },
   finance: { name: 'Financial', enabled: true, priority: 1 },
@@ -50,6 +51,7 @@ const FULL_PANELS: Record<string, PanelConfig> = {
   'satellite-fires': { name: 'Fires', enabled: true, priority: 2 },
   earthquakes: { name: 'Earthquakes', enabled: true, priority: 2 },
   'cyber-threats': { name: 'Cyber Threats', enabled: true, priority: 2 },
+  'local-ids': { name: 'Local IDS', enabled: false, priority: 2 },
   'comms-health': { name: 'Communications Health', enabled: true, priority: 2 },
   'macro-signals': { name: 'Market Radar', enabled: true, priority: 2 },
   'etf-flows': { name: 'BTC ETF Tracker', enabled: true, priority: 2 },
@@ -60,6 +62,9 @@ const FULL_PANELS: Record<string, PanelConfig> = {
   giving: { name: 'Global Giving', enabled: true, priority: 2 },
   'stoic-reflections': { name: 'Stoic Reflections', enabled: true, priority: 3 },
   'biblical-encouragement': { name: 'Biblical Encouragement', enabled: true, priority: 3 },
+  'alan-watts-reflections': { name: 'Alan Watts', enabled: true, priority: 3 },
+  'mckenna-visions': { name: 'Terence McKenna', enabled: true, priority: 3 },
+  'daily-wisdom': { name: 'Daily Wisdom', enabled: true, priority: 3 },
   displacement: { name: 'UNHCR Displacement', enabled: true, priority: 2 },
   climate: { name: 'Climate Anomalies', enabled: true, priority: 2 },
   'population-exposure': { name: 'Population Exposure', enabled: true, priority: 2 },
@@ -67,11 +72,18 @@ const FULL_PANELS: Record<string, PanelConfig> = {
   'oref-sirens': { name: 'Israel Sirens', enabled: true, priority: 2 },
   'telegram-intel': { name: 'Telegram Intel', enabled: true, priority: 2 },
   'space-weather': { name: 'Space Weather', enabled: true, priority: 2 },
+  'spaceflight-news': { name: 'Spaceflight News', enabled: true, priority: 2 },
   'disease-outbreaks': { name: 'Disease Outbreaks', enabled: true, priority: 2 },
+  'humanitarian-crisis': { name: 'Humanitarian Crises', enabled: true, priority: 2 },
   'air-quality': { name: 'Air Quality', enabled: true, priority: 2 },
+  'wildfire-incidents': { name: 'Wildfires (InciWeb)', enabled: true, priority: 2 },
+  'hazmat-incidents': { name: 'Hazmat Incidents', enabled: true, priority: 2 },
+  'oil-spill': { name: 'Oil & Chemical Spills', enabled: true, priority: 2 },
+  'hazard-alerts': { name: 'Hazard Alerts — Near Me', enabled: true, priority: 1 },
   'gdacs-alerts': { name: 'GDACS Disaster Alerts', enabled: true, priority: 2 },
   'volcano-alerts': { name: 'Volcano Alerts', enabled: true, priority: 2 },
   'nws-alerts': { name: 'NWS Hazard Alerts', enabled: true, priority: 2 },
+  'faa-weather-cams': { name: 'FAA Weather Cams', enabled: true, priority: 2 },
   'tsunami-alerts': { name: 'Tsunami Alerts', enabled: true, priority: 2 },
   'tropical-cyclones': { name: 'Tropical Cyclones', enabled: true, priority: 2 },
   'food-insecurity': { name: 'Food Insecurity', enabled: true, priority: 2 },
@@ -81,6 +93,9 @@ const FULL_PANELS: Record<string, PanelConfig> = {
   'internet-disruptions': { name: 'Internet Disruptions', enabled: true, priority: 2 },
   'national-debt': { name: 'National Debt', enabled: true, priority: 2 },
   'fuel-prices': { name: 'Fuel Prices', enabled: true, priority: 2 },
+  'global-weather': { name: 'Global Weather', enabled: true, priority: 2 },
+  'opensanctions': { name: 'Global Sanctions', enabled: true, priority: 2 },
+  'edgar-filings': { name: 'SEC EDGAR Filings', enabled: true, priority: 2 },
 };
 
 const FULL_MAP_LAYERS: MapLayers = {
@@ -134,6 +149,7 @@ const FULL_MAP_LAYERS: MapLayers = {
   tradeRoutes: false,
   s2pimu: false,
   dayNight: false,
+  faaWeatherCams: true,
 };
 
 const FULL_MOBILE_MAP_LAYERS: MapLayers = {
@@ -187,6 +203,7 @@ const FULL_MOBILE_MAP_LAYERS: MapLayers = {
   tradeRoutes: false,
   s2pimu: false,
   dayNight: false,
+  faaWeatherCams: false,
 };
 
 // ============================================
@@ -281,6 +298,7 @@ const TECH_MAP_LAYERS: MapLayers = {
   iranAttacks: false,
   s2pimu: false,
   dayNight: false,
+  faaWeatherCams: false,
 };
 
 const TECH_MOBILE_MAP_LAYERS: MapLayers = {
@@ -334,6 +352,7 @@ const TECH_MOBILE_MAP_LAYERS: MapLayers = {
   iranAttacks: false,
   s2pimu: false,
   dayNight: false,
+  faaWeatherCams: false,
 };
 
 // ============================================
@@ -424,6 +443,7 @@ const FINANCE_MAP_LAYERS: MapLayers = {
   iranAttacks: false,
   s2pimu: false,
   dayNight: false,
+  faaWeatherCams: false,
 };
 
 const FINANCE_MOBILE_MAP_LAYERS: MapLayers = {
@@ -477,6 +497,7 @@ const FINANCE_MOBILE_MAP_LAYERS: MapLayers = {
   iranAttacks: false,
   s2pimu: false,
   dayNight: false,
+  faaWeatherCams: false,
 };
 
 // ============================================
@@ -546,6 +567,7 @@ const HAPPY_MAP_LAYERS: MapLayers = {
   iranAttacks: false,
   s2pimu: false,
   dayNight: false,
+  faaWeatherCams: false,
 };
 
 const HAPPY_MOBILE_MAP_LAYERS: MapLayers = {
@@ -599,6 +621,7 @@ const HAPPY_MOBILE_MAP_LAYERS: MapLayers = {
   iranAttacks: false,
   s2pimu: false,
   dayNight: false,
+  faaWeatherCams: false,
 };
 
 // ============================================
@@ -620,6 +643,7 @@ export const LAYER_TO_SOURCE: Partial<Record<keyof MapLayers, DataSourceId[]>> =
   ucdpEvents: ['ucdp_events'],
   displacement: ['unhcr'],
   climate: ['climate'],
+  faaWeatherCams: ['faa_weather_cams'],
 };
 
 // ============================================
@@ -649,7 +673,7 @@ export const PANEL_CATEGORY_MAP: Record<string, { labelKey: string; panelKeys: s
   },
   marketsFinance: {
     labelKey: 'header.panelCatMarketsFinance',
-    panelKeys: ['commodities', 'markets', 'economic', 'economic-stress', 'trade-policy', 'supply-chain', 'finance', 'polymarket', 'macro-signals', 'etf-flows', 'stablecoins', 'crypto', 'heatmap', 'fear-greed', 'national-debt', 'fuel-prices'],
+    panelKeys: ['commodities', 'markets', 'economic', 'economic-stress', 'federal-register', 'trade-policy', 'supply-chain', 'finance', 'polymarket', 'macro-signals', 'etf-flows', 'stablecoins', 'crypto', 'heatmap', 'fear-greed', 'national-debt', 'fuel-prices'],
     variants: ['full'],
   },
   topical: {
@@ -659,17 +683,18 @@ export const PANEL_CATEGORY_MAP: Record<string, { labelKey: string; panelKeys: s
   },
   dataTracking: {
     labelKey: 'header.panelCatDataTracking',
-    panelKeys: ['monitors', 'cyber-threats', 'comms-health', 'ucdp-events', 'nuclear-risk', 'airstrikes', 'displacement', 'security-advisories', 'oref-sirens', 'space-weather', 'population-exposure', 'internet-disruptions'],
+    panelKeys: ['monitors', 'cyber-threats', 'local-ids', 'comms-health', 'ucdp-events', 'nuclear-risk', 'airstrikes', 'displacement', 'security-advisories', 'oref-sirens', 'space-weather', 'spaceflight-news', 'population-exposure', 'internet-disruptions'],
     variants: ['full'],
   },
   hazards: {
     labelKey: 'header.panelCatHazards',
-    panelKeys: ['satellite-fires', 'earthquakes', 'gdacs-alerts', 'volcano-alerts', 'nws-alerts', 'tsunami-alerts', 'tropical-cyclones', 'climate'],
+
+    panelKeys: ['satellite-fires', 'earthquakes', 'gdacs-alerts', 'volcano-alerts', 'nws-alerts', 'faa-weather-cams', 'tsunami-alerts', 'tropical-cyclones', 'climate', 'wildfire-incidents', 'hazmat-incidents', 'oil-spill'],
     variants: ['full'],
   },
   healthEnv: {
     labelKey: 'header.panelCatHealthEnv',
-    panelKeys: ['giving', 'stoic-reflections', 'biblical-encouragement', 'disease-outbreaks', 'air-quality', 'food-insecurity', 'radiation-decay', 'resource-inventory'],
+    panelKeys: ['hazard-alerts', 'giving', 'daily-wisdom', 'stoic-reflections', 'biblical-encouragement', 'alan-watts-reflections', 'mckenna-visions', 'disease-outbreaks', 'humanitarian-crisis', 'air-quality', 'food-insecurity', 'radiation-decay', 'resource-inventory'],
     variants: ['full'],
   },
 

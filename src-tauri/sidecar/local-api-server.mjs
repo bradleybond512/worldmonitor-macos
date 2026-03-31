@@ -2,7 +2,7 @@
 import http, { createServer } from 'node:http';
 import https from 'node:https';
 import dns from 'node:dns/promises';
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync, statSync, openSync, readSync, closeSync } from 'node:fs';
 import { readdir } from 'node:fs/promises';
 import { promisify } from 'node:util';
 import { brotliCompress, gzipSync } from 'node:zlib';
@@ -247,6 +247,8 @@ const ALLOWED_ENV_KEYS = new Set([
   'ICAO_API_KEY', 'THREATFOX_API_KEY',
   'NEWSAPI_KEY', 'NEWSDATA_API_KEY', 'VIRUSTOTAL_API_KEY', 'BGPVIEW_API_KEY',
   'SHODAN_API_KEY', 'FMP_API_KEY',
+  'OWM_API_KEY', 'GREYNOISE_API_KEY',
+  'NASA_API_KEY',
 ]);
 
 const CHROME_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
@@ -808,8 +810,35 @@ function getCached(key, ttlMs) {
   if (entry && Date.now() - entry.ts < ttlMs) return entry.data;
   return null;
 }
+function getCachedStale(key) {
+  const entry = _sidecarCache.get(key);
+  return entry ? entry.data : null;
+}
 function setCached(key, data) {
   _sidecarCache.set(key, { data, ts: Date.now() });
+}
+
+// ── Local IDS log helpers ─────────────────────────────────────────────────
+function _tailFile(filePath, maxBytes) {
+  try {
+    const { size } = statSync(filePath);
+    if (size === 0) return [];
+    const start = Math.max(0, size - maxBytes);
+    const fd = openSync(filePath, 'r');
+    const buf = Buffer.allocUnsafe(size - start);
+    readSync(fd, buf, 0, size - start, start);
+    closeSync(fd);
+    return buf.toString('utf8').split('\n').filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
+function _zeekFields(lines) {
+  for (const line of lines) {
+    if (line.startsWith('#fields\t')) return line.slice('#fields\t'.length).split('\t');
+  }
+  return null;
 }
 
 let _prevEconomicStressIndex = null;
@@ -1358,6 +1387,31 @@ async function handleOllamaStream(requestUrl, req, res, context) {
   }
 }
 
+function extractAlertCentroid(feature) {
+  const geom = feature?.geometry;
+  if (!geom) return null;
+  if (geom.type === 'Point') return [geom.coordinates[0], geom.coordinates[1]];
+  if (geom.type === 'Polygon' && geom.coordinates?.[0]?.length) {
+    const ring = geom.coordinates[0];
+    const lons = ring.map(c => c[0]);
+    const lats = ring.map(c => c[1]);
+    return [
+      (Math.min(...lons) + Math.max(...lons)) / 2,
+      (Math.min(...lats) + Math.max(...lats)) / 2,
+    ];
+  }
+  if (geom.type === 'MultiPolygon' && geom.coordinates?.[0]?.[0]?.length) {
+    const ring = geom.coordinates[0][0];
+    const lons = ring.map(c => c[0]);
+    const lats = ring.map(c => c[1]);
+    return [
+      (Math.min(...lons) + Math.max(...lons)) / 2,
+      (Math.min(...lats) + Math.max(...lats)) / 2,
+    ];
+  }
+  return null;
+}
+
 async function dispatch(requestUrl, req, routes, context) {
   if (req.method === 'OPTIONS') {
     return new Response(null, { status: 204, headers: makeCorsHeaders(req) });
@@ -1395,6 +1449,59 @@ async function dispatch(requestUrl, req, routes, context) {
     if (authHeader !== `Bearer ${expectedToken}`) {
       context.logger.warn(`[local-api] unauthorized request to ${requestUrl.pathname}`);
       return json({ error: 'Unauthorized' }, 401);
+    }
+  }
+
+  if (requestUrl.pathname === '/api/local-youtube-recent-videos') {
+    const channelParam = requestUrl.searchParams.get('channel');
+    if (!channelParam) return json({ error: 'Missing channel parameter', videoIds: [] }, 400);
+    const count = Math.min(Math.max(1, parseInt(requestUrl.searchParams.get('count') || '15', 10)), 30);
+    const handle = channelParam.startsWith('@') ? channelParam : `@${channelParam}`;
+
+    // In-memory channel ID cache (handle → { channelId, ts }) to avoid re-scraping on every call
+    if (!context._ytChannelIdCache) context._ytChannelIdCache = new Map();
+    const cache = context._ytChannelIdCache;
+    const CHANNEL_ID_CACHE_TTL = 24 * 60 * 60 * 1000;
+
+    try {
+      let channelId = null;
+      const cached = cache.get(handle);
+      if (cached && Date.now() - cached.ts < CHANNEL_ID_CACHE_TTL) {
+        channelId = cached.channelId;
+      } else {
+        // Resolve handle → channel ID by scraping the channel page
+        const pageRes = await fetch(`https://www.youtube.com/${handle}`, {
+          headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' },
+          redirect: 'follow',
+        });
+        if (pageRes.ok) {
+          const html = await pageRes.text();
+          const idMatch = html.match(/"externalId"\s*:\s*"(UC[A-Za-z0-9_-]{22})"/);
+          if (idMatch) {
+            channelId = idMatch[1];
+            cache.set(handle, { channelId, ts: Date.now() });
+          }
+        }
+      }
+
+      if (!channelId) return json({ videoIds: [], error: 'Could not resolve channel ID' }, 200);
+
+      // Fetch the public RSS feed (no API key required, returns up to 15 videos newest-to-oldest)
+      const rssRes = await fetch(`https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`, {
+        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; WorldMonitor/1.0)' },
+      });
+      if (!rssRes.ok) throw new Error(`RSS ${rssRes.status}`);
+      const xml = await rssRes.text();
+
+      // Extract video IDs — RSS lists videos newest-to-oldest by default
+      const videoIds = [...xml.matchAll(/<yt:videoId>([A-Za-z0-9_-]{11})<\/yt:videoId>/g)]
+        .map(m => m[1])
+        .slice(0, count);
+
+      return json({ videoIds, channelId }, 200, { 'cache-control': 'public, max-age=900, stale-while-revalidate=300' });
+    } catch (err) {
+      context.logger.warn(`[local-api] youtube-recent-videos failed for ${handle}: ${err?.message}`);
+      return json({ videoIds: [], error: 'Failed to fetch recent videos' }, 200);
     }
   }
 
@@ -1702,6 +1809,96 @@ async function dispatch(requestUrl, req, routes, context) {
     }
   }
 
+  // ── PhishStats phishing database ─────────────────────────────────────────
+  if (requestUrl.pathname === '/api/phishstats-feed') {
+    try {
+      const resp = await fetchWithTimeout(
+        'https://phishstats.info:2096/api/phishing?_sort=-date&_size=50',
+        { headers: { 'User-Agent': CHROME_UA, Accept: 'application/json' } },
+        12000,
+      );
+      if (!resp.ok) return json([], 200);
+      const data = await resp.json();
+      const records = Array.isArray(data) ? data : [];
+      const threats = records.slice(0, 100).map((r, i) => ({
+        id: `phishstats-${r.id ?? i}`,
+        type: 'phishing',
+        source: 'phishstats',
+        indicator: String(r.url ?? r.ip ?? ''),
+        indicatorType: r.ip && !r.url ? 'ip' : 'url',
+        lat: typeof r.asn_geoip_lat === 'number' ? r.asn_geoip_lat : 0,
+        lon: typeof r.asn_geoip_lng === 'number' ? r.asn_geoip_lng : 0,
+        country: String(r.countrycode ?? ''),
+        severity: 'high',
+        malwareFamily: '',
+        tags: ['phishing'],
+        firstSeen: r.date ?? new Date().toISOString(),
+        lastSeen: r.date ?? new Date().toISOString(),
+      }));
+      return json(threats);
+    } catch {
+      return json([], 200);
+    }
+  }
+
+  // ── OpenSanctions — global consolidated sanctions database (free, no key) ──
+  if (requestUrl.pathname === '/api/opensanctions-recent') {
+    const cached = getCached('opensanctions-recent', 4 * 60 * 60 * 1000); // 4h
+    if (cached) return json(cached);
+    try {
+      const params = new URLSearchParams({ limit: '50', sort: 'first_seen:desc', schema: 'LegalEntity,Person', target: 'true' });
+      const r = await fetchWithTimeout(
+        `https://api.opensanctions.org/entities?${params}`,
+        { headers: { Accept: 'application/json' } },
+        12000,
+      );
+      if (!r.ok) throw new Error(`OpenSanctions ${r.status}`);
+      const data = await r.json();
+      const items = (data.results ?? []).map((e, i) => ({
+        id: e.id ?? `os-${i}`,
+        name: e.caption ?? e.id ?? 'Unknown',
+        schema: e.schema ?? 'Unknown',
+        countries: e.properties?.country ?? [],
+        datasets: e.datasets ?? [],
+        topics: e.properties?.topics ?? [],
+        firstSeen: e.first_seen ?? null,
+        lastSeen: e.last_seen ?? null,
+        sanctionPrograms: (e.properties?.program ?? []).join(', ') || null,
+      }));
+      setCached('opensanctions-recent', items);
+      return json(items);
+    } catch (e) {
+      return json({ error: `opensanctions-recent error: ${e.message ?? e}` }, 502);
+    }
+  }
+
+  if (requestUrl.pathname === '/api/opensanctions-search') {
+    const q = requestUrl.searchParams.get('q');
+    if (!q || q.trim().length < 2) return json({ error: 'Query too short' }, 400);
+    try {
+      const params = new URLSearchParams({ q: q.trim(), limit: '20', target: 'true' });
+      const r = await fetchWithTimeout(
+        `https://api.opensanctions.org/search/default?${params}`,
+        { headers: { Accept: 'application/json' } },
+        10000,
+      );
+      if (!r.ok) throw new Error(`OpenSanctions search ${r.status}`);
+      const data = await r.json();
+      const results = (data.results ?? []).map(e => ({
+        id: e.id ?? '',
+        name: e.caption ?? '',
+        schema: e.schema ?? '',
+        countries: e.properties?.country ?? [],
+        datasets: e.datasets ?? [],
+        topics: e.properties?.topics ?? [],
+        score: e.score ?? null,
+      }));
+      return json({ query: q, results, total: data.total ?? results.length });
+    } catch (e) {
+      return json({ error: `opensanctions-search error: ${e.message ?? e}` }, 502);
+    }
+  }
+
   // ── AlienVault OTX pulse/IOC feed ────────────────────────────────────────
   if (requestUrl.pathname === '/api/otx-iocs') {
     const apiKey = process.env.OTX_API_KEY;
@@ -1792,6 +1989,37 @@ async function dispatch(requestUrl, req, routes, context) {
       });
     } catch (e) {
       return json({ error: String(e.message ?? e) }, 502);
+    }
+  }
+
+  // ── GreyNoise Community — IP noise/riot classification ────────────────────
+  if (requestUrl.pathname === '/api/greynoise-lookup') {
+    const ip = requestUrl.searchParams.get('ip');
+    if (!ip || !/^(\d{1,3}\.){3}\d{1,3}$/.test(ip)) return json({ error: 'Missing or invalid ip parameter' }, 400);
+    const apiKey = process.env.GREYNOISE_API_KEY;
+    if (!apiKey) return json({ error: 'GREYNOISE_API_KEY not set' }, 503);
+    try {
+      const r = await fetchWithTimeout(
+        `https://api.greynoise.io/v3/community/${ip}`,
+        { headers: { key: apiKey, Accept: 'application/json' } },
+        8000,
+      );
+      if (r.status === 404) return json({ ip, seen: false, noise: false, riot: false, classification: 'unknown', message: 'Not seen in GreyNoise' });
+      if (!r.ok) return json({ error: `GreyNoise ${r.status}` }, 502);
+      const d = await r.json();
+      return json({
+        ip: d.ip ?? ip,
+        seen: d.seen ?? false,
+        noise: d.noise ?? false,
+        riot: d.riot ?? false,
+        classification: d.classification ?? 'unknown',
+        name: d.name ?? null,
+        link: d.link ?? null,
+        lastSeen: d.last_seen ?? null,
+        message: d.message ?? null,
+      });
+    } catch (e) {
+      return json({ error: `greynoise-lookup error: ${e.message ?? e}` }, 502);
     }
   }
 
@@ -1945,12 +2173,197 @@ async function dispatch(requestUrl, req, routes, context) {
           onset: p.onset ?? '',
           expires: p.expires ?? '',
           status: p.status ?? '',
+          centroid: extractAlertCentroid(f),
         };
       });
       return json(alerts);
     } catch {
       return json([], 200);
     }
+  }
+
+  // ── FAA Aviation Weather Cameras (public, no auth) ───────────────────────────
+  if (requestUrl.pathname === '/api/faa-cameras') {
+    const CACHE_KEY = 'faa-cameras';
+    const CACHE_TTL = 15 * 60 * 1000;
+    const cached = getCached(CACHE_KEY, CACHE_TTL);
+    if (cached) return json(cached);
+    try {
+      const resp = await fetchWithTimeout(
+        'https://avcams.faa.gov/api/cameras',
+        { headers: { Accept: 'application/json', 'User-Agent': 'WorldMonitor/1.0' } },
+        15000,
+      );
+      if (!resp.ok) return json(getCachedStale(CACHE_KEY) ?? [], 200);
+      const raw = await resp.json();
+      const cameras = (Array.isArray(raw) ? raw : raw?.cameras ?? []).map(c => ({
+        id: String(c.id ?? c.cameraId ?? ''),
+        name: String(c.name ?? c.cameraName ?? ''),
+        lat: Number(c.lat ?? c.latitude ?? 0),
+        lon: Number(c.lon ?? c.longitude ?? 0),
+        state: String(c.state ?? ''),
+        category: String(c.category ?? 'weather').toLowerCase(),
+        imageUrl: String(c.imageUrl ?? c.image_url ?? ''),
+        isOnline: Boolean(c.isOnline ?? c.active ?? true),
+        lastUpdated: String(c.lastUpdated ?? c.last_updated ?? new Date().toISOString()),
+      })).filter(c => c.id && c.lat !== 0 && c.lon !== 0);
+      setCached(CACHE_KEY, cameras);
+      return json(cameras);
+    } catch (e) {
+      return json(getCachedStale(CACHE_KEY) ?? [], 200);
+    }
+  }
+
+  // ── FAA Camera AI Image Analysis (Ollama-primary, Claude fallback) ────────────
+  if (requestUrl.pathname === '/api/faa-cam-analyze' && req.method === 'POST') {
+    const rawBody = await readBody(req);
+    if (!rawBody) return json({ error: 'Invalid request body' }, 400);
+    let body;
+    try { body = JSON.parse(rawBody.toString()); } catch { return json({ error: 'Invalid request body' }, 400); }
+    const { imageUrl, cameraName, alertLabel } = body ?? {};
+    if (!imageUrl || typeof imageUrl !== 'string') return json({ error: 'imageUrl required' }, 400);
+    const safety = await isSafeUrl(imageUrl);
+    if (!safety.safe) {
+      return json({ error: `Invalid image URL: ${safety.reason}` }, 400);
+    }
+
+    // Fetch and base64-encode the camera image
+    let imageB64;
+    try {
+      const imgResp = await fetchWithTimeout(imageUrl, { headers: { 'User-Agent': 'WorldMonitor/1.0' } }, 10000);
+      if (!imgResp.ok) return json({ error: 'Could not fetch camera image' }, 502);
+      const buf = await imgResp.arrayBuffer();
+      imageB64 = Buffer.from(buf).toString('base64');
+    } catch (e) {
+      return json({ error: `Image fetch failed: ${String(e?.message ?? e)}` }, 502);
+    }
+
+    const ctxLabel = alertLabel ? ` Context: camera is near an active ${alertLabel}.` : '';
+    const prompt = `Describe current weather conditions visible in this camera image in 1-2 sentences. Be concise and factual.${ctxLabel}`;
+
+    // Try Ollama first
+    const ollamaUrl = process.env.OLLAMA_API_URL;
+    const ollamaModel = process.env.OLLAMA_MODEL;
+    if (ollamaUrl && ollamaModel) {
+      try {
+        const ollamaResp = await fetchWithTimeout(
+          new URL('/api/generate', ollamaUrl).toString(),
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ model: ollamaModel, prompt, images: [imageB64], stream: false }),
+          },
+          25000,
+        );
+        if (ollamaResp.ok) {
+          const data = await ollamaResp.json();
+          if (data.response) return json({ conditions: String(data.response).trim() });
+        }
+      } catch { /* fall through to Claude */ }
+    }
+
+    // Claude API fallback
+    const anthropicKey = process.env.ANTHROPIC_API_KEY;
+    if (anthropicKey) {
+      try {
+        const claudeResp = await fetchWithTimeout(
+          'https://api.anthropic.com/v1/messages',
+          {
+            method: 'POST',
+            headers: {
+              'x-api-key': anthropicKey,
+              'anthropic-version': '2023-06-01',
+              'content-type': 'application/json',
+            },
+            body: JSON.stringify({
+              model: 'claude-haiku-4-5-20251001',
+              max_tokens: 150,
+              messages: [{
+                role: 'user',
+                content: [
+                  { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: imageB64 } },
+                  { type: 'text', text: prompt },
+                ],
+              }],
+            }),
+          },
+          25000,
+        );
+        if (claudeResp.ok) {
+          const data = await claudeResp.json();
+          const text = data?.content?.[0]?.text;
+          if (text) return json({ conditions: String(text).trim() });
+        }
+      } catch { /* fall through */ }
+    }
+
+    return json({ error: 'Analysis unavailable — enable Ollama with a vision model (llava, moondream2) or add an Anthropic API key.' });
+  }
+
+  // ── FAA Camera Situational Digest ─────────────────────────────────────────────
+  if (requestUrl.pathname === '/api/faa-cam-digest' && req.method === 'POST') {
+    const rawBody = await readBody(req);
+    if (!rawBody) return json({ error: 'Invalid request body' }, 400);
+    let body;
+    try { body = JSON.parse(rawBody.toString()); } catch { return json({ error: 'Invalid request body' }, 400); }
+    const cameras = Array.isArray(body?.cameras) ? body.cameras : [];
+    if (cameras.length < 2) return json({ error: 'At least 2 cameras required' }, 400);
+
+    const camList = cameras.slice(0, 6).map(c => {
+      const alert = c.alertLabel ? `, near ${c.alertLabel}` : '';
+      return `- ${c.name} (${c.location})${alert}`;
+    }).join('\n');
+    const prompt = `You are a situational awareness assistant. The following FAA weather cameras are near active weather or disaster alerts:\n${camList}\n\nWrite a 2-sentence situational summary for an emergency monitor. Be factual, concise, and avoid speculation.`;
+
+    const ollamaUrl = process.env.OLLAMA_API_URL;
+    const ollamaModel = process.env.OLLAMA_MODEL;
+    if (ollamaUrl && ollamaModel) {
+      try {
+        const resp = await fetchWithTimeout(
+          new URL('/api/generate', ollamaUrl).toString(),
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ model: ollamaModel, prompt, stream: false }),
+          },
+          25000,
+        );
+        if (resp.ok) {
+          const data = await resp.json();
+          if (data.response) return json({ digest: String(data.response).trim() });
+        }
+      } catch { /* fall through */ }
+    }
+
+    const anthropicKey = process.env.ANTHROPIC_API_KEY;
+    if (anthropicKey) {
+      try {
+        const resp = await fetchWithTimeout(
+          'https://api.anthropic.com/v1/messages',
+          {
+            method: 'POST',
+            headers: {
+              'x-api-key': anthropicKey,
+              'anthropic-version': '2023-06-01',
+              'content-type': 'application/json',
+            },
+            body: JSON.stringify({
+              model: 'claude-haiku-4-5-20251001',
+              max_tokens: 120,
+              messages: [{ role: 'user', content: prompt }],
+            }),
+          },
+          25000,
+        );
+        if (resp.ok) {
+          const data = await resp.json();
+          const text = data?.content?.[0]?.text;
+          if (text) return json({ digest: String(text).trim() });
+        }
+      } catch { /* fall through */ }
+    }
+
+    return json({ error: 'Digest unavailable' });
   }
 
   // ── Disease Outbreak proxy (ReliefWeb + WHO, no API key) ─────────────────
@@ -1971,6 +2384,113 @@ async function dispatch(requestUrl, req, routes, context) {
       return json({ reliefweb, who });
     } catch (error) {
       return json({ error: `disease-outbreaks fetch error: ${error.message ?? error}` }, 502);
+    }
+  }
+
+  // ── HDX (UN OCHA) humanitarian crisis datasets ───────────────────────────
+  if (requestUrl.pathname === '/api/hdx-crises') {
+    try {
+      const resp = await fetchWithTimeout(
+        'https://data.humdata.org/api/3/action/package_search?q=crisis+situation+report&sort=metadata_modified+desc&rows=20',
+        { headers: { 'User-Agent': CHROME_UA, Accept: 'application/json' } },
+        15000,
+      );
+      if (!resp.ok) return json([], 200);
+      const data = await resp.json();
+      const results = Array.isArray(data?.result?.results) ? data.result.results : [];
+      const crises = results.map((pkg, i) => {
+        const groups = Array.isArray(pkg.groups) ? pkg.groups : [];
+        const country = groups[0]?.display_name ?? groups[0]?.title ?? '';
+        const countryCode = groups[0]?.name?.toUpperCase() ?? '';
+        const tags = (Array.isArray(pkg.tags) ? pkg.tags.map((t) => (t.name ?? '').toLowerCase()) : []);
+        let crisisType = 'other';
+        if (tags.some(t => t.includes('conflict') || t.includes('war') || t.includes('armed'))) crisisType = 'conflict';
+        else if (tags.some(t => t.includes('displacement') || t.includes('refugee') || t.includes('idp'))) crisisType = 'displacement';
+        else if (tags.some(t => t.includes('food') || t.includes('hunger') || t.includes('famine'))) crisisType = 'food-insecurity';
+        else if (tags.some(t => t.includes('disease') || t.includes('outbreak') || t.includes('epidemic'))) crisisType = 'disease';
+        else if (tags.some(t => t.includes('earthquake') || t.includes('flood') || t.includes('cyclone') || t.includes('hurricane'))) crisisType = 'disaster';
+        const org = Array.isArray(pkg.organization) ? pkg.organization.title ?? '' :
+          (pkg.organization?.title ?? pkg.organization?.name ?? '');
+        const numResources = pkg.num_resources ?? 0;
+        const severity = crisisType === 'conflict' ? 'critical' : crisisType === 'displacement' || crisisType === 'food-insecurity' ? 'high' : crisisType === 'disease' || crisisType === 'disaster' ? 'medium' : 'low';
+        return {
+          id: pkg.id ?? `hdx-${i}`,
+          title: pkg.title ?? pkg.name ?? '',
+          country,
+          countryCode,
+          crisisType,
+          affectedPeople: null,
+          organization: org,
+          updatedAt: pkg.metadata_modified ?? pkg.last_modified ?? new Date().toISOString(),
+          url: `https://data.humdata.org/dataset/${pkg.name ?? pkg.id}`,
+          severity,
+          numResources,
+        };
+      });
+      return json(crises);
+    } catch {
+      return json([], 200);
+    }
+  }
+
+  // ── Federal Register (executive orders, major rules, emergency notices) ────
+  if (requestUrl.pathname === '/api/federal-register') {
+    try {
+      const resp = await fetchWithTimeout(
+        'https://www.federalregister.gov/api/v1/documents.json?fields[]=document_number&fields[]=title&fields[]=type&fields[]=agencies&fields[]=publication_date&fields[]=abstract&conditions[type][]=PRESDOCU&conditions[type][]=RULE&conditions[type][]=PROPOSED_RULE&conditions[type][]=NOTICE&per_page=20&order=newest',
+        { headers: { 'User-Agent': CHROME_UA, Accept: 'application/json' } },
+        15000,
+      );
+      if (!resp.ok) return json({ documents: [] }, 200);
+      const data = await resp.json();
+      const results = Array.isArray(data?.results) ? data.results : [];
+      const documents = results.map((doc, i) => {
+        const agencies = Array.isArray(doc.agencies) ? doc.agencies : [];
+        const agency = agencies[0]?.name ?? agencies[0]?.raw_name ?? '';
+        const title = doc.title ?? '';
+        const abstract = doc.abstract ?? '';
+        let severity = 'normal';
+        if (/emergency|national security|executive order/i.test(title) || /emergency|national security|executive order/i.test(abstract)) {
+          severity = 'critical';
+        } else if (/federal register|major rule|significant/i.test(title) || /federal register|major rule|significant/i.test(abstract)) {
+          severity = 'high';
+        }
+        return {
+          id: doc.document_number ?? `fr-${i}`,
+          title,
+          type: doc.type ?? '',
+          agency,
+          date: doc.publication_date ?? '',
+          abstract,
+          severity,
+        };
+      });
+      return json({ documents });
+    } catch {
+      return json({ documents: [] }, 200);
+    }
+  }
+
+  // ── WallStreetBets retail sentiment (nbshare.io, no API key) ────────────
+  if (requestUrl.pathname === '/api/wsb-sentiment') {
+    try {
+      const resp = await fetchWithTimeout(
+        'https://api.nbshare.io/api/sp500/wsb/',
+        { headers: { 'User-Agent': CHROME_UA, Accept: 'application/json' } },
+        12000,
+      );
+      if (!resp.ok) return json({ snapshots: [] }, 200);
+      const data = await resp.json();
+      const arr = Array.isArray(data) ? data : [];
+      const snapshots = arr.slice(0, 20).map((item, i) => ({
+        ticker: item.Ticker ?? '',
+        mentions: item.No_of_Mentions ?? 0,
+        sentiment: typeof item.Sentiment === 'number' ? item.Sentiment : 0,
+        rank: i + 1,
+      }));
+      return json({ snapshots });
+    } catch {
+      return json({ snapshots: [] }, 200);
     }
   }
 
@@ -1996,6 +2516,84 @@ async function dispatch(requestUrl, req, routes, context) {
       return json(result);
     } catch (error) {
       return json({ error: `space-weather-feeds fetch error: ${error.message ?? error}` }, 502);
+    }
+  }
+
+  // ── NASA DONKI space weather events ─────────────────────────────────────
+  if (requestUrl.pathname === '/api/donki-events') {
+    const apiKey = process.env.NASA_API_KEY ?? 'DEMO_KEY';
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    const today = new Date().toISOString().slice(0, 10);
+    const base = `https://api.nasa.gov/DONKI`;
+    const params = `startDate=${sevenDaysAgo}&endDate=${today}&api_key=${apiKey}`;
+    try {
+      const [flrResp, cmeResp, gstResp] = await Promise.allSettled([
+        fetchWithTimeout(`${base}/FLR?${params}`, { headers: { 'User-Agent': CHROME_UA } }, 12000),
+        fetchWithTimeout(`${base}/CME?${params}`, { headers: { 'User-Agent': CHROME_UA } }, 12000),
+        fetchWithTimeout(`${base}/GST?${params}`, { headers: { 'User-Agent': CHROME_UA } }, 12000),
+      ]);
+      const events = [];
+      if (flrResp.status === 'fulfilled' && flrResp.value.ok) {
+        const flares = await flrResp.value.json();
+        for (const f of (Array.isArray(flares) ? flares : [])) {
+          const cls = f.classType ?? '';
+          events.push({
+            id: f.flrID ?? `flr-${events.length}`,
+            type: 'flare',
+            startTime: f.beginTime ?? null,
+            peakTime: f.peakTime ?? null,
+            endTime: f.endTime ?? null,
+            classType: cls,
+            kpIndex: null,
+            estimatedArrival: null,
+            severity: cls.startsWith('X') ? 'critical' : cls.startsWith('M') ? 'high' : cls.startsWith('C') ? 'medium' : 'low',
+            url: f.link ?? `https://kauai.ccmc.gsfc.nasa.gov/DONKI/`,
+          });
+        }
+      }
+      if (cmeResp.status === 'fulfilled' && cmeResp.value.ok) {
+        const cmes = await cmeResp.value.json();
+        for (const c of (Array.isArray(cmes) ? cmes : [])) {
+          const analysis = Array.isArray(c.cmeAnalyses) ? c.cmeAnalyses[0] : null;
+          const arrival = analysis?.time21_5 ?? null;
+          events.push({
+            id: c.activityID ?? `cme-${events.length}`,
+            type: 'cme',
+            startTime: c.startTime ?? null,
+            peakTime: null,
+            endTime: null,
+            classType: null,
+            kpIndex: null,
+            estimatedArrival: arrival,
+            severity: analysis?.isMostAccurate ? 'high' : 'medium',
+            url: c.link ?? `https://kauai.ccmc.gsfc.nasa.gov/DONKI/`,
+          });
+        }
+      }
+      if (gstResp.status === 'fulfilled' && gstResp.value.ok) {
+        const storms = await gstResp.value.json();
+        for (const g of (Array.isArray(storms) ? storms : [])) {
+          const maxKp = Array.isArray(g.allKpIndex)
+            ? Math.max(...g.allKpIndex.map((k) => k.kpIndex ?? 0))
+            : null;
+          events.push({
+            id: g.gstID ?? `gst-${events.length}`,
+            type: 'geomagnetic-storm',
+            startTime: g.startTime ?? null,
+            peakTime: null,
+            endTime: null,
+            classType: null,
+            kpIndex: maxKp,
+            estimatedArrival: null,
+            severity: maxKp !== null ? (maxKp >= 7 ? 'critical' : maxKp >= 5 ? 'high' : maxKp >= 4 ? 'medium' : 'low') : 'low',
+            url: g.link ?? `https://kauai.ccmc.gsfc.nasa.gov/DONKI/`,
+          });
+        }
+      }
+      events.sort((a, b) => new Date(b.startTime ?? 0).getTime() - new Date(a.startTime ?? 0).getTime());
+      return json(events.slice(0, 30));
+    } catch {
+      return json([], 200);
     }
   }
 
@@ -2103,6 +2701,59 @@ async function dispatch(requestUrl, req, routes, context) {
       });
     } catch (error) {
       return json({ timestamp: new Date().toISOString(), rateLimited: false, etfs: [], error: String(error.message ?? error) });
+    }
+  }
+
+  // ── OpenWeatherMap — current conditions for major global cities ───────────
+  if (requestUrl.pathname === '/api/owm-current') {
+    const cached = getCached('owm-current', 30 * 60 * 1000); // 30 min
+    if (cached) return json(cached);
+    const apiKey = process.env.OWM_API_KEY;
+    if (!apiKey) return json({ error: 'OWM_API_KEY not set' }, 503);
+    const CITIES = [
+      { name: 'New York', lat: 40.71, lon: -74.01 }, { name: 'Los Angeles', lat: 34.05, lon: -118.24 },
+      { name: 'Chicago', lat: 41.85, lon: -87.65 }, { name: 'London', lat: 51.51, lon: -0.13 },
+      { name: 'Paris', lat: 48.85, lon: 2.35 }, { name: 'Berlin', lat: 52.52, lon: 13.40 },
+      { name: 'Moscow', lat: 55.75, lon: 37.62 }, { name: 'Dubai', lat: 25.20, lon: 55.27 },
+      { name: 'Riyadh', lat: 24.69, lon: 46.72 }, { name: 'Tehran', lat: 35.69, lon: 51.39 },
+      { name: 'Beijing', lat: 39.91, lon: 116.39 }, { name: 'Tokyo', lat: 35.68, lon: 139.69 },
+      { name: 'Shanghai', lat: 31.23, lon: 121.47 }, { name: 'Delhi', lat: 28.61, lon: 77.21 },
+      { name: 'Mumbai', lat: 19.08, lon: 72.88 }, { name: 'Karachi', lat: 24.86, lon: 67.01 },
+      { name: 'Dhaka', lat: 23.73, lon: 90.41 }, { name: 'Jakarta', lat: -6.21, lon: 106.85 },
+      { name: 'Cairo', lat: 30.04, lon: 31.24 }, { name: 'Lagos', lat: 6.45, lon: 3.40 },
+      { name: 'Nairobi', lat: -1.29, lon: 36.82 }, { name: 'Johannesburg', lat: -26.20, lon: 28.04 },
+      { name: 'São Paulo', lat: -23.55, lon: -46.63 }, { name: 'Mexico City', lat: 19.43, lon: -99.13 },
+      { name: 'Sydney', lat: -33.87, lon: 151.21 }, { name: 'Kyiv', lat: 50.45, lon: 30.52 },
+      { name: 'Tel Aviv', lat: 32.08, lon: 34.78 }, { name: 'Islamabad', lat: 33.72, lon: 73.04 },
+    ];
+    try {
+      const results = await Promise.allSettled(CITIES.map(async (city) => {
+        const r = await fetchWithTimeout(
+          `https://api.openweathermap.org/data/2.5/weather?lat=${city.lat}&lon=${city.lon}&appid=${apiKey}&units=metric`,
+          { headers: { 'User-Agent': CHROME_UA } },
+          8000,
+        );
+        if (!r.ok) return null;
+        const d = await r.json();
+        return {
+          city: city.name, lat: city.lat, lon: city.lon,
+          tempC: Math.round(d.main?.temp ?? 0),
+          feelsLikeC: Math.round(d.main?.feels_like ?? 0),
+          humidity: d.main?.humidity ?? null,
+          condition: d.weather?.[0]?.main ?? 'Unknown',
+          description: d.weather?.[0]?.description ?? '',
+          icon: d.weather?.[0]?.icon ?? '',
+          windMps: d.wind?.speed ?? null,
+          visibility: d.visibility ?? null,
+          clouds: d.clouds?.all ?? null,
+          updatedAt: new Date().toISOString(),
+        };
+      }));
+      const items = results.filter(r => r.status === 'fulfilled' && r.value !== null).map(r => r.value);
+      setCached('owm-current', items);
+      return json(items);
+    } catch (e) {
+      return json({ error: `owm-current error: ${e.message ?? e}` }, 502);
     }
   }
 
@@ -2432,6 +3083,83 @@ async function dispatch(requestUrl, req, routes, context) {
     }
   }
 
+  // ── SEC EDGAR — recent 8-K material event filings (free, no key) ─────────
+  if (requestUrl.pathname === '/api/edgar-filings') {
+    const cached = getCached('edgar-filings', 2 * 60 * 60 * 1000); // 2h
+    if (cached) return json(cached);
+    try {
+      const params = new URLSearchParams({
+        q: '"material definitive agreement" OR "entry into a material" OR "results of operations"',
+        dateRange: 'custom',
+        startdt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        forms: '8-K',
+        hits: '20',
+      });
+      const r = await fetchWithTimeout(
+        `https://efts.sec.gov/LATEST/search-index?${params}`,
+        { headers: { 'User-Agent': 'WorldMonitor contact@worldmonitor.app', Accept: 'application/json' } },
+        12000,
+      );
+      if (!r.ok) throw new Error(`EDGAR ${r.status}`);
+      const data = await r.json();
+      const hits = data.hits?.hits ?? [];
+      const items = hits.map((h, i) => {
+        const src = h._source ?? {};
+        return {
+          id: h._id ?? `edgar-${i}`,
+          company: src.entity_name ?? src.display_names?.[0] ?? 'Unknown',
+          cik: src.entity_id ?? null,
+          formType: src.file_type ?? '8-K',
+          filedAt: src.file_date ?? null,
+          description: src.period_of_report ? `Period: ${src.period_of_report}` : '',
+          accessionNo: src.accession_no ?? null,
+        };
+      });
+      setCached('edgar-filings', items);
+      return json(items);
+    } catch (e) {
+      return json({ error: `edgar-filings error: ${e.message ?? e}` }, 502);
+    }
+  }
+
+  if (requestUrl.pathname === '/api/edgar-search') {
+    const q = requestUrl.searchParams.get('q');
+    if (!q || q.trim().length < 2) return json({ error: 'Query required' }, 400);
+    try {
+      const params = new URLSearchParams({
+        q: q.trim(),
+        dateRange: 'custom',
+        startdt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        hits: '15',
+      });
+      const r = await fetchWithTimeout(
+        `https://efts.sec.gov/LATEST/search-index?${params}`,
+        { headers: { 'User-Agent': 'WorldMonitor contact@worldmonitor.app', Accept: 'application/json' } },
+        10000,
+      );
+      if (!r.ok) throw new Error(`EDGAR search ${r.status}`);
+      const data = await r.json();
+      const hits = data.hits?.hits ?? [];
+      return json({
+        query: q,
+        total: data.hits?.total?.value ?? hits.length,
+        results: hits.map((h, i) => {
+          const src = h._source ?? {};
+          return {
+            id: h._id ?? `edgar-s-${i}`,
+            company: src.entity_name ?? src.display_names?.[0] ?? 'Unknown',
+            cik: src.entity_id ?? null,
+            formType: src.file_type ?? '',
+            filedAt: src.file_date ?? null,
+            accessionNo: src.accession_no ?? null,
+          };
+        }),
+      });
+    } catch (e) {
+      return json({ error: `edgar-search error: ${e.message ?? e}` }, 502);
+    }
+  }
+
   // ── Energy prices — Stooq (WTI/NatGas) + FRED CSV (Brent) ───────────────
   // Returns WTI (cl.f), Brent (DCOILBRENTEU), NatGas (ng.f) — no API key required
   if (requestUrl.pathname === '/api/energy-fallback') {
@@ -2591,6 +3319,48 @@ async function dispatch(requestUrl, req, routes, context) {
       return json({ fires, count: fires.length });
     } catch (error) {
       return json({ fires: [], error: String(error.message ?? error) }, 500);
+    }
+  }
+
+  // ── INPE Queimadas — Brazil wildfire hotspots (last 48h) ─────────────────
+  if (requestUrl.pathname === '/api/inpe-fires') {
+    try {
+      const resp = await fetchWithTimeout(
+        'https://queimadas.dgi.inpe.br/api/focos/?pais_id=33&limit=200',
+        { headers: { 'User-Agent': CHROME_UA, Accept: 'application/json' } },
+        15000,
+      );
+      if (!resp.ok) return json([], 200);
+      const data = await resp.json();
+      const foci = Array.isArray(data) ? data :
+        (Array.isArray(data?.features) ? data.features.map((f) => f.properties ?? f) : []);
+      const hotspots = foci.slice(0, 200).map((f, i) => {
+        const lat = typeof f.latitude === 'number' ? f.latitude :
+          typeof f.lat === 'number' ? f.lat : null;
+        const lon = typeof f.longitude === 'number' ? f.longitude :
+          typeof f.lon === 'number' ? f.lon : null;
+        if (lat === null || lon === null) return null;
+        const frp = typeof f.frp === 'number' ? f.frp : 0;
+        const riskScore = typeof f.risco_fogo === 'number' ? f.risco_fogo : 0.5;
+        const confidence = riskScore >= 0.8 ? 'high' : riskScore >= 0.5 ? 'nominal' : 'low';
+        return {
+          id: `inpe-${f.id ?? i}`,
+          lat,
+          lon,
+          frp,
+          riskScore,
+          biome: f.bioma ?? f.nome_bioma ?? null,
+          state: f.estado ?? f.nome_estado ?? null,
+          municipality: f.municipio ?? f.nome_municipio ?? null,
+          acqTime: f.datahora ?? f.data_hora_gmt ?? new Date().toISOString(),
+          confidence,
+          source: 'INPE',
+          brightness: Math.min(500, 300 + frp * 2),
+        };
+      }).filter(Boolean);
+      return json(hotspots);
+    } catch {
+      return json([], 200);
     }
   }
 
@@ -3028,6 +3798,9 @@ async function dispatch(requestUrl, req, routes, context) {
       setCached('gdelt-intel', result);
       return json(result);
     } catch (error) {
+      // Serve last-known data rather than an empty response — GDELT 503s are transient
+      const stale = getCachedStale('gdelt-intel');
+      if (stale) return json({ ...stale, stale: true, error: error?.message ?? 'unknown' });
       return json({ events: [], updatedAt: Math.floor(Date.now() / 1000), error: error?.message ?? 'unknown' });
     }
   }
@@ -3138,39 +3911,18 @@ async function dispatch(requestUrl, req, routes, context) {
     }
   }
 
-  // ── GDELT Intelligence (no key required, public API) ──────────────────────
-  if (requestUrl.pathname === '/api/gdelt-intel') {
-    const cached = getCached('gdelt-intel', 15 * 60 * 1000); // 15 minutes
-    if (cached) return json(cached);
-    try {
-      const params = new URLSearchParams({
-        query: 'war OR conflict OR crisis OR military OR sanctions OR nuclear',
-        mode: 'artlist',
-        maxrecords: '25',
-        format: 'json',
-        sort: 'ToneAsc',
-        timespan: '3h',
-      });
-      const res = await fetchWithTimeout(`https://api.gdeltproject.org/api/v2/doc/doc?${params}`, { headers: { 'User-Agent': CHROME_UA } }, 12000);
-      if (!res.ok) throw new Error(`GDELT HTTP ${res.status}`);
-      const data = await res.json();
-      const articles = data?.articles ?? [];
-      const events = articles.map(a => ({
-        title: a.title ?? '',
-        url: a.url ?? '',
-        source: a.domain ?? '',
-        tone: typeof a.tone === 'number' ? Math.round(a.tone * 10) / 10 : 0,
-        country: a.sourcecountry ?? '',
-        timestamp: a.seendate
-          ? new Date(a.seendate.replace(/(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z/, '$1-$2-$3T$4:$5:$6Z')).getTime()
-          : Date.now(),
-      })).filter(e => e.title && e.url);
-      const result = { events, updatedAt: Math.floor(Date.now() / 1000) };
-      setCached('gdelt-intel', result);
-      return json(result);
-    } catch (e) {
-      return json({ events: [], updatedAt: Math.floor(Date.now() / 1000), error: e?.message ?? 'unknown' });
+  // ── AIS snapshot — served from sidecar's own aisstream.io connection ────────
+  if (requestUrl.pathname === '/api/ais-snapshot') {
+    const apiKey = process.env.AISSTREAM_API_KEY;
+    if (!apiKey) {
+      return json({ error: 'AISSTREAM_API_KEY not configured — add your key in Settings → Tracking & Sensing' }, 503);
     }
+    // Ensure connected (handles case where key was just set and connect hasn't fired yet)
+    if (!aisState.socket || aisState.socket.readyState > 1) aisConnect(apiKey);
+    return new Response(aisBuildSnapshot(), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-cache' },
+    });
   }
 
   // ── AIS snapshot — served from sidecar's own aisstream.io connection ────────
@@ -3185,6 +3937,151 @@ async function dispatch(requestUrl, req, routes, context) {
       status: 200,
       headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-cache' },
     });
+  }
+
+  // ── Local IDS — Suricata + Zeek alerts (desktop-only, reads local log files) ──
+  if (requestUrl.pathname === '/api/local-ids') {
+    try {
+      const alerts = [];
+
+      // ── Suricata eve.json ──────────────────────────────────────────────
+      const evePath = '/opt/homebrew/var/log/suricata/eve.json';
+      if (existsSync(evePath)) {
+        for (const line of _tailFile(evePath, 131072)) {
+          try {
+            const evt = JSON.parse(line);
+            if (evt.event_type !== 'alert') continue;
+            const sev = evt.alert?.severity;
+            const severity = sev === 1 ? 'critical' : sev === 2 ? 'high' : sev === 3 ? 'medium' : 'low';
+            alerts.push({
+              id: `suricata-${evt.flow_id ?? Math.random().toString(36).slice(2)}-${evt.timestamp}`,
+              source: 'suricata',
+              ts: evt.timestamp ?? new Date().toISOString(),
+              severity,
+              category: evt.alert?.category ?? 'Unknown',
+              signature: evt.alert?.signature ?? '',
+              srcIp: evt.src_ip ?? '',
+              destIp: evt.dest_ip ?? '',
+              proto: evt.proto ?? '',
+              action: evt.alert?.action ?? 'alert',
+            });
+          } catch { /* skip malformed */ }
+        }
+      }
+
+      // ── Zeek notice.log ────────────────────────────────────────────────
+      const noticeCandidates = [
+        '/opt/homebrew/Cellar/zeek/8.1.1/spool/manager/notice.log',
+        '/opt/homebrew/var/log/zeek/current/notice.log',
+      ];
+      for (const p of noticeCandidates) {
+        if (!existsSync(p)) continue;
+        const lines = _tailFile(p, 131072);
+        const fields = _zeekFields(lines);
+        if (!fields) continue;
+        if (fields.indexOf('ts') === -1) continue;
+        const [tsI, noteI, msgI, srcI, dstI] = ['ts', 'note', 'msg', 'src', 'dst'].map(f => fields.indexOf(f));
+        for (const line of lines) {
+          if (line.startsWith('#')) continue;
+          try {
+            const cols = line.split('\t');
+            const ts = cols[tsI];
+            if (!ts || ts === '-') continue;
+            alerts.push({
+              id: `zeek-notice-${ts}-${Math.random().toString(36).slice(2, 6)}`,
+              source: 'zeek_notice',
+              ts: new Date(parseFloat(ts) * 1000).toISOString(),
+              severity: 'medium',
+              category: 'Network Notice',
+              signature: cols[noteI] ?? '',
+              srcIp: cols[srcI] ?? '',
+              destIp: cols[dstI] ?? '',
+              proto: '',
+              action: (cols[msgI] ?? '').slice(0, 120),
+            });
+          } catch { /* skip malformed row */ }
+        }
+        break;
+      }
+
+      // ── Zeek conn.log (suspicious states + large transfers) ───────────
+      const connCandidates = [
+        '/opt/homebrew/Cellar/zeek/8.1.1/spool/manager/conn.log',
+        '/opt/homebrew/var/log/zeek/current/conn.log',
+      ];
+      const SUSPICIOUS_STATES = new Set(['S0', 'REJ', 'RSTRH', 'RSTOS0', 'OTH']);
+      for (const p of connCandidates) {
+        if (!existsSync(p)) continue;
+        const lines = _tailFile(p, 131072);
+        const fields = _zeekFields(lines);
+        if (!fields) continue;
+        if (fields.indexOf('ts') === -1) continue;
+        const [tsI, origI, origPI, respI, respPI, protoI, stateI, bytesI] =
+          ['ts', 'id.orig_h', 'id.orig_p', 'id.resp_h', 'id.resp_p', 'proto', 'conn_state', 'orig_bytes']
+            .map(f => fields.indexOf(f));
+        for (const line of lines) {
+          if (line.startsWith('#')) continue;
+          try {
+            const cols = line.split('\t');
+            const state = cols[stateI];
+            const bytes = parseInt(cols[bytesI], 10) || 0;
+            if (!SUSPICIOUS_STATES.has(state) && bytes < 5_000_000) continue;
+            const ts = cols[tsI];
+            if (!ts || ts === '-') continue;
+            const severity = bytes > 50_000_000 ? 'high' : SUSPICIOUS_STATES.has(state) ? 'medium' : 'low';
+            alerts.push({
+              id: `zeek-conn-${ts}-${cols[origI]}-${Math.random().toString(36).slice(2, 6)}`,
+              source: 'zeek_conn',
+              ts: new Date(parseFloat(ts) * 1000).toISOString(),
+              severity,
+              category: 'Suspicious Connection',
+              signature: `${state}${bytes > 1_000_000 ? ` · ${Math.round(bytes / 1024)}KB` : ''}`,
+              srcIp: cols[origI] ?? '',
+              destIp: cols[respI] ?? '',
+              proto: cols[protoI] ?? '',
+              action: `${cols[origPI] ?? ''} → ${cols[respPI] ?? ''}`,
+            });
+          } catch { /* skip malformed row */ }
+        }
+        break;
+      }
+
+      alerts.sort((a, b) => b.ts.localeCompare(a.ts));
+      return json(alerts.slice(0, 50));
+    } catch {
+      return json([], 200);
+    }
+  }
+
+  // ── PizzINT — Pentagon Pizza Index ────────────────────────────────────────
+  if (requestUrl.pathname === '/api/pizzint/dashboard') {
+    try {
+      const resp = await fetchWithTimeout(
+        'https://www.pizzint.watch/api/dashboard-data',
+        { headers: { Accept: 'application/json', 'User-Agent': CHROME_UA } },
+        12_000,
+      );
+      if (!resp.ok) return json({ success: false, data: [] }, resp.status);
+      const data = await resp.json();
+      return json(data);
+    } catch {
+      return json({ success: false, data: [] }, 200);
+    }
+  }
+
+  if (requestUrl.pathname === '/api/pizzint/gdelt') {
+    try {
+      const resp = await fetchWithTimeout(
+        'https://www.pizzint.watch/api/gdelt/batch?pairs=usa_russia,russia_ukraine,usa_china,china_taiwan,usa_iran,usa_venezuela',
+        { headers: { Accept: 'application/json', 'User-Agent': CHROME_UA } },
+        12_000,
+      );
+      if (!resp.ok) return json([], resp.status);
+      const data = await resp.json();
+      return json(Array.isArray(data) ? data : []);
+    } catch {
+      return json([], 200);
+    }
   }
 
   if (context.cloudFallback && cloudPreferred.has(requestUrl.pathname)) {

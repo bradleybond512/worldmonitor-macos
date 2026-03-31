@@ -12,6 +12,18 @@ import type { StatusPanel } from './StatusPanel';
 import { isYouTubeConnected, signInToYouTube, signOutOfYouTube, initYouTubeAccountListeners } from '@/services/youtube-account';
 import { getApiBaseUrl } from '@/services/runtime';
 import { tryInvokeTauri } from '@/services/tauri-bridge';
+import {
+  getSavedPlaces,
+  removeSavedPlace,
+  setPrimarySavedPlace,
+  subscribeSavedPlaces,
+} from '@/services/saved-places';
+import {
+  loadProximityConfig,
+  saveProximityConfig,
+  setLocationFromGps,
+  setLocationManual,
+} from '@/services/proximity-filter';
 
 const GEAR_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>`;
 
@@ -28,9 +40,11 @@ export interface UnifiedSettingsConfig {
   getLocalizedPanelName: (key: string, fallback: string) => string;
   isDesktopApp: boolean;
   statusPanel?: StatusPanel | null;
+  openCreatePlace?: () => void;
+  openEditPlace?: (placeId: string) => void;
 }
 
-type TabId = 'general' | 'panels' | 'sources' | 'api-keys' | 'status' | 'help' | 'debug';
+type TabId = 'general' | 'panels' | 'sources' | 'api-keys' | 'places' | 'status' | 'help' | 'debug';
 
 export class UnifiedSettings {
   private overlay: HTMLElement;
@@ -44,6 +58,7 @@ export class UnifiedSettings {
   private apiConfigPanel: RuntimeConfigPanel | null = null;
   private _diagToken: string | null = null;
   private _diagRefreshInterval: ReturnType<typeof setInterval> | null = null;
+  private placesDeleteConfirm: string | null = null;
 
   constructor(config: UnifiedSettingsConfig) {
     this.config = config;
@@ -153,6 +168,36 @@ export class UnifiedSettings {
         return;
       }
 
+      // Home Location
+      if (target.id === 'us-gps-location') {
+        const btn = target as HTMLButtonElement;
+        btn.textContent = 'Detecting…';
+        btn.disabled = true;
+        setLocationFromGps()
+          .then(() => this.refreshGeneralTab())
+          .catch(() => this.refreshGeneralTab());
+        return;
+      }
+      if (target.id === 'us-manual-location') {
+        const latInput = this.overlay.querySelector<HTMLInputElement>('#us-home-lat');
+        const lonInput = this.overlay.querySelector<HTMLInputElement>('#us-home-lon');
+        const labelInput = this.overlay.querySelector<HTMLInputElement>('#us-home-label');
+        const lat = parseFloat(latInput?.value ?? '');
+        const lon = parseFloat(lonInput?.value ?? '');
+        const label = labelInput?.value.trim() || `${lat.toFixed(3)}, ${lon.toFixed(3)}`;
+        if (!isNaN(lat) && !isNaN(lon) && lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180) {
+          setLocationManual(lat, lon, label);
+          this.refreshGeneralTab();
+        }
+        return;
+      }
+      if (target.id === 'us-clear-location') {
+        const config = loadProximityConfig();
+        saveProximityConfig({ ...config, location: null, enabled: false });
+        this.refreshGeneralTab();
+        return;
+      }
+
       // YouTube connect / disconnect
       if (target.id === 'us-yt-connect') {
         signInToYouTube();
@@ -160,6 +205,40 @@ export class UnifiedSettings {
       }
       if (target.id === 'us-yt-disconnect') {
         signOutOfYouTube();
+        return;
+      }
+
+      // Places tab actions
+      const placesAction = target.closest<HTMLElement>('[data-places-action]')?.dataset.placesAction;
+      if (placesAction) {
+        const placeId = target.closest<HTMLElement>('[data-place-id]')?.dataset.placeId;
+        if (placesAction === 'add') {
+          this.config.openCreatePlace?.();
+          return;
+        }
+        if (placesAction === 'edit' && placeId) {
+          this.config.openEditPlace?.(placeId);
+          return;
+        }
+        if (placesAction === 'delete' && placeId) {
+          this.placesDeleteConfirm = placeId;
+          this.renderPlacesTab();
+          return;
+        }
+        if (placesAction === 'delete-confirm' && placeId) {
+          removeSavedPlace(placeId);
+          this.placesDeleteConfirm = null;
+          return;
+        }
+        if (placesAction === 'delete-cancel') {
+          this.placesDeleteConfirm = null;
+          this.renderPlacesTab();
+          return;
+        }
+        if (placesAction === 'set-primary' && placeId) {
+          setPrimarySavedPlace(placeId);
+          return;
+        }
         return;
       }
 
@@ -237,6 +316,10 @@ export class UnifiedSettings {
     if (this.config.isDesktopApp) {
       initYouTubeAccountListeners(() => this.refreshGeneralTab());
     }
+
+    subscribeSavedPlaces(() => {
+      if (this.activeTab === 'places') this.renderPlacesTab();
+    });
   }
 
   public open(tab?: TabId): void {
@@ -296,6 +379,7 @@ export class UnifiedSettings {
           <button class="${tabClass('panels')}" data-tab="panels">${t('header.tabPanels')}</button>
           <button class="${tabClass('sources')}" data-tab="sources">${t('header.tabSources')}</button>
           ${this.config.isDesktopApp ? `<button class="${tabClass('api-keys')}" data-tab="api-keys">${t('header.tabApiKeys')}</button>` : ''}
+          <button class="${tabClass('places')}" data-tab="places">Places</button>
           <button class="${tabClass('status')}" data-tab="status">${t('panels.status')}</button>
           <button class="${tabClass('help')}" data-tab="help">Help</button>
           ${this.config.isDesktopApp ? `<button class="${tabClass('debug')}" data-tab="debug">Debug</button>` : ''}
@@ -334,6 +418,9 @@ export class UnifiedSettings {
         ${this.config.isDesktopApp ? `
         <div class="unified-settings-tab-panel${this.activeTab === 'api-keys' ? ' active' : ''}" data-panel-id="api-keys">
         </div>` : ''}
+        <div class="unified-settings-tab-panel${this.activeTab === 'places' ? ' active' : ''}" data-panel-id="places">
+          <div class="us-places-content" id="usPlacesContent"></div>
+        </div>
         <div class="unified-settings-tab-panel${this.activeTab === 'status' ? ' active' : ''}" data-panel-id="status">
           <div class="us-status-content" id="usStatusContent"></div>
         </div>
@@ -365,6 +452,7 @@ export class UnifiedSettings {
     this.renderSourcesGrid();
     this.updateSourcesCounter();
     this.renderStatusTab();
+    this.renderPlacesTab();
     if (!this.config.isDesktopApp) this.updateAiStatus();
   }
 
@@ -388,6 +476,10 @@ export class UnifiedSettings {
       void this._refreshTrafficLog();
       void this._syncVerboseState();
       this._startDebugAutoRefresh();
+    }
+    if (tab === 'places') {
+      this.placesDeleteConfirm = null;
+      this.renderPlacesTab();
     }
   }
 
@@ -434,6 +526,37 @@ export class UnifiedSettings {
       html += `<option value="${opt.value}"${selected}>${opt.label}</option>`;
     }
     html += `</select>`;
+
+    // Home Location section
+    {
+      const proxConfig = loadProximityConfig();
+      const loc = proxConfig.location;
+      const locLabel = loc ? escapeHtml(loc.label) : 'Not set';
+      const locSource = loc ? ` (${loc.source})` : '';
+      const latVal = loc ? String(loc.lat) : '';
+      const lonVal = loc ? String(loc.lon) : '';
+      const labelVal = loc ? escapeHtml(loc.label) : '';
+      html += `<div class="ai-flow-section-label">Home Location</div>`;
+      html += `
+        <div class="ai-flow-toggle-row">
+          <div class="ai-flow-toggle-label-wrap">
+            <div class="ai-flow-toggle-label">Current location</div>
+            <div class="ai-flow-toggle-desc">${locLabel}${locSource}</div>
+          </div>
+          <button id="us-gps-location" class="yt-account-btn connect" style="min-width:100px">Use GPS</button>
+        </div>
+        <div class="ai-flow-toggle-row" style="flex-direction:column;align-items:flex-start;gap:6px">
+          <div class="ai-flow-toggle-label">Set manually</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+            <input id="us-home-lat" type="number" step="any" placeholder="Latitude" value="${latVal}" style="width:100px;padding:4px 6px;background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:4px;color:var(--text-primary)">
+            <input id="us-home-lon" type="number" step="any" placeholder="Longitude" value="${lonVal}" style="width:110px;padding:4px 6px;background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:4px;color:var(--text-primary)">
+            <input id="us-home-label" type="text" placeholder="Label (e.g. Home)" value="${labelVal}" style="width:130px;padding:4px 6px;background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:4px;color:var(--text-primary)">
+            <button id="us-manual-location" class="yt-account-btn connect" style="min-width:50px">Set</button>
+            ${loc ? `<button id="us-clear-location" class="yt-account-btn disconnect" style="min-width:55px">Clear</button>` : ''}
+          </div>
+        </div>
+      `;
+    }
 
     // YouTube Account section (desktop only)
     if (this.config.isDesktopApp) {
@@ -533,6 +656,11 @@ export class UnifiedSettings {
       dot.classList.add('disabled');
       text.textContent = t('components.insights.aiFlowStatusDisabled');
     }
+  }
+
+  public setPlaceCallbacks(openCreate: () => void, openEdit: (placeId: string) => void): void {
+    this.config.openCreatePlace = openCreate;
+    this.config.openEditPlace = openEdit;
   }
 
   public refreshStatusTab(): void {
@@ -731,6 +859,36 @@ export class UnifiedSettings {
     bar.innerHTML = categories.map(c =>
       `<button class="unified-settings-region-pill${this.activePanelCategory === c.key ? ' active' : ''}" data-panel-cat="${c.key}">${escapeHtml(c.label)}</button>`
     ).join('');
+  }
+
+  private renderPlacesTab(): void {
+    const container = this.overlay.querySelector('#usPlacesContent');
+    if (!container) return;
+
+    const places = getSavedPlaces();
+    const MAX = 20;
+    let html = `<div class="us-places-header"><span class="us-places-count">${places.length} / ${MAX} places</span><button class="spm-btn spm-btn--primary spm-btn--sm" data-places-action="add" type="button">+ Add Place</button></div>`;
+
+    if (places.length === 0) {
+      html += `<div class="us-places-empty">No saved places yet. Add your home, work, and other key locations.</div>`;
+    } else {
+      html += `<div class="us-places-list">`;
+      for (const place of places) {
+        const isConfirming = this.placesDeleteConfirm === place.id;
+        const tags = place.tags.map((tag) => `<span class="watchlist-panel-chip">${escapeHtml(tag)}</span>`).join('');
+        const primaryStar = place.primary ? '<span class="us-place-star">&#x2605;</span>' : '';
+        const setPrimaryBtn = !place.primary
+          ? `<button class="spm-btn spm-btn--ghost spm-btn--sm" data-places-action="set-primary" data-place-id="${escapeHtml(place.id)}" type="button" title="Set as primary">&#x2606;</button>`
+          : '';
+        const deleteArea = isConfirming
+          ? `<button class="spm-btn spm-btn--danger spm-btn--sm" data-places-action="delete-confirm" data-place-id="${escapeHtml(place.id)}" type="button">Confirm</button><button class="spm-btn spm-btn--ghost spm-btn--sm" data-places-action="delete-cancel" type="button">No</button>`
+          : `<button class="spm-btn spm-btn--ghost spm-btn--sm spm-btn--danger-ghost" data-places-action="delete" data-place-id="${escapeHtml(place.id)}" type="button">&#xD7;</button>`;
+        html += `<div class="us-place-row" data-place-id="${escapeHtml(place.id)}"><div class="us-place-info"><div class="us-place-name">${primaryStar}${escapeHtml(place.name)}</div><div class="us-place-meta">${place.lat.toFixed(4)}, ${place.lon.toFixed(4)} &bull; ${place.radiusKm} km ${tags}</div></div><div class="us-place-actions">${setPrimaryBtn}<button class="spm-btn spm-btn--ghost spm-btn--sm" data-places-action="edit" data-place-id="${escapeHtml(place.id)}" type="button">Edit</button>${deleteArea}</div></div>`;
+      }
+      html += `</div>`;
+    }
+
+    container.innerHTML = html;
   }
 
   private renderPanelsTab(): void {

@@ -1,10 +1,11 @@
 import { Panel } from './Panel';
-import type { DiseaseOutbreak } from '@/services/disease-outbreak';
+import type { DiseaseOutbreak, GlobalDiseaseSnapshot } from '@/services/disease-outbreak';
 import { escapeHtml } from '@/utils/sanitize';
 import { t } from '@/services/i18n';
 
 export class DiseaseOutbreakPanel extends Panel {
   private outbreaks: DiseaseOutbreak[] = [];
+  private snapshots: GlobalDiseaseSnapshot[] = [];
   private lastUpdated: Date | null = null;
 
   constructor() {
@@ -18,8 +19,9 @@ export class DiseaseOutbreakPanel extends Panel {
     this.showLoading('Fetching WHO outbreak data...');
   }
 
-  public update(outbreaks: DiseaseOutbreak[]): void {
+  public update(outbreaks: DiseaseOutbreak[], snapshots: GlobalDiseaseSnapshot[] = []): void {
     this.outbreaks = outbreaks;
+    this.snapshots = snapshots;
     this.lastUpdated = new Date();
     this.setCount(outbreaks.length);
     this.render();
@@ -30,6 +32,17 @@ export class DiseaseOutbreakPanel extends Panel {
       this.setContent('<div class="panel-empty">No active outbreaks reported.</div>');
       return;
     }
+
+    const snapshotHtml = this.snapshots.map(s => {
+      const trend = s.trend === 'rising' ? '↑' : s.trend === 'falling' ? '↓' : '→';
+      const todayCases = s.casesToday !== null ? `+${s.casesToday.toLocaleString()} today` : '';
+      return `<div class="eq-row" style="padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.06)">
+        <span class="sev-badge">${s.disease === 'covid19' ? 'COVID-19' : 'Influenza'}</span>
+        <span style="margin-left:8px">${s.cases.toLocaleString()} cases</span>
+        <span style="margin-left:8px;opacity:0.7">${todayCases}</span>
+        <span style="margin-left:8px">${trend}</span>
+      </div>`;
+    }).join('');
 
     const rows = this.outbreaks.slice(0, 50).map(o => {
       const sevClass = sevRowClass(o.severity);
@@ -51,6 +64,7 @@ export class DiseaseOutbreakPanel extends Panel {
 
     this.setContent(`
       <div class="do-panel-content">
+        ${snapshotHtml}
         <table class="eq-table">
           <thead>
             <tr>

@@ -196,3 +196,64 @@ export async function fetchDiseaseOutbreaks(): Promise<DiseaseOutbreak[]> {
   cache = { outbreaks: deduped.slice(0, 50), fetchedAt: Date.now() };
   return cache.outbreaks;
 }
+
+export interface GlobalDiseaseSnapshot {
+  disease: 'covid19' | 'influenza';
+  cases: number;
+  deaths: number;
+  recovered: number | null;
+  activeCases: number | null;
+  casesToday: number | null;
+  deathsToday: number | null;
+  trend: 'rising' | 'stable' | 'falling';
+  updatedAt: Date;
+}
+
+let _diseaseShCache: { snapshots: GlobalDiseaseSnapshot[]; ts: number } | null = null;
+const DISEASE_SH_TTL_MS = 60 * 60 * 1000;
+
+export async function fetchGlobalDiseaseSnapshots(): Promise<GlobalDiseaseSnapshot[]> {
+  if (_diseaseShCache && Date.now() - _diseaseShCache.ts < DISEASE_SH_TTL_MS) {
+    return _diseaseShCache.snapshots;
+  }
+  try {
+    const [covidResp, covidHistResp] = await Promise.allSettled([
+      fetch('https://disease.sh/v3/covid-19/all', { signal: AbortSignal.timeout(10000) }),
+      fetch('https://disease.sh/v3/covid-19/historical/all?lastdays=8', { signal: AbortSignal.timeout(10000) }),
+    ]);
+
+    const snapshots: GlobalDiseaseSnapshot[] = [];
+
+    if (covidResp.status === 'fulfilled' && covidResp.value.ok) {
+      const covid = await covidResp.value.json() as Record<string, number>;
+      let trend: GlobalDiseaseSnapshot['trend'] = 'stable';
+      if (covidHistResp.status === 'fulfilled' && covidHistResp.value.ok) {
+        const hist = await covidHistResp.value.json() as { cases?: Record<string, number> };
+        const casesArr = Object.values(hist.cases ?? {});
+        if (casesArr.length >= 8) {
+          const recent = casesArr.slice(-3).reduce((a, b) => a + b, 0) / 3;
+          const older = casesArr.slice(0, 5).reduce((a, b) => a + b, 0) / 5;
+          if (recent > older * 1.1) trend = 'rising';
+          else if (recent < older * 0.9) trend = 'falling';
+        }
+      }
+      snapshots.push({
+        disease: 'covid19',
+        cases: covid.cases ?? 0,
+        deaths: covid.deaths ?? 0,
+        recovered: covid.recovered ?? null,
+        activeCases: covid.active ?? null,
+        casesToday: covid.todayCases ?? null,
+        deathsToday: covid.todayDeaths ?? null,
+        trend,
+        updatedAt: new Date(covid.updated ?? Date.now()),
+      });
+    }
+
+    _diseaseShCache = { snapshots, ts: Date.now() };
+    return snapshots;
+  } catch {
+    _diseaseShCache = { snapshots: [], ts: Date.now() };
+    return [];
+  }
+}
