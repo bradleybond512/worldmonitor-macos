@@ -93,6 +93,9 @@ const FULL_PANELS: Record<string, PanelConfig> = {
   'internet-disruptions': { name: 'Internet Disruptions', enabled: true, priority: 2 },
   'national-debt': { name: 'National Debt', enabled: true, priority: 2 },
   'fuel-prices': { name: 'Fuel Prices', enabled: true, priority: 2 },
+  'global-weather': { name: 'Global Weather', enabled: true, priority: 2 },
+  'opensanctions': { name: 'Global Sanctions', enabled: true, priority: 2 },
+  'edgar-filings': { name: 'SEC EDGAR Filings', enabled: true, priority: 2 },
 };
 
 const FULL_MAP_LAYERS: MapLayers = {
