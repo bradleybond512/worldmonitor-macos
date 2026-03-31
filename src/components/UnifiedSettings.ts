@@ -18,6 +18,12 @@ import {
   setPrimarySavedPlace,
   subscribeSavedPlaces,
 } from '@/services/saved-places';
+import {
+  loadProximityConfig,
+  saveProximityConfig,
+  setLocationFromGps,
+  setLocationManual,
+} from '@/services/proximity-filter';
 
 const GEAR_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>`;
 
@@ -159,6 +165,36 @@ export class UnifiedSettings {
         this.config.setSourcesEnabled(visible, false);
         this.renderSourcesGrid();
         this.updateSourcesCounter();
+        return;
+      }
+
+      // Home Location
+      if (target.id === 'us-gps-location') {
+        const btn = target as HTMLButtonElement;
+        btn.textContent = 'Detecting…';
+        btn.disabled = true;
+        setLocationFromGps()
+          .then(() => this.refreshGeneralTab())
+          .catch(() => this.refreshGeneralTab());
+        return;
+      }
+      if (target.id === 'us-manual-location') {
+        const latInput = this.overlay.querySelector<HTMLInputElement>('#us-home-lat');
+        const lonInput = this.overlay.querySelector<HTMLInputElement>('#us-home-lon');
+        const labelInput = this.overlay.querySelector<HTMLInputElement>('#us-home-label');
+        const lat = parseFloat(latInput?.value ?? '');
+        const lon = parseFloat(lonInput?.value ?? '');
+        const label = labelInput?.value.trim() || `${lat.toFixed(3)}, ${lon.toFixed(3)}`;
+        if (!isNaN(lat) && !isNaN(lon) && lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180) {
+          setLocationManual(lat, lon, label);
+          this.refreshGeneralTab();
+        }
+        return;
+      }
+      if (target.id === 'us-clear-location') {
+        const config = loadProximityConfig();
+        saveProximityConfig({ ...config, location: null, enabled: false });
+        this.refreshGeneralTab();
         return;
       }
 
@@ -490,6 +526,37 @@ export class UnifiedSettings {
       html += `<option value="${opt.value}"${selected}>${opt.label}</option>`;
     }
     html += `</select>`;
+
+    // Home Location section
+    {
+      const proxConfig = loadProximityConfig();
+      const loc = proxConfig.location;
+      const locLabel = loc ? escapeHtml(loc.label) : 'Not set';
+      const locSource = loc ? ` (${loc.source})` : '';
+      const latVal = loc ? String(loc.lat) : '';
+      const lonVal = loc ? String(loc.lon) : '';
+      const labelVal = loc ? escapeHtml(loc.label) : '';
+      html += `<div class="ai-flow-section-label">Home Location</div>`;
+      html += `
+        <div class="ai-flow-toggle-row">
+          <div class="ai-flow-toggle-label-wrap">
+            <div class="ai-flow-toggle-label">Current location</div>
+            <div class="ai-flow-toggle-desc">${locLabel}${locSource}</div>
+          </div>
+          <button id="us-gps-location" class="yt-account-btn connect" style="min-width:100px">Use GPS</button>
+        </div>
+        <div class="ai-flow-toggle-row" style="flex-direction:column;align-items:flex-start;gap:6px">
+          <div class="ai-flow-toggle-label">Set manually</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+            <input id="us-home-lat" type="number" step="any" placeholder="Latitude" value="${latVal}" style="width:100px;padding:4px 6px;background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:4px;color:var(--text-primary)">
+            <input id="us-home-lon" type="number" step="any" placeholder="Longitude" value="${lonVal}" style="width:110px;padding:4px 6px;background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:4px;color:var(--text-primary)">
+            <input id="us-home-label" type="text" placeholder="Label (e.g. Home)" value="${labelVal}" style="width:130px;padding:4px 6px;background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:4px;color:var(--text-primary)">
+            <button id="us-manual-location" class="yt-account-btn connect" style="min-width:50px">Set</button>
+            ${loc ? `<button id="us-clear-location" class="yt-account-btn disconnect" style="min-width:55px">Clear</button>` : ''}
+          </div>
+        </div>
+      `;
+    }
 
     // YouTube Account section (desktop only)
     if (this.config.isDesktopApp) {
