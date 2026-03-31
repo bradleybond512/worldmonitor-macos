@@ -197,6 +197,12 @@ import { fetchNewsApiHeadlines } from '@/services/newsapi';
 import { fetchNewsDataFeed } from '@/services/newsdata';
 import type { ThreatLevel as ClientThreatLevel } from '@/services/threat-classifier';
 import type { NewsItem as ProtoNewsItem, ThreatLevel as ProtoThreatLevel } from '@/generated/client/worldmonitor/news/v1/service_client';
+import { GlobalWeatherPanel } from '@/components/GlobalWeatherPanel';
+import { OpenSanctionsPanel } from '@/components/OpenSanctionsPanel';
+import { EdgarFilingsPanel } from '@/components/EdgarFilingsPanel';
+import { fetchGlobalWeather } from '@/services/global-weather';
+import { fetchRecentSanctions } from '@/services/opensanctions';
+import { fetchRecentEdgarFilings } from '@/services/sec-edgar';
 
 const PROTO_TO_CLIENT_LEVEL: Record<ProtoThreatLevel, ClientThreatLevel> = {
   THREAT_LEVEL_UNSPECIFIED: 'info',
@@ -436,6 +442,9 @@ export class DataLoaderManager implements AppModule {
     if (SITE_VARIANT === 'full') tasks.push({ name: 'faaCameras', task: runGuarded('faaCameras', () => this.loadFAACameras()) });
     if (SITE_VARIANT === 'full') tasks.push({ name: 'savedPlaceWeather', task: runGuarded('savedPlaceWeather', () => this.loadSavedPlaceWeather()) });
     if (SITE_VARIANT === 'full') tasks.push({ name: 'emaForecast', task: runGuarded('emaForecast', () => this.runEMAForecast()) });
+    if (SITE_VARIANT === 'full') tasks.push({ name: 'globalWeather', task: runGuarded('globalWeather', () => this.loadGlobalWeather()) });
+    if (SITE_VARIANT === 'full') tasks.push({ name: 'openSanctions', task: runGuarded('openSanctions', () => this.loadOpenSanctions()) });
+    if (SITE_VARIANT === 'full') tasks.push({ name: 'edgarFilings', task: runGuarded('edgarFilings', () => this.loadEdgarFilings()) });
 
     if (SITE_VARIANT === 'tech') {
       tasks.push({ name: 'techReadiness', task: runGuarded('techReadiness', () => (this.ctx.panels['tech-readiness'] as TechReadinessPanel)?.refresh()) });
@@ -1864,6 +1873,36 @@ export class DataLoaderManager implements AppModule {
       }));
       addToSignalHistory(signals);
       evaluateWarThreat(signals);
+    }
+  }
+
+  async loadGlobalWeather(): Promise<void> {
+    try {
+      const readings = await fetchGlobalWeather();
+      (this.ctx.panels['global-weather'] as GlobalWeatherPanel)?.update(readings);
+    } catch (error) {
+      console.warn('[global-weather] fetch failed', error);
+      (this.ctx.panels['global-weather'] as GlobalWeatherPanel)?.update([]);
+    }
+  }
+
+  async loadOpenSanctions(): Promise<void> {
+    try {
+      const entities = await fetchRecentSanctions();
+      (this.ctx.panels['opensanctions'] as OpenSanctionsPanel)?.update(entities);
+    } catch (error) {
+      console.warn('[opensanctions] fetch failed', error);
+      (this.ctx.panels['opensanctions'] as OpenSanctionsPanel)?.update([]);
+    }
+  }
+
+  async loadEdgarFilings(): Promise<void> {
+    try {
+      const filings = await fetchRecentEdgarFilings();
+      (this.ctx.panels['edgar-filings'] as EdgarFilingsPanel)?.update(filings);
+    } catch (error) {
+      console.warn('[edgar-filings] fetch failed', error);
+      (this.ctx.panels['edgar-filings'] as EdgarFilingsPanel)?.update([]);
     }
   }
 

@@ -57,6 +57,9 @@ import { SpaceWeatherPanel } from '@/components/SpaceWeatherPanel';
 import { SpaceflightNewsPanel } from '@/components/SpaceflightNewsPanel';
 import { DiseaseOutbreakPanel } from '@/components/DiseaseOutbreakPanel';
 import { HumanitarianCrisisPanel } from '@/components/HumanitarianCrisisPanel';
+import { GlobalWeatherPanel } from '@/components/GlobalWeatherPanel';
+import { OpenSanctionsPanel } from '@/components/OpenSanctionsPanel';
+import { EdgarFilingsPanel } from '@/components/EdgarFilingsPanel';
 import { AirQualityPanel } from '@/components/AirQualityPanel';
 import { WildfireIncidentsPanel } from '@/components/WildfireIncidentsPanel';
 import { HazmatIncidentsPanel } from '@/components/HazmatIncidentsPanel';
@@ -901,6 +904,15 @@ export class PanelLayoutManager implements AppModule {
 
       const humanitarianCrisisPanel = new HumanitarianCrisisPanel();
       this.ctx.panels['humanitarian-crisis'] = humanitarianCrisisPanel;
+
+      const globalWeatherPanel = new GlobalWeatherPanel();
+      this.ctx.panels['global-weather'] = globalWeatherPanel;
+
+      const openSanctionsPanel = new OpenSanctionsPanel();
+      this.ctx.panels['opensanctions'] = openSanctionsPanel;
+
+      const edgarFilingsPanel = new EdgarFilingsPanel();
+      this.ctx.panels['edgar-filings'] = edgarFilingsPanel;
 
       const airQualityPanel = new AirQualityPanel();
       this.ctx.panels['air-quality'] = airQualityPanel;
