@@ -34,7 +34,9 @@ export type RuntimeSecretKey =
   | 'VIRUSTOTAL_API_KEY'
   | 'BGPVIEW_API_KEY'
   | 'SHODAN_API_KEY'
-  | 'FMP_API_KEY';
+  | 'FMP_API_KEY'
+  | 'OWM_API_KEY'
+  | 'GREYNOISE_API_KEY';
 
 export type RuntimeFeatureId =
   | 'cloudApiFallbackAuth'
@@ -68,7 +70,11 @@ export type RuntimeFeatureId =
   | 'virusTotalEnrichment'
   | 'bgpViewEnrichment'
   | 'shodanIcsExposure'
-  | 'fmpMarketsFallback';
+  | 'fmpMarketsFallback'
+  | 'openWeatherMap'
+  | 'greynoiseIntel'
+  | 'openSanctions'
+  | 'secEdgar';
 
 export interface RuntimeFeatureDefinition {
   id: RuntimeFeatureId;
@@ -130,6 +136,10 @@ const defaultToggles: Record<RuntimeFeatureId, boolean> = {
   bgpViewEnrichment: true,
   shodanIcsExposure: true,
   fmpMarketsFallback: true,
+  openWeatherMap: true,
+  greynoiseIntel: true,
+  openSanctions: true,
+  secEdgar: true,
 };
 
 export const RUNTIME_FEATURES: RuntimeFeatureDefinition[] = [
@@ -386,6 +396,38 @@ export const RUNTIME_FEATURES: RuntimeFeatureDefinition[] = [
     requiredSecrets: ['FMP_API_KEY'],
     desktopRequiredSecrets: [],
     fallback: 'Markets panel falls back to Yahoo Finance only — may show stale data when rate-limited.',
+  },
+  {
+    id: 'openWeatherMap',
+    name: 'OpenWeatherMap global conditions',
+    description: 'Current weather conditions for 28 major world cities via OpenWeatherMap API (free tier: 1M calls/month).',
+    requiredSecrets: ['OWM_API_KEY'],
+    desktopRequiredSecrets: [],
+    fallback: 'Global weather panel shows no data.',
+  },
+  {
+    id: 'greynoiseIntel',
+    name: 'GreyNoise IP noise classification',
+    description: 'Classify IPs as internet background noise vs. targeted threats via GreyNoise Community API (free: 50 lookups/day).',
+    requiredSecrets: ['GREYNOISE_API_KEY'],
+    desktopRequiredSecrets: [],
+    fallback: 'GreyNoise IP enrichment is disabled.',
+  },
+  {
+    id: 'openSanctions',
+    name: 'OpenSanctions global database',
+    description: 'Global consolidated sanctions from 100+ lists (EU, UN, UK, OFAC, and more) — no key required.',
+    requiredSecrets: [],
+    desktopRequiredSecrets: [],
+    fallback: 'OpenSanctions feed is disabled.',
+  },
+  {
+    id: 'secEdgar',
+    name: 'SEC EDGAR filings',
+    description: 'Recent material event disclosures (8-K filings) from SEC EDGAR — completely free, no key required.',
+    requiredSecrets: [],
+    desktopRequiredSecrets: [],
+    fallback: 'SEC EDGAR filing feed is disabled.',
   },
 ];
 

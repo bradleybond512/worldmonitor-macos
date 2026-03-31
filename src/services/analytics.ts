@@ -93,6 +93,8 @@ const SECRET_ANALYTICS_NAMES: Record<RuntimeSecretKey, string> = {
   BGPVIEW_API_KEY: 'bgpview',
   SHODAN_API_KEY: 'shodan',
   FMP_API_KEY: 'fmp',
+  OWM_API_KEY: 'owm',
+  GREYNOISE_API_KEY: 'greynoise',
 };
 
 // ── Typed event schemas (allowlisted properties per event) ──

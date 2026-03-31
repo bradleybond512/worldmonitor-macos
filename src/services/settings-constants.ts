@@ -31,6 +31,8 @@ export const SIGNUP_URLS: Partial<Record<RuntimeSecretKey, string>> = {
   BGPVIEW_API_KEY: 'https://bgpview.io/',
   FMP_API_KEY: 'https://financialmodelingprep.com/developer/docs',
   SHODAN_API_KEY: 'https://account.shodan.io/',
+  OWM_API_KEY: 'https://openweathermap.org/api',
+  GREYNOISE_API_KEY: 'https://www.greynoise.io/plans/community',
 };
 
 export const PLAINTEXT_KEYS = new Set<RuntimeSecretKey>([
@@ -77,6 +79,8 @@ export const HUMAN_LABELS: Record<RuntimeSecretKey, string> = {
   BGPVIEW_API_KEY: 'BGPView API Key',
   FMP_API_KEY: 'Financial Modeling Prep API Key',
   SHODAN_API_KEY: 'Shodan API Key',
+  OWM_API_KEY: 'OpenWeatherMap API Key',
+  GREYNOISE_API_KEY: 'GreyNoise API Key',
 };
 
 export interface SettingsCategory {
@@ -94,7 +98,7 @@ export const SETTINGS_CATEGORIES: SettingsCategory[] = [
   {
     id: 'economy',
     label: 'Economic & Energy',
-    features: ['economicFred', 'energyEia', 'supplyChain'],
+    features: ['economicFred', 'energyEia', 'supplyChain', 'secEdgar'],
   },
   {
     id: 'markets',
@@ -104,12 +108,12 @@ export const SETTINGS_CATEGORIES: SettingsCategory[] = [
   {
     id: 'security',
     label: 'Security & Threats',
-    features: ['cloudApiFallbackAuth', 'internetOutages', 'acledConflicts', 'acledAirstrikes', 'abuseChThreatIntel', 'alienvaultOtxThreatIntel', 'abuseIpdbThreatIntel', 'threatfoxThreatIntel', 'openPhishThreatIntel', 'spamhausDrop', 'cisaKev', 'virusTotalEnrichment', 'bgpViewEnrichment', 'shodanIcsExposure'],
+    features: ['cloudApiFallbackAuth', 'internetOutages', 'acledConflicts', 'acledAirstrikes', 'abuseChThreatIntel', 'alienvaultOtxThreatIntel', 'abuseIpdbThreatIntel', 'threatfoxThreatIntel', 'openPhishThreatIntel', 'spamhausDrop', 'cisaKev', 'virusTotalEnrichment', 'bgpViewEnrichment', 'shodanIcsExposure', 'greynoiseIntel', 'openSanctions'],
   },
   {
     id: 'tracking',
     label: 'Tracking & Sensing',
-    features: ['aisRelay', 'openskyRelay', 'wingbitsEnrichment', 'nasaFirms', 'aviationStack', 'icaoNotams'],
+    features: ['aisRelay', 'openskyRelay', 'wingbitsEnrichment', 'nasaFirms', 'aviationStack', 'icaoNotams', 'openWeatherMap'],
   },
   {
     id: 'news',

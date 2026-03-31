@@ -35,7 +35,7 @@ const MENU_VIEW_MODE_ID: &str = "view.mode_status";
 #[cfg(feature = "devtools")]
 const MENU_HELP_DEVTOOLS_ID: &str = "help.devtools";
 const TRUSTED_WINDOWS: [&str; 3] = ["main", "settings", "live-channels"];
-const SUPPORTED_SECRET_KEYS: [&str; 33] = [
+const SUPPORTED_SECRET_KEYS: [&str; 35] = [
     "WORLDMONITOR_API_KEY",
     "ANTHROPIC_API_KEY",
     "GROQ_API_KEY",
@@ -69,6 +69,8 @@ const SUPPORTED_SECRET_KEYS: [&str; 33] = [
     "VIRUSTOTAL_API_KEY",
     "BGPVIEW_API_KEY",
     "FMP_API_KEY",
+    "OWM_API_KEY",
+    "GREYNOISE_API_KEY",
 ];
 
 // Rate-limit native notifications: no more than 1 per 30 seconds across all threads.

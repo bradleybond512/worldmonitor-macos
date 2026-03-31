@@ -559,6 +559,7 @@ export class App {
           return this.dataLoader.loadCyberThreats();
         }, intervalMs: 10 * 60 * 1000, condition: () => CYBER_LAYER_ENABLED && this.state.mapLayers.cyberThreats },
         { name: 'spaceWeather', fn: () => this.dataLoader.loadSpaceWeather(), intervalMs: 5 * 60 * 1000, condition: () => SITE_VARIANT === 'full' },
+        { name: 'localIDS', fn: () => this.dataLoader.loadLocalIDS(), intervalMs: 5 * 60 * 1000, condition: () => SITE_VARIANT === 'full' },
         { name: 'diseaseOutbreaks', fn: () => this.dataLoader.loadDiseaseOutbreaks(), intervalMs: 15 * 60 * 1000, condition: () => SITE_VARIANT === 'full' },
         { name: 'airQuality', fn: () => this.dataLoader.loadAirQuality(), intervalMs: 30 * 60 * 1000, condition: () => SITE_VARIANT === 'full' },
         { name: 'commsHealth', fn: () => this.dataLoader.loadCommsHealth(), intervalMs: 2 * 60 * 1000, condition: () => SITE_VARIANT === 'full' },

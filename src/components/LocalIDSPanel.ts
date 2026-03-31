@@ -37,7 +37,7 @@ export class LocalIDSPanel extends Panel {
       const destIp = escapeHtml(a.destIp || '—');
       const proto = escapeHtml(a.proto || '—');
       return `<tr class="${rowClass}">
-        <td><span class="ids-src-badge ids-src-${a.source}">${sourceLabel(a.source)}</span></td>
+        <td><span class="ids-src-badge ids-src-${safeSrcClass(a.source)}">${sourceLabel(a.source)}</span></td>
         <td class="ct-sev">${escapeHtml(a.severity)}</td>
         <td class="ids-sig" title="${escapeHtml(a.signature)}">${sig}</td>
         <td class="ids-ip">${srcIp}</td>
@@ -68,6 +68,12 @@ function severityRowClass(sev: LocalIDSSeverity): string {
   if (sev === 'high') return 'ct-row-high';
   if (sev === 'medium') return 'ct-row-medium';
   return '';
+}
+
+const VALID_SOURCES: ReadonlySet<string> = new Set(['suricata', 'zeek_notice', 'zeek_conn']);
+
+function safeSrcClass(source: string): string {
+  return VALID_SOURCES.has(source) ? source : 'unknown';
 }
 
 function sourceLabel(source: LocalIDSSource): string {
