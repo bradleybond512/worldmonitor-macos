@@ -208,7 +208,15 @@ export function loadChannelsFromStorage(): LiveChannel[] {
     const ch = channelMap.get(id);
     if (ch) ch.name = name;
   }
+  const seenIds = new Set(order);
   const result: LiveChannel[] = [];
+  // Prepend new built-in channels (added after the user's saved order) in default order
+  for (const id of DEFAULT_STORED.order) {
+    if (!seenIds.has(id)) {
+      const ch = channelMap.get(id);
+      if (ch) result.push(ch);
+    }
+  }
   for (const id of order) {
     const ch = channelMap.get(id);
     if (ch) result.push(ch);
