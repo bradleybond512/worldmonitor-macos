@@ -6,53 +6,48 @@ import path from 'node:path';
 const repoRoot = path.resolve(import.meta.dirname, '..');
 const src = readFileSync(path.join(repoRoot, 'src', 'app', 'vault-intro.ts'), 'utf8');
 
-test('vault intro overlay builds a dedicated 3D scene with interior light', () => {
+test('vault intro overlay builds a video scene with scanner and status controls', () => {
   assert.match(
     src,
-    /type OverlayRefs = DoorParts & \{\s+overlay: HTMLDivElement;\s+scene: HTMLDivElement;\s+interior: HTMLDivElement;/m,
-    'overlay refs should track the dedicated scene container and interior light layer',
+    /interface VideoScene \{[\s\S]*idleVideo:\s+HTMLVideoElement;[\s\S]*openVideo:\s+HTMLVideoElement;[\s\S]*fpCanvas:\s+HTMLCanvasElement;/m,
+    'video scene should keep references to idle/open footage and the scanner overlay canvas',
   );
   assert.match(
     src,
-    /const scene = document\.createElement\('div'\);[\s\S]*perspective:1400px;/m,
-    'overlay should create a perspective scene container for the vault door',
+    /const idleVideo = makeVideo\('vault-idle\.mp4', true\);[\s\S]*const openVideo = makeVideo\('vault-open\.mp4', false\);/m,
+    'scene should preload both idle and open vault videos',
   );
   assert.match(
     src,
-    /const interior = document\.createElement\('div'\);[\s\S]*opacity:0;[\s\S]*z-index:0;/m,
-    'overlay should create a hidden interior light layer behind the door',
+    /container\.append\(idleVideo, openVideo, fpCanvas, scanBtn, statusEl, quitBtn, flashEl\);/m,
+    'scene should mount scanner controls and status UI on top of the video stack',
   );
   assert.match(
     src,
-    /scene\.appendChild\(interior\);\s+scene\.appendChild\(parts\.root\);/m,
-    'interior light should sit behind the door inside the shared 3D scene',
-  );
-  assert.match(
-    src,
-    /overlay\.appendChild\(scene\);/m,
-    'interior light should sit behind the door inside the shared 3D scene',
+    /return \{ container, idleVideo, openVideo, fpCanvas, statusEl, scanBtn, quitBtn, flashEl \};/m,
+    'overlay builder should return the full scene refs used by the intro lifecycle',
   );
 });
 
-test('vault intro open sequence animates the full 3D choreography', () => {
+test('vault intro open sequence swaps to open footage, fades scanner overlay, and exits cleanly', () => {
   assert.match(
     src,
-    /p\.scene\.style\.animation = 'vi-seal-jitter \.34s ease both';/,
-    'open sequence should jitter the full scene before the heavy door swing',
+    /scene\.openVideo\.currentTime = 0;[\s\S]*void scene\.openVideo\.play\(\);[\s\S]*scene\.openVideo\.style\.opacity = '1';[\s\S]*scene\.idleVideo\.style\.opacity = '0';/m,
+    'open sequence should swap from idle to open footage immediately after success',
   );
   assert.match(
     src,
-    /Object\.assign\(p\.interior\.style, \{\s+transition: 'opacity 2\.2s ease 0\.15s',\s+opacity: '1',\s+\}\);/m,
-    'open sequence should reveal the interior light as the door opens',
+    /const fpFadeStart = Date\.now\(\);[\s\S]*ctx\.globalAlpha = 1 - t;[\s\S]*drawFrame\(canvas, st, Date\.now\(\)\);/m,
+    'fingerprint overlay should fade while the open footage plays',
   );
   assert.match(
     src,
-    /transformOrigin: 'left center',\s+transform: 'rotateY\(82deg\)',/m,
-    'door should swing open from the left hinge inside the 3D scene',
+    /await sleep\(2800\);[\s\S]*scene\.flashEl\.style\.opacity = '0\.75';[\s\S]*scene\.container\.style\.transition = 'opacity 0\.55s ease';/m,
+    'open sequence should respect timing gates, flash, and then fade the full overlay',
   );
   assert.match(
     src,
-    /transition: 'transform 3\.0s cubic-bezier\(0\.2,0,0\.4,1\), opacity 2\.0s ease 0\.1s',\s+transform: 'scale\(1\.06\)',\s+opacity: '0',/m,
-    'overlay should dolly forward and fade after the door swing starts',
+    /appReady\(\);[\s\S]*scene\.container\.remove\(\);/m,
+    'open sequence should notify readiness and remove the intro container at completion',
   );
 });

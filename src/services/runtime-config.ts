@@ -160,14 +160,6 @@ export const RUNTIME_FEATURES: RuntimeFeatureDefinition[] = [
     fallback: 'Falls back to Groq, then OpenRouter, then local browser model.',
   },
   {
-    id: 'aiClaude',
-    name: 'Claude AI summarization',
-    description: 'Anthropic Claude Sonnet 4.6 — high-quality AI analysis with advanced reasoning and coding.',
-    requiredSecrets: ['ANTHROPIC_API_KEY'],
-    desktopRequiredSecrets: [],
-    fallback: 'Falls back to OpenRouter, then local browser model.',
-  },
-  {
     id: 'aiGroq',
     name: 'Groq summarization',
     description: 'Primary fast LLM provider used for AI summary generation.',
