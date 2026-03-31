@@ -50,7 +50,7 @@ const FULL_PANELS: Record<string, PanelConfig> = {
   'satellite-fires': { name: 'Fires', enabled: true, priority: 2 },
   earthquakes: { name: 'Earthquakes', enabled: true, priority: 2 },
   'cyber-threats': { name: 'Cyber Threats', enabled: true, priority: 2 },
-  'local-ids': { name: 'Local IDS', enabled: true, priority: 2 },
+  'local-ids': { name: 'Local IDS', enabled: false, priority: 2 },
   'comms-health': { name: 'Communications Health', enabled: true, priority: 2 },
   'macro-signals': { name: 'Market Radar', enabled: true, priority: 2 },
   'etf-flows': { name: 'BTC ETF Tracker', enabled: true, priority: 2 },
