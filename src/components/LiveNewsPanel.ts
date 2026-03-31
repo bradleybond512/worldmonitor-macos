@@ -60,7 +60,7 @@ export interface LiveChannel {
 
 // Full variant: World news channels (24/7 live streams)
 const FULL_LIVE_CHANNELS: LiveChannel[] = [
-  { id: 's2underground', name: 'S2 Underground', handle: '@S2Underground', fallbackVideoId: 'c7SRaYZVToY', autoPlaylist: true },
+  { id: 's2underground', name: 'S2 Underground', handle: '@S2Underground', fallbackVideoId: 'lGyn-vcD7EU', autoPlaylist: true },
   { id: 'sky', name: 'SkyNews', handle: '@SkyNews', fallbackVideoId: 'uvviIF4725I' },
   { id: 'euronews', name: 'Euronews', handle: '@euronews', fallbackVideoId: 'pykpO5kQJ98' },
   { id: 'dw', name: 'DW', handle: '@DWNews', fallbackVideoId: 'LuKwFajn37U' },
