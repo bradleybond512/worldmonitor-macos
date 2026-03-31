@@ -148,7 +148,9 @@ import { AirstrikesPanel } from '@/components/AirstrikesPanel';
 import { fetchAirstrikes } from '@/services/airstrikes';
 import { fetchS2Underground } from '@/services/s2-underground';
 import { fetchThreatFoxIOCs, fetchOpenPhishFeed, fetchSpamhausDrop, fetchCisaKev, fetchOtxIOCs, fetchPhishStatsFeed } from '@/services/cyber-extra';
-import { fetchSpaceWeather } from '@/services/space-weather';
+import { fetchSpaceWeather, fetchDonkiEvents } from '@/services/space-weather';
+import { fetchSpaceflightNews } from '@/services/spaceflight-news';
+import { SpaceflightNewsPanel } from '@/components/SpaceflightNewsPanel';
 import { fetchDiseaseOutbreaks } from '@/services/disease-outbreak';
 import { fetchGlobalAirQuality } from '@/services/air-quality';
 import { fetchInciwebIncidents } from '@/services/inciweb';
@@ -391,6 +393,7 @@ export class DataLoaderManager implements AppModule {
     if (SITE_VARIANT !== 'happy') tasks.push({ name: 'iranAttacks', task: runGuarded('iranAttacks', () => this.loadIranEvents()) });
     if (SITE_VARIANT !== 'happy' && (this.ctx.mapLayers.techEvents || SITE_VARIANT === 'tech')) tasks.push({ name: 'techEvents', task: runGuarded('techEvents', () => this.loadTechEvents()) });
     if (SITE_VARIANT === 'full') tasks.push({ name: 'spaceWeather', task: runGuarded('spaceWeather', () => this.loadSpaceWeather()) });
+    if (SITE_VARIANT === 'full') tasks.push({ name: 'spaceflightNews', task: runGuarded('spaceflightNews', () => this.loadSpaceflightNews()) });
     if (SITE_VARIANT === 'full') tasks.push({ name: 'diseaseOutbreaks', task: runGuarded('diseaseOutbreaks', () => this.loadDiseaseOutbreaks()) });
     if (SITE_VARIANT === 'full') tasks.push({ name: 'airQuality', task: runGuarded('airQuality', () => this.loadAirQuality()) });
     if (SITE_VARIANT === 'full') tasks.push({ name: 'wildfireIncidents', task: runGuarded('wildfireIncidents', () => this.loadWildfireIncidents()) });
@@ -1566,14 +1569,24 @@ export class DataLoaderManager implements AppModule {
 
   async loadSpaceWeather(): Promise<void> {
     try {
-      const data = await fetchSpaceWeather();
-      (this.ctx.panels['space-weather'] as SpaceWeatherPanel)?.update(data);
+      const [data, donkiEvents] = await Promise.all([fetchSpaceWeather(), fetchDonkiEvents()]);
+      (this.ctx.panels['space-weather'] as SpaceWeatherPanel)?.update({ ...data, donkiEvents });
     } catch (error) {
       console.warn('[space-weather] fetch failed', error);
       (this.ctx.panels['space-weather'] as SpaceWeatherPanel)?.update({
         kpIndex: null, kpClass: 'quiet', solarWindSpeed: null, solarWindDensity: null,
-        bz: null, xrayClass: null, alertMessages: [], fetchedAt: new Date(),
+        bz: null, xrayClass: null, alertMessages: [], fetchedAt: new Date(), donkiEvents: [],
       });
+    }
+  }
+
+  async loadSpaceflightNews(): Promise<void> {
+    try {
+      const articles = await fetchSpaceflightNews();
+      (this.ctx.panels['spaceflight-news'] as SpaceflightNewsPanel)?.update(articles);
+    } catch (error) {
+      console.warn('[spaceflight-news] fetch failed', error);
+      (this.ctx.panels['spaceflight-news'] as SpaceflightNewsPanel)?.update([]);
     }
   }
 

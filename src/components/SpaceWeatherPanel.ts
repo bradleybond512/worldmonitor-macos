@@ -56,6 +56,19 @@ export class SpaceWeatherPanel extends Panel {
       </div>`;
     }).join('');
 
+    const donkiRows = (d.donkiEvents ?? []).slice(0, 5).map(ev => {
+      const sevClass = ev.severity === 'critical' ? 'sw-danger' : ev.severity === 'high' ? 'sw-warning' : 'sw-info';
+      const typeLabel = ev.type === 'flare' ? 'FLARE' : ev.type === 'cme' ? 'CME' : 'GST';
+      const cls = ev.classType ? ` ${escapeHtml(ev.classType)}` : '';
+      const kp = ev.kpIndex !== null ? ` Kp${ev.kpIndex}` : '';
+      const when = ev.startTime ? timeAgo(new Date(ev.startTime)) : '—';
+      return `<div class="sw-alert-row ${sevClass}">
+        <span class="sw-alert-sev">${typeLabel}${cls}${kp}</span>
+        <span class="sw-alert-msg">${escapeHtml(ev.severity.toUpperCase())}</span>
+        <span class="sw-alert-age">${when}</span>
+      </div>`;
+    }).join('');
+
     this.setContent(`
       <div class="sw-panel-content">
         <div class="sw-grid">
@@ -84,8 +97,12 @@ export class SpaceWeatherPanel extends Panel {
           <div class="sw-alerts-header">Active Alerts</div>
           ${alertRows}
         </div>` : '<div class="panel-empty" style="padding:8px 0">No active alerts</div>'}
+        ${donkiRows ? `<div class="sw-alerts">
+          <div class="sw-alerts-header">NASA DONKI Events (7d)</div>
+          ${donkiRows}
+        </div>` : ''}
         <div class="fires-footer">
-          <span class="fires-source">NOAA SWPC</span>
+          <span class="fires-source">NOAA SWPC · NASA DONKI</span>
           <span class="fires-updated">Updated ${updatedAgo}</span>
         </div>
       </div>
