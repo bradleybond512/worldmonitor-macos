@@ -56,6 +56,7 @@ import { AlertCenterPanel } from '@/components/AlertCenterPanel';
 import { SpaceWeatherPanel } from '@/components/SpaceWeatherPanel';
 import { SpaceflightNewsPanel } from '@/components/SpaceflightNewsPanel';
 import { DiseaseOutbreakPanel } from '@/components/DiseaseOutbreakPanel';
+import { HumanitarianCrisisPanel } from '@/components/HumanitarianCrisisPanel';
 import { AirQualityPanel } from '@/components/AirQualityPanel';
 import { WildfireIncidentsPanel } from '@/components/WildfireIncidentsPanel';
 import { HazmatIncidentsPanel } from '@/components/HazmatIncidentsPanel';
@@ -896,6 +897,9 @@ export class PanelLayoutManager implements AppModule {
 
       const diseaseOutbreakPanel = new DiseaseOutbreakPanel();
       this.ctx.panels['disease-outbreaks'] = diseaseOutbreakPanel;
+
+      const humanitarianCrisisPanel = new HumanitarianCrisisPanel();
+      this.ctx.panels['humanitarian-crisis'] = humanitarianCrisisPanel;
 
       const airQualityPanel = new AirQualityPanel();
       this.ctx.panels['air-quality'] = airQualityPanel;
