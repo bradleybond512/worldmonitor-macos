@@ -73,7 +73,10 @@ export * from './WatchlistPanel';
 export * from './SavedPlacesPanel';
 export * from './LocalLogisticsPanel';
 export * from './CommsPlanPanel';
+
 export * from './WildfireIncidentsPanel';
 export * from './HazmatIncidentsPanel';
 export * from './OilSpillPanel';
 export * from './HazardAlertsPanel';
+export { FAAWeatherCamsPanel } from './FAAWeatherCamsPanel';
+

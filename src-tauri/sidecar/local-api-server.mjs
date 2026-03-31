@@ -1387,6 +1387,31 @@ async function handleOllamaStream(requestUrl, req, res, context) {
   }
 }
 
+function extractAlertCentroid(feature) {
+  const geom = feature?.geometry;
+  if (!geom) return null;
+  if (geom.type === 'Point') return [geom.coordinates[0], geom.coordinates[1]];
+  if (geom.type === 'Polygon' && geom.coordinates?.[0]?.length) {
+    const ring = geom.coordinates[0];
+    const lons = ring.map(c => c[0]);
+    const lats = ring.map(c => c[1]);
+    return [
+      (Math.min(...lons) + Math.max(...lons)) / 2,
+      (Math.min(...lats) + Math.max(...lats)) / 2,
+    ];
+  }
+  if (geom.type === 'MultiPolygon' && geom.coordinates?.[0]?.[0]?.length) {
+    const ring = geom.coordinates[0][0];
+    const lons = ring.map(c => c[0]);
+    const lats = ring.map(c => c[1]);
+    return [
+      (Math.min(...lons) + Math.max(...lons)) / 2,
+      (Math.min(...lats) + Math.max(...lats)) / 2,
+    ];
+  }
+  return null;
+}
+
 async function dispatch(requestUrl, req, routes, context) {
   if (req.method === 'OPTIONS') {
     return new Response(null, { status: 204, headers: makeCorsHeaders(req) });
@@ -2148,12 +2173,197 @@ async function dispatch(requestUrl, req, routes, context) {
           onset: p.onset ?? '',
           expires: p.expires ?? '',
           status: p.status ?? '',
+          centroid: extractAlertCentroid(f),
         };
       });
       return json(alerts);
     } catch {
       return json([], 200);
     }
+  }
+
+  // ── FAA Aviation Weather Cameras (public, no auth) ───────────────────────────
+  if (requestUrl.pathname === '/api/faa-cameras') {
+    const CACHE_KEY = 'faa-cameras';
+    const CACHE_TTL = 15 * 60 * 1000;
+    const cached = getCached(CACHE_KEY, CACHE_TTL);
+    if (cached) return json(cached);
+    try {
+      const resp = await fetchWithTimeout(
+        'https://avcams.faa.gov/api/cameras',
+        { headers: { Accept: 'application/json', 'User-Agent': 'WorldMonitor/1.0' } },
+        15000,
+      );
+      if (!resp.ok) return json(getCachedStale(CACHE_KEY) ?? [], 200);
+      const raw = await resp.json();
+      const cameras = (Array.isArray(raw) ? raw : raw?.cameras ?? []).map(c => ({
+        id: String(c.id ?? c.cameraId ?? ''),
+        name: String(c.name ?? c.cameraName ?? ''),
+        lat: Number(c.lat ?? c.latitude ?? 0),
+        lon: Number(c.lon ?? c.longitude ?? 0),
+        state: String(c.state ?? ''),
+        category: String(c.category ?? 'weather').toLowerCase(),
+        imageUrl: String(c.imageUrl ?? c.image_url ?? ''),
+        isOnline: Boolean(c.isOnline ?? c.active ?? true),
+        lastUpdated: String(c.lastUpdated ?? c.last_updated ?? new Date().toISOString()),
+      })).filter(c => c.id && c.lat !== 0 && c.lon !== 0);
+      setCached(CACHE_KEY, cameras);
+      return json(cameras);
+    } catch (e) {
+      return json(getCachedStale(CACHE_KEY) ?? [], 200);
+    }
+  }
+
+  // ── FAA Camera AI Image Analysis (Ollama-primary, Claude fallback) ────────────
+  if (requestUrl.pathname === '/api/faa-cam-analyze' && req.method === 'POST') {
+    const rawBody = await readBody(req);
+    if (!rawBody) return json({ error: 'Invalid request body' }, 400);
+    let body;
+    try { body = JSON.parse(rawBody.toString()); } catch { return json({ error: 'Invalid request body' }, 400); }
+    const { imageUrl, cameraName, alertLabel } = body ?? {};
+    if (!imageUrl || typeof imageUrl !== 'string') return json({ error: 'imageUrl required' }, 400);
+    const safety = await isSafeUrl(imageUrl);
+    if (!safety.safe) {
+      return json({ error: `Invalid image URL: ${safety.reason}` }, 400);
+    }
+
+    // Fetch and base64-encode the camera image
+    let imageB64;
+    try {
+      const imgResp = await fetchWithTimeout(imageUrl, { headers: { 'User-Agent': 'WorldMonitor/1.0' } }, 10000);
+      if (!imgResp.ok) return json({ error: 'Could not fetch camera image' }, 502);
+      const buf = await imgResp.arrayBuffer();
+      imageB64 = Buffer.from(buf).toString('base64');
+    } catch (e) {
+      return json({ error: `Image fetch failed: ${String(e?.message ?? e)}` }, 502);
+    }
+
+    const ctxLabel = alertLabel ? ` Context: camera is near an active ${alertLabel}.` : '';
+    const prompt = `Describe current weather conditions visible in this camera image in 1-2 sentences. Be concise and factual.${ctxLabel}`;
+
+    // Try Ollama first
+    const ollamaUrl = process.env.OLLAMA_API_URL;
+    const ollamaModel = process.env.OLLAMA_MODEL;
+    if (ollamaUrl && ollamaModel) {
+      try {
+        const ollamaResp = await fetchWithTimeout(
+          new URL('/api/generate', ollamaUrl).toString(),
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ model: ollamaModel, prompt, images: [imageB64], stream: false }),
+          },
+          25000,
+        );
+        if (ollamaResp.ok) {
+          const data = await ollamaResp.json();
+          if (data.response) return json({ conditions: String(data.response).trim() });
+        }
+      } catch { /* fall through to Claude */ }
+    }
+
+    // Claude API fallback
+    const anthropicKey = process.env.ANTHROPIC_API_KEY;
+    if (anthropicKey) {
+      try {
+        const claudeResp = await fetchWithTimeout(
+          'https://api.anthropic.com/v1/messages',
+          {
+            method: 'POST',
+            headers: {
+              'x-api-key': anthropicKey,
+              'anthropic-version': '2023-06-01',
+              'content-type': 'application/json',
+            },
+            body: JSON.stringify({
+              model: 'claude-haiku-4-5-20251001',
+              max_tokens: 150,
+              messages: [{
+                role: 'user',
+                content: [
+                  { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: imageB64 } },
+                  { type: 'text', text: prompt },
+                ],
+              }],
+            }),
+          },
+          25000,
+        );
+        if (claudeResp.ok) {
+          const data = await claudeResp.json();
+          const text = data?.content?.[0]?.text;
+          if (text) return json({ conditions: String(text).trim() });
+        }
+      } catch { /* fall through */ }
+    }
+
+    return json({ error: 'Analysis unavailable — enable Ollama with a vision model (llava, moondream2) or add an Anthropic API key.' });
+  }
+
+  // ── FAA Camera Situational Digest ─────────────────────────────────────────────
+  if (requestUrl.pathname === '/api/faa-cam-digest' && req.method === 'POST') {
+    const rawBody = await readBody(req);
+    if (!rawBody) return json({ error: 'Invalid request body' }, 400);
+    let body;
+    try { body = JSON.parse(rawBody.toString()); } catch { return json({ error: 'Invalid request body' }, 400); }
+    const cameras = Array.isArray(body?.cameras) ? body.cameras : [];
+    if (cameras.length < 2) return json({ error: 'At least 2 cameras required' }, 400);
+
+    const camList = cameras.slice(0, 6).map(c => {
+      const alert = c.alertLabel ? `, near ${c.alertLabel}` : '';
+      return `- ${c.name} (${c.location})${alert}`;
+    }).join('\n');
+    const prompt = `You are a situational awareness assistant. The following FAA weather cameras are near active weather or disaster alerts:\n${camList}\n\nWrite a 2-sentence situational summary for an emergency monitor. Be factual, concise, and avoid speculation.`;
+
+    const ollamaUrl = process.env.OLLAMA_API_URL;
+    const ollamaModel = process.env.OLLAMA_MODEL;
+    if (ollamaUrl && ollamaModel) {
+      try {
+        const resp = await fetchWithTimeout(
+          new URL('/api/generate', ollamaUrl).toString(),
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ model: ollamaModel, prompt, stream: false }),
+          },
+          25000,
+        );
+        if (resp.ok) {
+          const data = await resp.json();
+          if (data.response) return json({ digest: String(data.response).trim() });
+        }
+      } catch { /* fall through */ }
+    }
+
+    const anthropicKey = process.env.ANTHROPIC_API_KEY;
+    if (anthropicKey) {
+      try {
+        const resp = await fetchWithTimeout(
+          'https://api.anthropic.com/v1/messages',
+          {
+            method: 'POST',
+            headers: {
+              'x-api-key': anthropicKey,
+              'anthropic-version': '2023-06-01',
+              'content-type': 'application/json',
+            },
+            body: JSON.stringify({
+              model: 'claude-haiku-4-5-20251001',
+              max_tokens: 120,
+              messages: [{ role: 'user', content: prompt }],
+            }),
+          },
+          25000,
+        );
+        if (resp.ok) {
+          const data = await resp.json();
+          const text = data?.content?.[0]?.text;
+          if (text) return json({ digest: String(text).trim() });
+        }
+      } catch { /* fall through */ }
+    }
+
+    return json({ error: 'Digest unavailable' });
   }
 
   // ── Disease Outbreak proxy (ReliefWeb + WHO, no API key) ─────────────────

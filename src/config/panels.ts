@@ -81,6 +81,7 @@ const FULL_PANELS: Record<string, PanelConfig> = {
   'gdacs-alerts': { name: 'GDACS Disaster Alerts', enabled: true, priority: 2 },
   'volcano-alerts': { name: 'Volcano Alerts', enabled: true, priority: 2 },
   'nws-alerts': { name: 'NWS Hazard Alerts', enabled: true, priority: 2 },
+  'faa-weather-cams': { name: 'FAA Weather Cams', enabled: true, priority: 2 },
   'tsunami-alerts': { name: 'Tsunami Alerts', enabled: true, priority: 2 },
   'tropical-cyclones': { name: 'Tropical Cyclones', enabled: true, priority: 2 },
   'food-insecurity': { name: 'Food Insecurity', enabled: true, priority: 2 },
@@ -143,6 +144,7 @@ const FULL_MAP_LAYERS: MapLayers = {
   tradeRoutes: false,
   s2pimu: false,
   dayNight: false,
+  faaWeatherCams: true,
 };
 
 const FULL_MOBILE_MAP_LAYERS: MapLayers = {
@@ -196,6 +198,7 @@ const FULL_MOBILE_MAP_LAYERS: MapLayers = {
   tradeRoutes: false,
   s2pimu: false,
   dayNight: false,
+  faaWeatherCams: false,
 };
 
 // ============================================
@@ -290,6 +293,7 @@ const TECH_MAP_LAYERS: MapLayers = {
   iranAttacks: false,
   s2pimu: false,
   dayNight: false,
+  faaWeatherCams: false,
 };
 
 const TECH_MOBILE_MAP_LAYERS: MapLayers = {
@@ -343,6 +347,7 @@ const TECH_MOBILE_MAP_LAYERS: MapLayers = {
   iranAttacks: false,
   s2pimu: false,
   dayNight: false,
+  faaWeatherCams: false,
 };
 
 // ============================================
@@ -433,6 +438,7 @@ const FINANCE_MAP_LAYERS: MapLayers = {
   iranAttacks: false,
   s2pimu: false,
   dayNight: false,
+  faaWeatherCams: false,
 };
 
 const FINANCE_MOBILE_MAP_LAYERS: MapLayers = {
@@ -486,6 +492,7 @@ const FINANCE_MOBILE_MAP_LAYERS: MapLayers = {
   iranAttacks: false,
   s2pimu: false,
   dayNight: false,
+  faaWeatherCams: false,
 };
 
 // ============================================
@@ -555,6 +562,7 @@ const HAPPY_MAP_LAYERS: MapLayers = {
   iranAttacks: false,
   s2pimu: false,
   dayNight: false,
+  faaWeatherCams: false,
 };
 
 const HAPPY_MOBILE_MAP_LAYERS: MapLayers = {
@@ -608,6 +616,7 @@ const HAPPY_MOBILE_MAP_LAYERS: MapLayers = {
   iranAttacks: false,
   s2pimu: false,
   dayNight: false,
+  faaWeatherCams: false,
 };
 
 // ============================================
@@ -629,6 +638,7 @@ export const LAYER_TO_SOURCE: Partial<Record<keyof MapLayers, DataSourceId[]>> =
   ucdpEvents: ['ucdp_events'],
   displacement: ['unhcr'],
   climate: ['climate'],
+  faaWeatherCams: ['faa_weather_cams'],
 };
 
 // ============================================
@@ -673,7 +683,8 @@ export const PANEL_CATEGORY_MAP: Record<string, { labelKey: string; panelKeys: s
   },
   hazards: {
     labelKey: 'header.panelCatHazards',
-    panelKeys: ['satellite-fires', 'earthquakes', 'gdacs-alerts', 'volcano-alerts', 'nws-alerts', 'tsunami-alerts', 'tropical-cyclones', 'climate', 'wildfire-incidents', 'hazmat-incidents', 'oil-spill'],
+
+    panelKeys: ['satellite-fires', 'earthquakes', 'gdacs-alerts', 'volcano-alerts', 'nws-alerts', 'faa-weather-cams', 'tsunami-alerts', 'tropical-cyclones', 'climate', 'wildfire-incidents', 'hazmat-incidents', 'oil-spill'],
     variants: ['full'],
   },
   healthEnv: {

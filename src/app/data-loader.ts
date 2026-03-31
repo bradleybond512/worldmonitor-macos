@@ -96,6 +96,7 @@ import { getTopActiveGeoHubs } from '@/services/geo-activity';
 import { getTopActiveHubs } from '@/services/tech-activity';
 import { debounce, getCircuitBreakerCooldownInfo } from '@/utils';
 import { isFeatureAvailable } from '@/services/runtime-config';
+import { getApiBaseUrl } from '@/services/runtime';
 import { getAiFlowSettings } from '@/services/ai-flow-settings';
 import { t, getCurrentLanguage } from '@/services/i18n';
 import { getHydratedData } from '@/services/bootstrap';
@@ -161,6 +162,9 @@ import { classifyNewsItem } from '@/services/positive-classifier';
 import { fetchGivingSummary } from '@/services/giving';
 import { fetchVolcanoAlerts } from '@/services/volcano-alerts';
 import { fetchNWSAlerts } from '@/services/nws-alerts';
+import { fetchFAACameras, scoreCamerasAgainstAlerts, getDisasterProximateCameras } from '@/services/faa-cameras';
+import { FAAWeatherCamsPanel } from '@/components/FAAWeatherCamsPanel';
+import type { ModeChangedDetail } from '@/services/mode-manager';
 import { fetchCommsHealth } from '@/services/comms-health';
 import { fetchEconomicStress } from '@/services/economic-stress';
 import { updateRegionCount, getHighRiskRegions } from '@/services/ema-forecast';
@@ -241,7 +245,25 @@ export class DataLoaderManager implements AppModule {
     this.callbacks = callbacks;
   }
 
-  init(): void {}
+  init(): void {
+    document.addEventListener('wm:mode-changed', ((e: CustomEvent<ModeChangedDetail>) => {
+      const { mode, prev } = e.detail;
+      if (mode === 'disaster') {
+        void (async () => {
+          const [raw, nws, gdacs] = await Promise.all([
+            fetchFAACameras(),
+            fetchNWSAlerts(),
+            fetchGDACSEvents(),
+          ]);
+          const proximate = getDisasterProximateCameras(raw, nws, gdacs);
+          this.ctx.map?.setFAACameras(proximate);
+          (this.ctx.panels['faa-weather-cams'] as FAAWeatherCamsPanel | undefined)?.setDisasterMode(true, proximate);
+        })();
+      } else if (prev === 'disaster') {
+        (this.ctx.panels['faa-weather-cams'] as FAAWeatherCamsPanel | undefined)?.setDisasterMode(false);
+      }
+    }) as EventListener);
+  }
 
   destroy(): void {
     stopOrefPolling();
@@ -402,6 +424,7 @@ export class DataLoaderManager implements AppModule {
     if (SITE_VARIANT === 'full') tasks.push({ name: 'gdacsAlerts', task: runGuarded('gdacsAlerts', () => this.loadGDACSAlerts()) });
     if (SITE_VARIANT === 'full') tasks.push({ name: 'volcanoAlerts', task: runGuarded('volcanoAlerts', () => this.loadVolcanoAlerts()) });
     if (SITE_VARIANT === 'full') tasks.push({ name: 'nwsAlerts', task: runGuarded('nwsAlerts', () => this.loadNWSAlerts()) });
+    if (SITE_VARIANT === 'full') tasks.push({ name: 'faaCameras', task: runGuarded('faaCameras', () => this.loadFAACameras()) });
     if (SITE_VARIANT === 'full') tasks.push({ name: 'savedPlaceWeather', task: runGuarded('savedPlaceWeather', () => this.loadSavedPlaceWeather()) });
     if (SITE_VARIANT === 'full') tasks.push({ name: 'emaForecast', task: runGuarded('emaForecast', () => this.runEMAForecast()) });
 
@@ -2661,6 +2684,44 @@ export class DataLoaderManager implements AppModule {
       (this.ctx.panels['food-insecurity'] as FoodInsecurityPanel | undefined)?.update(data);
     } catch (error) {
       console.error('[App] Food insecurity fetch failed:', error);
+    }
+  }
+
+  async loadFAACameras(): Promise<void> {
+    try {
+      const [raw, nws, gdacs] = await Promise.all([
+        fetchFAACameras(),
+        fetchNWSAlerts(),
+        fetchGDACSEvents(),
+      ]);
+      const scored = scoreCamerasAgainstAlerts(raw, nws, gdacs);
+      this.ctx.map?.setFAACameras(scored);
+      (this.ctx.panels['faa-weather-cams'] as FAAWeatherCamsPanel | undefined)?.refresh();
+      const alertCams = scored.filter(c => c.alertProximityMi !== null);
+      if (alertCams.length >= 2) {
+        void fetch(`${getApiBaseUrl()}/api/faa-cam-digest`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            cameras: alertCams.slice(0, 6).map(c => ({
+              name: c.name,
+              location: c.state,
+              alertLabel: c.alertLabel,
+            })),
+          }),
+          signal: AbortSignal.timeout(25000),
+        })
+          .then(r => r.ok ? r.json() : null)
+          .then((data: { digest?: string } | null) => {
+            if (data?.digest) {
+              (this.ctx.panels['faa-weather-cams'] as FAAWeatherCamsPanel | undefined)
+                ?.setDigest(data.digest);
+            }
+          })
+          .catch(() => {});
+      }
+    } catch (error) {
+      console.error('[App] FAA cameras fetch failed:', error);
     }
   }
 }

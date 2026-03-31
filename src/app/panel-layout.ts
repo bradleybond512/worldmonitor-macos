@@ -65,6 +65,7 @@ import { AirstrikesPanel } from '@/components/AirstrikesPanel';
 import { GDACSAlertsPanel } from '@/components/GDACSAlertsPanel';
 import { VolcanoAlertsPanel } from '@/components/VolcanoAlertsPanel';
 import { NWSAlertsPanel } from '@/components/NWSAlertsPanel';
+import { FAAWeatherCamsPanel } from '@/components/FAAWeatherCamsPanel';
 import { CommsHealthPanel } from '@/components/CommsHealthPanel';
 import { FearGreedPanel } from '@/components/FearGreedPanel';
 import { InternetDisruptionsPanel } from '@/components/InternetDisruptionsPanel';
@@ -952,6 +953,8 @@ export class PanelLayoutManager implements AppModule {
 
       const nwsAlertsPanel = new NWSAlertsPanel();
       this.ctx.panels['nws-alerts'] = nwsAlertsPanel;
+
+      this.ctx.panels['faa-weather-cams'] = new FAAWeatherCamsPanel();
 
       this.ctx.panels['tsunami-alerts'] = new TsunamiAlertsPanel();
       this.ctx.panels['tropical-cyclones'] = new TropicalCyclonesPanel();
