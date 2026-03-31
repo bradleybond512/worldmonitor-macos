@@ -12,7 +12,7 @@ import type { AlertSeverity, UnifiedAlert } from './unified-alerts';
 import type { ProximityConfig } from './proximity-filter';
 import { haversineKm, loadProximityConfig } from './proximity-filter';
 
-// ── Severity weights ───────────────────────────────────────────────────────
+// ── Severity weights ──────────────────────────────────────────────────────
 
 const SEVERITY_WEIGHT: Record<AlertSeverity, number> = {
   critical: 1.0,
@@ -22,7 +22,7 @@ const SEVERITY_WEIGHT: Record<AlertSeverity, number> = {
   info: 0.1,
 };
 
-// ── Freshness decay ────────────────────────────────────────────────────────
+// ── Freshness decay ──────────────────────────────────────────────────────
 
 const FRESHNESS_HALF_LIFE_MS = 3 * 60 * 60 * 1000; // 3 hours
 
@@ -32,7 +32,7 @@ function freshnessWeight(timestampMs: number, now: number): number {
   return Math.max(0.05, Math.pow(0.5, ageMs / FRESHNESS_HALF_LIFE_MS));
 }
 
-// ── Proximity weight ───────────────────────────────────────────────────────
+// ── Proximity weight ─────────────────────────────────────────────────────
 
 function proximityWeight(
   alert: UnifiedAlert,
@@ -60,7 +60,7 @@ function proximityWeight(
   return Math.max(0.15, 0.4 * Math.exp(-(distKm - radiusKm) / (radiusKm * 2)));
 }
 
-// ── Novelty weight ─────────────────────────────────────────────────────────
+// ── Novelty weight ───────────────────────────────────────────────────────
 
 const recentTitleHashes = new Map<number, number>(); // hash -> count
 const NOVELTY_WINDOW_MS = 6 * 60 * 60 * 1000; // 6 hours
@@ -92,7 +92,7 @@ function cleanupNovelty(): void {
   lastNoveltyCleanup = now;
 }
 
-// ── Source trust weight ────────────────────────────────────────────────────
+// ── Source trust weight ──────────────────────────────────────────────────
 
 const SOURCE_TRUST: Record<string, number> = {
   'breaking-news': 0.7,  // varies by tier, but default mid-range
@@ -110,7 +110,7 @@ function sourceTrustWeight(source: string): number {
   return SOURCE_TRUST[source] ?? 0.5;
 }
 
-// ── Composite score ────────────────────────────────────────────────────────
+// ── Composite score ──────────────────────────────────────────────────────
 
 export interface RelevanceComponents {
   severity: number;
