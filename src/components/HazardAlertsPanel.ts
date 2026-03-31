@@ -2,7 +2,7 @@ import { Panel } from './Panel';
 import type { NearbyHazard } from '@/services/proximity-alerts';
 import { proximityAlertService } from '@/services/proximity-alerts';
 import { loadProximityConfig } from '@/services/proximity-filter';
-import { escapeHtml } from '@/utils/sanitize';
+import { escapeHtml, sanitizeUrl } from '@/utils/sanitize';
 
 const TYPE_LABEL: Record<NearbyHazard['type'], string> = {
   wildfire: 'Fire',
@@ -71,7 +71,7 @@ export class HazardAlertsPanel extends Panel {
           <td style="white-space:nowrap"><span class="sev-badge">${TYPE_LABEL[h.type]}</span> ${distStr}</td>
           <td>${evacBadge}${escapeHtml(shortTitle)}</td>
           <td>${escapeHtml(h.location)}</td>
-          <td><a href="${escapeHtml(h.url)}" target="_blank" rel="noopener noreferrer" class="popup-link">src</a></td>
+          <td><a href="${sanitizeUrl(h.url)}" target="_blank" rel="noopener noreferrer" class="popup-link">src</a></td>
         </tr>
         <tr class="hazard-checklist-row" data-for-hazard="${safeId}" style="display:none">
           <td colspan="4">
