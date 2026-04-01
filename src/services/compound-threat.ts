@@ -33,7 +33,8 @@ export type HazardCategory =
   | 'disease'
   | 'conflict'
   | 'food'
-  | 'maritime';
+  | 'maritime'
+  | 'air_quality';
 
 export interface HazardSignal {
   id: string;
@@ -107,6 +108,31 @@ const COMPOUND_RISK_PATTERNS: {
   {
     categories: ['flood', 'disease'],
     description: 'Flooding in area with active disease outbreak — waterborne disease acceleration',
+    severityBoost: true,
+  },
+  {
+    categories: ['wildfire', 'air_quality'],
+    description: 'Smoke emergency: wildfire active + AQI unhealthy in same region',
+    severityBoost: true,
+  },
+  {
+    categories: ['industrial', 'weather'],
+    description: 'Hazmat risk: industrial incident near populated area — shelter-in-place possible',
+    severityBoost: true,
+  },
+  {
+    categories: ['flood', 'grid'],
+    description: 'Infrastructure stress: flood gauge critical with upstream dam activity — grid and water systems at risk',
+    severityBoost: true,
+  },
+  {
+    categories: ['grid', 'weather'],
+    description: 'Compound infrastructure failure risk: grid under stress during severe weather event',
+    severityBoost: true,
+  },
+  {
+    categories: ['cyber', 'industrial'],
+    description: 'Hybrid threat pattern: elevated cyber activity coinciding with infrastructure stress',
     severityBoost: true,
   },
 ];
