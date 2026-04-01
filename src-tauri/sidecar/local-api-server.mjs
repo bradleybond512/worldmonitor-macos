@@ -108,19 +108,20 @@ function aisConnect(apiKey) {
   const socket = new AisWebSocket(AISSTREAM_WS_URL);
   aisState.socket = socket;
 
-  socket.on('open', () => {
+  socket.onopen = () => {
     socket.send(JSON.stringify({
       APIKey: apiKey,
       BoundingBoxes: [[[-90, -180], [90, 180]]],
       FilterMessageTypes: ['PositionReport'],
     }));
-  });
+  };
 
-  socket.on('message', (data) => {
+  socket.onmessage = (event) => {
+    const data = event.data;
     aisProcessMessage(typeof data === 'string' ? data : data.toString());
-  });
+  };
 
-  socket.on('close', () => {
+  socket.onclose = () => {
     if (aisState.socket === socket) {
       aisState.socket = null;
       const currentKey = process.env.AISSTREAM_API_KEY;
@@ -128,9 +129,9 @@ function aisConnect(apiKey) {
         aisState.reconnectTimer = setTimeout(() => aisConnect(currentKey), AIS_RECONNECT_DELAY_MS);
       }
     }
-  });
+  };
 
-  socket.on('error', () => { /* close event handles reconnect */ });
+  socket.onerror = () => { /* close event handles reconnect */ };
 }
 
 function aisDisconnect() {
@@ -4830,15 +4831,15 @@ async function dispatch(requestUrl, req, routes, context) {
 
   // ── GDELT Intelligence (no key required, public API) ──────────────────────
   if (requestUrl.pathname === '/api/gdelt-intel') {
-    const cached = getCached('gdelt-intel', 15 * 60 * 1000); // 15 minutes
+    const cached = getCached('gdelt-intel', 30 * 60 * 1000); // 30 minutes — GDELT rate-limits aggressively
     if (cached) return json(cached);
     try {
       const params = new URLSearchParams({
-        query: 'war OR conflict OR crisis OR military OR sanctions OR nuclear',
+        query: '(war OR conflict OR crisis OR military OR sanctions OR nuclear)',
         mode: 'artlist',
         maxrecords: '25',
         format: 'json',
-        sort: 'ToneAsc',
+        sort: 'ToneDesc',
         timespan: '3h',
       });
       const res = await fetchWithTimeout(`https://api.gdeltproject.org/api/v2/doc/doc?${params}`, { headers: { 'User-Agent': CHROME_UA } }, 12_000);
