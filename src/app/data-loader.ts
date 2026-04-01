@@ -70,6 +70,8 @@ import {
   updateStormPreparednessContext,
 } from '@/services';
 import { checkBatchForBreakingAlerts } from '@/services/breaking-news-alerts';
+import { unifiedAlertStore } from '@/services/unified-alerts';
+import { normalizeBreakingAlert, normalizeNWSAlert, normalizeGDACSEvent, normalizeTsunamiAlert, normalizeCorrelationSignal } from '@/services/alert-normalizer';
 import { evaluateWarThreat, evaluateFinanceTrigger, evaluateCommodityTrigger, evaluateDisasterTrigger, checkFinanceAutoTriggerTimeout } from '@/services/mode-manager';
 import { reportElevatedPanel } from '@/services/panel-correlation';
 import { fetchGDACSEvents } from '@/services/gdacs';
@@ -276,6 +278,12 @@ export class DataLoaderManager implements AppModule {
       } else if (prev === 'disaster') {
         (this.ctx.panels['faa-weather-cams'] as FAAWeatherCamsPanel | undefined)?.setDisasterMode(false);
       }
+    }) as EventListener);
+
+    // Feed breaking news alerts into the unified alert inbox
+    document.addEventListener('wm:breaking-news', ((e: CustomEvent) => {
+      const alert = e.detail;
+      if (alert) unifiedAlertStore.ingest([normalizeBreakingAlert(alert)]);
     }) as EventListener);
   }
 
@@ -1711,6 +1719,7 @@ export class DataLoaderManager implements AppModule {
       const events = await fetchGDACSEvents();
       this.ctx.intelligenceCache.gdacsAlerts = events;
       (this.ctx.panels['gdacs-alerts'] as GDACSAlertsPanel)?.update(events);
+      unifiedAlertStore.ingest(events.map(normalizeGDACSEvent));
       // Note: intelligenceCache.earthquakes is only populated when the natural
       // events map layer is enabled. When that layer is disabled the array will
       // be empty, so the M≥6.5 earthquake trigger path is unavailable — the
@@ -1758,6 +1767,7 @@ export class DataLoaderManager implements AppModule {
         ? winterResult.value
         : stormContext.winterWeatherOutlooks;
       (this.ctx.panels['nws-alerts'] as NWSAlertsPanel)?.update(alerts);
+      unifiedAlertStore.ingest(alerts.map(normalizeNWSAlert));
       updateStormPreparednessContext({
         nwsAlerts: alerts,
         spcSummary,
@@ -2441,6 +2451,7 @@ export class DataLoaderManager implements AppModule {
         addToSignalHistory(allSignals);
         evaluateWarThreat(allSignals);
         (this.ctx.panels['alert-center'] as AlertCenterPanel)?.addSignals(allSignals);
+        unifiedAlertStore.ingest(allSignals.map(normalizeCorrelationSignal));
         if (this.shouldShowIntelligenceNotifications()) this.ctx.signalModal?.show(allSignals);
       }
     } catch (error) {
@@ -2727,6 +2738,7 @@ export class DataLoaderManager implements AppModule {
       const { fetchTsunamiAlerts } = await import('@/services/tsunami-alerts');
       const data = await fetchTsunamiAlerts();
       (this.ctx.panels['tsunami-alerts'] as TsunamiAlertsPanel | undefined)?.update(data);
+      unifiedAlertStore.ingest(data.map(normalizeTsunamiAlert));
     } catch (error) {
       console.error('[App] Tsunami alerts fetch failed:', error);
     }

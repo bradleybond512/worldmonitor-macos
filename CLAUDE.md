@@ -149,6 +149,33 @@ Ghost Mode: polling ×5, analytics suppressed, notifications suppressed, dark cr
 - **Fires panel**: Needs `NASA_FIRMS_API_KEY`
 - **Stablecoins**: "The string did not match the expected pattern" — WKWebView URL handling
 
+## MCP Push Fallback (when `git push` returns HTTP 403)
+
+The local git proxy (`127.0.0.1:44367`) sometimes returns HTTP 403 on push even though pre-push hooks pass. When this happens, **do not retry git push in a loop**. Switch immediately to the MCP fallback:
+
+### Correct procedure
+
+1. **Verify local state is clean**: `npm run typecheck:all` must pass. `git status` must show no uncommitted changes.
+2. **Identify files to push**: `git diff --stat origin/<branch>..HEAD` — only push files that differ from the remote.
+3. **Push via `mcp__github__push_files`**: Read each file from disk, then call the MCP tool with the full file content.
+   - owner: `bradleybond512`, repo: `worldmonitor-macos`, branch: `<your-branch>`
+   - Include `Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>` in the commit message.
+4. **For large files (>500 lines)**: Launch a dedicated Agent per file. The agent reads the file in chunks via `Read` tool (offset/limit), then pushes via `mcp__github__push_files` with the complete content. **One file per agent, one agent per file.**
+5. **After MCP push succeeds**: Sync local to match remote:
+   ```bash
+   git fetch origin <branch>
+   git reset --hard origin/<branch>
+   ```
+6. **Verify**: `git log --oneline -3` should show the MCP-created commits. `git diff origin/<branch>..HEAD` should be empty.
+
+### Common mistakes to avoid
+
+- **Do NOT compare remote blob SHAs to determine if a file needs pushing.** Always read the LOCAL file from disk and diff against the remote branch.
+- **Do NOT try to push all files in one giant MCP call.** Large files (panel-layout.ts, data-loader.ts) will exceed context limits. One agent per large file.
+- **Do NOT amend MCP-created commits locally.** They have different SHAs than local commits. Always `git reset --hard origin/<branch>` after MCP push to sync.
+- **Do NOT retry `git push` more than once** if it returns 403 — switch to MCP immediately.
+- **Do NOT launch background agents without clear per-file scope.** Vague "push all modified files" agents tend to get confused comparing SHAs instead of reading local files.
+
 ## Secret Scan Guardrail
 
 - This is a user-owned repo on GitHub, so non-provider patterns and validity checks are unavailable.

@@ -408,6 +408,62 @@
 .ac-row-high td { background: color-mix(in srgb, var(--semantic-high, #f97316) 3%, transparent); }
 
 /* ----------------------------------------------------------
+   Unified Alert Inbox Panel
+   ---------------------------------------------------------- */
+.uai-container { display: flex; flex-direction: column; gap: 0; }
+.uai-toolbar { display: flex; flex-wrap: wrap; gap: 6px; padding: 6px 8px; border-bottom: 1px solid var(--panel-border, rgba(255,255,255,0.06)); background: color-mix(in srgb, var(--panel-bg, #1a1a2e) 80%, transparent); }
+.uai-toolbar-group { display: flex; align-items: center; gap: 2px; }
+.uai-toolbar-label { font-size: 9px; color: var(--text-muted); margin-right: 2px; text-transform: uppercase; letter-spacing: 0.5px; }
+.uai-toolbar-btn { font-size: 9px; padding: 2px 6px; border: 1px solid var(--panel-border, rgba(255,255,255,0.1)); border-radius: 3px; background: transparent; color: var(--text-dim); cursor: pointer; transition: all 0.15s; white-space: nowrap; }
+.uai-toolbar-btn:hover { background: rgba(255,255,255,0.06); color: var(--text-secondary); }
+.uai-toolbar-btn.uai-active { background: color-mix(in srgb, var(--accent) 20%, transparent); color: var(--accent); border-color: var(--accent); }
+.uai-clear-btn { color: var(--semantic-high, #f97316); border-color: var(--semantic-high, #f97316); }
+
+.uai-table { table-layout: fixed; }
+.uai-th-sev { width: 52px; }
+.uai-th-src { width: 52px; }
+.uai-th-score { width: 60px; }
+.uai-th-dist { width: 52px; }
+.uai-th-age { width: 36px; }
+.uai-th-act { width: 48px; }
+
+.uai-src-tag { display: inline-block; font-size: 8px; font-weight: 600; padding: 1px 4px; border-radius: 2px; cursor: pointer; letter-spacing: 0.3px; white-space: nowrap; }
+.uai-src-breaking-news { background: color-mix(in srgb, var(--semantic-critical, #ef4444) 15%, transparent); color: var(--semantic-critical, #ef4444); }
+.uai-src-nws { background: color-mix(in srgb, #3b82f6 15%, transparent); color: #60a5fa; }
+.uai-src-gdacs { background: color-mix(in srgb, #f97316 15%, transparent); color: #fb923c; }
+.uai-src-tsunami { background: color-mix(in srgb, #06b6d4 15%, transparent); color: #22d3ee; }
+.uai-src-volcano { background: color-mix(in srgb, #ef4444 15%, transparent); color: #f87171; }
+.uai-src-oref { background: color-mix(in srgb, #eab308 15%, transparent); color: #facc15; }
+.uai-src-hazard { background: color-mix(in srgb, #f59e0b 15%, transparent); color: #fbbf24; }
+.uai-src-correlation { background: color-mix(in srgb, #8b5cf6 15%, transparent); color: #a78bfa; }
+.uai-src-cyber { background: color-mix(in srgb, #10b981 15%, transparent); color: #34d399; }
+.uai-src-cell { text-align: center; }
+
+.uai-title-cell { overflow: hidden; }
+.uai-title { color: var(--text-secondary); font-size: 11px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.uai-title a { color: var(--accent); text-decoration: none; }
+.uai-title a:hover { text-decoration: underline; }
+.uai-body { color: var(--text-dim); font-size: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: flex; align-items: center; gap: 6px; }
+
+.uai-score-bar { position: relative; width: 44px; height: 10px; background: rgba(255,255,255,0.06); border-radius: 2px; overflow: hidden; }
+.uai-score-fill { position: absolute; top: 0; left: 0; height: 100%; border-radius: 2px; transition: width 0.3s; }
+.uai-score-label { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 7px; font-weight: 700; color: #fff; text-shadow: 0 0 2px rgba(0,0,0,0.6); }
+.uai-score-cell { text-align: center; }
+.uai-dist-cell { font-size: 9px; color: var(--text-dim); text-align: right; white-space: nowrap; }
+
+.uai-actions { display: flex; gap: 2px; justify-content: center; }
+.uai-act-btn { background: none; border: none; cursor: pointer; font-size: 11px; color: var(--text-muted); padding: 1px 3px; border-radius: 2px; transition: color 0.15s, background 0.15s; line-height: 1; }
+.uai-act-btn:hover { color: var(--accent); background: rgba(255,255,255,0.06); }
+
+.uai-why-btn { font-size: 9px; padding: 1px 5px; border: 1px solid var(--panel-border, rgba(255,255,255,0.1)); border-radius: 3px; background: transparent; color: var(--text-dim); cursor: pointer; margin-left: 4px; flex-shrink: 0; }
+.uai-why-btn:hover { background: rgba(255,255,255,0.08); }
+
+.uai-pinned td { border-left: 2px solid var(--accent); }
+.uai-acked { opacity: 0.55; }
+.uai-selected td { background: color-mix(in srgb, var(--accent) 8%, transparent) !important; }
+.ac-pill-low { background: color-mix(in srgb, var(--semantic-low, #22c55e) 12%, transparent); color: var(--semantic-low, #22c55e); }
+
+/* ----------------------------------------------------------
    Air Strikes & Drones Panel (ACLED)
    ---------------------------------------------------------- */
 .as-list { display: flex; flex-direction: column; gap: 1px; }
