@@ -81,6 +81,7 @@ const FULL_PANELS: Record<string, PanelConfig> = {
   'hazmat-incidents': { name: 'Hazmat Incidents', enabled: true, priority: 2 },
   'oil-spill': { name: 'Oil & Chemical Spills', enabled: true, priority: 2 },
   'hazard-alerts': { name: 'Hazard Alerts — Near Me', enabled: true, priority: 1 },
+  'infrastructure': { name: 'Critical Infrastructure', enabled: true, priority: 2 },
   'gdacs-alerts': { name: 'GDACS Disaster Alerts', enabled: true, priority: 2 },
   'volcano-alerts': { name: 'Volcano Alerts', enabled: true, priority: 2 },
   'nws-alerts': { name: 'NWS Hazard Alerts', enabled: true, priority: 2 },
@@ -717,7 +718,7 @@ export const PANEL_CATEGORY_MAP: Record<string, { labelKey: string; panelKeys: s
   },
   healthEnv: {
     labelKey: 'header.panelCatHealthEnv',
-    panelKeys: ['hazard-alerts', 'giving', 'daily-wisdom', 'stoic-reflections', 'biblical-encouragement', 'alan-watts-reflections', 'mckenna-visions', 'disease-outbreaks', 'humanitarian-crisis', 'air-quality', 'food-insecurity', 'radiation-decay', 'resource-inventory'],
+    panelKeys: ['hazard-alerts', 'infrastructure', 'giving', 'daily-wisdom', 'stoic-reflections', 'biblical-encouragement', 'alan-watts-reflections', 'mckenna-visions', 'disease-outbreaks', 'humanitarian-crisis', 'air-quality', 'food-insecurity', 'radiation-decay', 'resource-inventory'],
     variants: ['full'],
   },
 

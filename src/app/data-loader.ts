@@ -146,6 +146,8 @@ import { WildfireIncidentsPanel } from '@/components/WildfireIncidentsPanel';
 import { HazmatIncidentsPanel } from '@/components/HazmatIncidentsPanel';
 import { OilSpillPanel } from '@/components/OilSpillPanel';
 import { HazardAlertsPanel } from '@/components/HazardAlertsPanel';
+import { InfrastructurePanel } from '@/components/InfrastructurePanel';
+import { fetchNearbyInfrastructure } from '@/services/infrastructure/hifld';
 import { AirstrikesPanel } from '@/components/AirstrikesPanel';
 import { fetchAirstrikes } from '@/services/airstrikes';
 import { fetchS2Underground } from '@/services/s2-underground';
@@ -456,6 +458,7 @@ export class DataLoaderManager implements AppModule {
     if (SITE_VARIANT === 'full') tasks.push({ name: 'globalWeather', task: runGuarded('globalWeather', () => this.loadGlobalWeather()) });
     if (SITE_VARIANT === 'full') tasks.push({ name: 'openSanctions', task: runGuarded('openSanctions', () => this.loadOpenSanctions()) });
     if (SITE_VARIANT === 'full') tasks.push({ name: 'edgarFilings', task: runGuarded('edgarFilings', () => this.loadEdgarFilings()) });
+    if (SITE_VARIANT === 'full') tasks.push({ name: 'infrastructure', task: runGuarded('infrastructure', () => this.loadInfrastructure()) });
 
     if (SITE_VARIANT === 'tech') {
       tasks.push({ name: 'techReadiness', task: runGuarded('techReadiness', () => (this.ctx.panels['tech-readiness'] as TechReadinessPanel)?.refresh()) });
@@ -2949,6 +2952,16 @@ export class DataLoaderManager implements AppModule {
       }
     } catch (error) {
       console.error('[App] FAA cameras fetch failed:', error);
+    }
+  }
+
+  async loadInfrastructure(): Promise<void> {
+    try {
+      const assets = await fetchNearbyInfrastructure(50);
+      (this.ctx.panels['infrastructure'] as InfrastructurePanel | undefined)?.update(assets);
+    } catch (error) {
+      console.warn('[infrastructure] fetch failed', error);
+      (this.ctx.panels['infrastructure'] as InfrastructurePanel | undefined)?.update([]);
     }
   }
 }

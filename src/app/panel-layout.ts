@@ -66,6 +66,7 @@ import { WildfireIncidentsPanel } from '@/components/WildfireIncidentsPanel';
 import { HazmatIncidentsPanel } from '@/components/HazmatIncidentsPanel';
 import { OilSpillPanel } from '@/components/OilSpillPanel';
 import { HazardAlertsPanel } from '@/components/HazardAlertsPanel';
+import { InfrastructurePanel } from '@/components/InfrastructurePanel';
 import { AirstrikesPanel } from '@/components/AirstrikesPanel';
 import { GDACSAlertsPanel } from '@/components/GDACSAlertsPanel';
 import { VolcanoAlertsPanel } from '@/components/VolcanoAlertsPanel';
@@ -933,6 +934,9 @@ export class PanelLayoutManager implements AppModule {
 
       const hazardAlertsPanel = new HazardAlertsPanel();
       this.ctx.panels['hazard-alerts'] = hazardAlertsPanel;
+
+      const infrastructurePanel = new InfrastructurePanel();
+      this.ctx.panels['infrastructure'] = infrastructurePanel;
 
       const strategicRiskPanel = new StrategicRiskPanel();
       strategicRiskPanel.setLocationClickHandler((lat, lon) => {

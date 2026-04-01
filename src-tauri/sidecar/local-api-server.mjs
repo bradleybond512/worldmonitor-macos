@@ -4821,6 +4821,44 @@ async function dispatch(requestUrl, req, routes, context) {
     }
   }
 
+  // ── HIFLD critical infrastructure (hospitals, urgent care) ──────────────
+  if (requestUrl.pathname === '/api/hifld-infrastructure') {
+    const lat = parseFloat(requestUrl.searchParams.get('lat') ?? '0');
+    const lon = parseFloat(requestUrl.searchParams.get('lon') ?? '0');
+    const radiusMiles = parseFloat(requestUrl.searchParams.get('radius') ?? '50');
+
+    if (!lat || !lon) return json({ assets: [] });
+
+    const cached = getCached(`hifld-${lat.toFixed(2)}-${lon.toFixed(2)}`, 24 * 60 * 60 * 1000);
+    if (cached) return json(cached);
+
+    const radiusMeters = radiusMiles * 1609.34;
+
+    try {
+      const hospitalsUrl = `https://services1.arcgis.com/Hp6G80Pky0om7QvQ/arcgis/rest/services/Hospitals/FeatureServer/0/query?where=1%3D1&geometry=${lon},${lat}&geometryType=esriGeometryPoint&inSR=4326&spatialRel=esriSpatialRelIntersects&distance=${radiusMeters}&units=esriSRUnit_Meter&outFields=NAME,ADDRESS,CITY,STATE,ZIP,TELEPHONE,BEDS,TYPE&f=json&resultRecordCount=10`;
+
+      const resp = await fetchWithTimeout(hospitalsUrl, { headers: { 'User-Agent': CHROME_UA } }, 12_000);
+      const data = resp.ok ? await resp.json() : { features: [] };
+
+      const assets = (data.features ?? []).map(f => ({
+        type: 'hospital',
+        name: f.attributes?.NAME ?? 'Unknown Hospital',
+        address: `${f.attributes?.ADDRESS ?? ''}, ${f.attributes?.CITY ?? ''}, ${f.attributes?.STATE ?? ''}`.trim().replace(/^,\s*/, ''),
+        phone: f.attributes?.TELEPHONE ?? null,
+        beds: f.attributes?.BEDS ?? null,
+        subtype: f.attributes?.TYPE ?? 'GENERAL ACUTE CARE',
+        lat: f.geometry?.y ?? null,
+        lon: f.geometry?.x ?? null,
+      }));
+
+      const result = { assets, fetchedAt: new Date().toISOString() };
+      setCached(`hifld-${lat.toFixed(2)}-${lon.toFixed(2)}`, result);
+      return json(result);
+    } catch (e) {
+      return json({ assets: [], error: String(e) });
+    }
+  }
+
   if (context.cloudFallback && cloudPreferred.has(requestUrl.pathname)) {
     const cloudResponse = await tryCloudFallback(requestUrl, req, context);
     if (cloudResponse) return cloudResponse;
