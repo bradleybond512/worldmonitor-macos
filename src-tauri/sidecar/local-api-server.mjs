@@ -1652,6 +1652,54 @@ async function dispatch(requestUrl, req, routes, context) {
     }
   }
 
+  // ── ACLED OAuth connect (exchange username+password for access token) ─────
+  if (requestUrl.pathname === '/api/acled/connect') {
+    try {
+      const body = await req.json().catch(() => ({}));
+      const { email, password } = body;
+      if (!email || !password) return json({ error: 'email and password required' }, 400);
+      const resp = await fetchWithTimeout(
+        'https://acleddata.com/oauth/token',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'User-Agent': CHROME_UA },
+          body: new URLSearchParams({ username: email, password, grant_type: 'password', client_id: 'acled' }).toString(),
+        },
+        15_000,
+      );
+      if (!resp.ok) return json({ error: `ACLED auth failed (${resp.status})` }, resp.status);
+      const data = await resp.json();
+      if (!data.access_token) return json({ error: data.error_description ?? 'No access token returned' }, 401);
+      return json({ accessToken: data.access_token, refreshToken: data.refresh_token ?? null, email });
+    } catch (e) {
+      return json({ error: String(e) }, 500);
+    }
+  }
+
+  // ── ACLED OAuth token refresh ─────────────────────────────────────────────
+  if (requestUrl.pathname === '/api/acled/refresh') {
+    try {
+      const body = await req.json().catch(() => ({}));
+      const { refreshToken } = body;
+      if (!refreshToken) return json({ error: 'refreshToken required' }, 400);
+      const resp = await fetchWithTimeout(
+        'https://acleddata.com/oauth/token',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'User-Agent': CHROME_UA },
+          body: new URLSearchParams({ grant_type: 'refresh_token', refresh_token: refreshToken, client_id: 'acled' }).toString(),
+        },
+        15_000,
+      );
+      if (!resp.ok) return json({ error: `Token refresh failed (${resp.status})` }, resp.status);
+      const data = await resp.json();
+      if (!data.access_token) return json({ error: 'No access token in refresh response' }, 401);
+      return json({ accessToken: data.access_token, refreshToken: data.refresh_token ?? refreshToken });
+    } catch (e) {
+      return json({ error: String(e) }, 500);
+    }
+  }
+
   // ── OREF (Israel Home Front Command) alerts ──────────────────────────────
   // Handled before dynamic dispatch so we control the relay→tzevaadom fallback
   // chain here rather than relying on the oref-alerts.js bundle which requires

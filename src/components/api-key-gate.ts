@@ -14,10 +14,12 @@ const REGISTERABLE_SERVICES: Partial<Record<RuntimeSecretKey, {
   fields: ('firstName' | 'lastName' | 'email' | 'password' | 'organization')[];
   keyField: string | null;
   note?: string;
+  oauthConnect?: boolean; // true = "Connect account" flow, not registration
 }>> = {
   NEWSAPI_KEY: { endpoint: '/api/register/newsapi', fields: ['email', 'password'], keyField: 'apiKey' },
   NEWSDATA_API_KEY: { endpoint: '/api/register/newsdata', fields: ['email', 'password', 'firstName', 'lastName'], keyField: 'apiKey' },
   NASA_FIRMS_API_KEY: { endpoint: '/api/register/nasa-firms', fields: ['email', 'firstName', 'lastName', 'organization'], keyField: null, note: 'Key will be sent to your email' },
+  ACLED_ACCESS_TOKEN: { endpoint: '/api/acled/connect', fields: ['email', 'password'], keyField: 'accessToken', oauthConnect: true, note: 'Connects your existing myACLED account' },
 };
 
 export function showApiKeyGate(
@@ -251,8 +253,15 @@ export function showApiKeyGate(
 
       const apiKey = data[svc.keyField] as string | null | undefined;
       if (apiKey) {
-        regStatus.textContent = 'Saving key\u2026';
+        regStatus.textContent = 'Saving\u2026';
         await setSecretValue(keyName, apiKey);
+        // ACLED OAuth: also save email and refresh token
+        if (svc.oauthConnect) {
+          const emailVal = (data.email as string | undefined) ?? profile?.email ?? '';
+          const refreshToken = data.refreshToken as string | undefined;
+          if (emailVal) await setSecretValue('ACLED_EMAIL', emailVal);
+          if (refreshToken) await setSecretValue('ACLED_REFRESH_TOKEN' as RuntimeSecretKey, refreshToken);
+        }
         onSaved();
       } else {
         regStatus.textContent = (data.message as string | undefined) ?? 'Registration submitted — check your email.';
@@ -264,7 +273,8 @@ export function showApiKeyGate(
 
   // ── Tab switcher ─────────────────────────────────────────────────────────
   const pasteTabBtn = h('button', { className: 'api-key-gate-tab-btn active', 'data-tab': 'paste' }, 'Paste Key') as HTMLButtonElement;
-  const regTabBtn = h('button', { className: 'api-key-gate-tab-btn', 'data-tab': 'register' }, 'Auto-Register') as HTMLButtonElement;
+  const regTabLabel = registerable?.oauthConnect ? 'Connect Account' : 'Auto-Register';
+  const regTabBtn = h('button', { className: 'api-key-gate-tab-btn', 'data-tab': 'register' }, regTabLabel) as HTMLButtonElement;
   const tabBar = h('div', { className: 'api-key-gate-tabs' }, pasteTabBtn, regTabBtn);
 
   // Holder for the register tab content (rebuilt on demand)

@@ -35,7 +35,7 @@ const MENU_VIEW_MODE_ID: &str = "view.mode_status";
 #[cfg(feature = "devtools")]
 const MENU_HELP_DEVTOOLS_ID: &str = "help.devtools";
 const TRUSTED_WINDOWS: [&str; 3] = ["main", "settings", "live-channels"];
-const SUPPORTED_SECRET_KEYS: [&str; 44] = [
+const SUPPORTED_SECRET_KEYS: [&str; 45] = [
     "WORLDMONITOR_API_KEY",
     "ANTHROPIC_API_KEY",
     "GROQ_API_KEY",
@@ -45,6 +45,7 @@ const SUPPORTED_SECRET_KEYS: [&str; 44] = [
     "CLOUDFLARE_API_TOKEN",
     "ACLED_ACCESS_TOKEN",
     "ACLED_EMAIL",
+    "ACLED_REFRESH_TOKEN",
     "URLHAUS_AUTH_KEY",
     "OTX_API_KEY",
     "ABUSEIPDB_API_KEY",

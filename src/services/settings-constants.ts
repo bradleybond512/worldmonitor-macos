@@ -64,6 +64,7 @@ export const HUMAN_LABELS: Record<RuntimeSecretKey, string> = {
   CLOUDFLARE_API_TOKEN: 'Cloudflare API Token',
   ACLED_ACCESS_TOKEN: 'ACLED Access Token',
   ACLED_EMAIL: 'ACLED Registered Email',
+  ACLED_REFRESH_TOKEN: 'ACLED Refresh Token',
   URLHAUS_AUTH_KEY: 'URLhaus Auth Key',
   OTX_API_KEY: 'AlienVault OTX Key',
   ABUSEIPDB_API_KEY: 'AbuseIPDB API Key',

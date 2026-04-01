@@ -11,6 +11,7 @@ export type RuntimeSecretKey =
   | 'CLOUDFLARE_API_TOKEN'
   | 'ACLED_ACCESS_TOKEN'
   | 'ACLED_EMAIL'
+  | 'ACLED_REFRESH_TOKEN'
   | 'URLHAUS_AUTH_KEY'
   | 'OTX_API_KEY'
   | 'ABUSEIPDB_API_KEY'
