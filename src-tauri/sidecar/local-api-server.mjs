@@ -3792,6 +3792,401 @@ async function dispatch(requestUrl, req, routes, context) {
     }
   }
 
+  // ── ISW (Institute for the Study of War) daily situation reports ─────────
+  if (requestUrl.pathname === '/api/isw-reports') {
+    const cached = getCached('isw-reports');
+    if (cached) return json(cached);
+    try {
+      const r = await fetchWithTimeout(
+        'https://www.understandingwar.org/feed',
+        { headers: { 'User-Agent': 'WorldMonitor/1.0 (conflict intelligence aggregation)' } },
+        12000,
+      );
+      if (!r.ok) throw new Error(`ISW RSS ${r.status}`);
+      const xml = await r.text();
+      function parseRssField(block, tag) {
+        const cdataMatch = block.match(new RegExp(`<${tag}><\\!\\[CDATA\\[([\\s\\S]*?)\\]\\]><\\/${tag}>`));
+        if (cdataMatch) return cdataMatch[1].trim();
+        const plainMatch = block.match(new RegExp(`<${tag}>([\\s\\S]*?)<\\/${tag}>`));
+        return plainMatch?.[1]?.trim() ?? null;
+      }
+      const items = [];
+      for (const m of xml.matchAll(/<item>([\s\S]*?)<\/item>/g)) {
+        const block = m[1];
+        const title = parseRssField(block, 'title');
+        const link = block.match(/<link>(.*?)<\/link>/)?.[1]?.trim() ?? null;
+        const pubDate = block.match(/<pubDate>(.*?)<\/pubDate>/)?.[1]?.trim() ?? null;
+        const rawDesc = parseRssField(block, 'description');
+        const description = rawDesc ? rawDesc.replace(/<[^>]+>/g, '').trim().slice(0, 500) : null;
+        const category = parseRssField(block, 'category');
+        if (title) items.push({ title, link, pubDate, description, category });
+      }
+      setCached('isw-reports', items, 30 * 60 * 1000);
+      return json(items);
+    } catch (e) {
+      return json({ error: `isw-reports error: ${e.message ?? e}` }, 502);
+    }
+  }
+
+  // ── UN OCHA ReliefWeb crisis situation reports ────────────────────────────
+  if (requestUrl.pathname === '/api/reliefweb-crises') {
+    const cached = getCached('reliefweb-crises');
+    if (cached) return json(cached);
+    try {
+      const payload = {
+        query: { value: 'format:"Situation Report" OR format:"Update" OR format:"Flash Update"' },
+        filter: { field: 'status', value: 'published' },
+        sort: ['date.created:desc'],
+        limit: 30,
+        fields: { include: ['title', 'date', 'country', 'source', 'url', 'body-html', 'theme', 'format', 'primary_country'] },
+      };
+      const r = await fetchWithTimeout(
+        'https://api.reliefweb.int/v1/reports?appname=worldmonitor',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify(payload),
+        },
+        15000,
+      );
+      if (!r.ok) throw new Error(`ReliefWeb ${r.status}`);
+      const data = await r.json();
+      const reports = (data.data ?? []).map(item => {
+        const f = item.fields ?? {};
+        return {
+          id: item.id ?? null,
+          title: f.title ?? null,
+          date: f.date?.created ?? null,
+          country: (f.primary_country?.name ?? f.country?.[0]?.name) ?? null,
+          countries: (f.country ?? []).map(c => c.name),
+          source: f.source?.[0]?.name ?? null,
+          url: f.url ?? null,
+          format: f.format?.[0]?.name ?? null,
+          themes: (f.theme ?? []).map(t => t.name),
+          summary: f['body-html'] ? f['body-html'].replace(/<[^>]+>/g, '').trim().slice(0, 600) : null,
+        };
+      });
+      setCached('reliefweb-crises', reports, 2 * 60 * 60 * 1000);
+      return json(reports);
+    } catch (e) {
+      return json({ error: `reliefweb error: ${e.message ?? e}` }, 502);
+    }
+  }
+
+  // ── Bellingcat OSINT investigations ──────────────────────────────────────
+  if (requestUrl.pathname === '/api/bellingcat') {
+    const cached = getCached('bellingcat');
+    if (cached) return json(cached);
+    try {
+      const r = await fetchWithTimeout(
+        'https://www.bellingcat.com/feed/',
+        { headers: { 'User-Agent': 'WorldMonitor/1.0 (OSINT aggregation)' } },
+        12000,
+      );
+      if (!r.ok) throw new Error(`Bellingcat ${r.status}`);
+      const xml = await r.text();
+      function parseBcField(block, tag) {
+        const cdataMatch = block.match(new RegExp(`<${tag}><\\!\\[CDATA\\[([\\s\\S]*?)\\]\\]><\\/${tag}>`));
+        if (cdataMatch) return cdataMatch[1].trim();
+        return block.match(new RegExp(`<${tag}>([\\s\\S]*?)<\\/${tag}>`))?.[1]?.trim() ?? null;
+      }
+      const items = [];
+      for (const m of xml.matchAll(/<item>([\s\S]*?)<\/item>/g)) {
+        const block = m[1];
+        const title = parseBcField(block, 'title');
+        const link = block.match(/<link>(.*?)<\/link>/)?.[1]?.trim() ?? null;
+        const pubDate = block.match(/<pubDate>(.*?)<\/pubDate>/)?.[1]?.trim() ?? null;
+        const rawDesc = parseBcField(block, 'description');
+        const description = rawDesc ? rawDesc.replace(/<[^>]+>/g, '').trim().slice(0, 500) : null;
+        const creator = parseBcField(block, 'dc:creator');
+        if (title) items.push({ title, link, pubDate, description, creator });
+      }
+      setCached('bellingcat', items, 30 * 60 * 1000);
+      return json(items);
+    } catch (e) {
+      return json({ error: `bellingcat error: ${e.message ?? e}` }, 502);
+    }
+  }
+
+  // ── EMSC seismic + nuclear test site proximity detection ─────────────────
+  if (requestUrl.pathname === '/api/emsc-seismic') {
+    const cached = getCached('emsc-seismic');
+    if (cached) return json(cached);
+    try {
+      const TEST_SITES = [
+        { lat: 41.27,  lon: 129.08,  radiusKm: 50,  label: 'Punggye-ri',       country: 'North Korea' },
+        { lat: 73.40,  lon: 54.90,   radiusKm: 100, label: 'Novaya Zemlya',    country: 'Russia' },
+        { lat: 41.00,  lon: 88.40,   radiusKm: 50,  label: 'Lop Nor',          country: 'China' },
+        { lat: 37.10,  lon: -116.00, radiusKm: 50,  label: 'Nevada Test Site', country: 'United States' },
+        { lat: -21.87, lon: -138.94, radiusKm: 50,  label: 'Mururoa Atoll',    country: 'France' },
+      ];
+      function haversineKm(lat1, lon1, lat2, lon2) {
+        const R = 6371;
+        const dLat = (lat2 - lat1) * Math.PI / 180;
+        const dLon = (lon2 - lon1) * Math.PI / 180;
+        const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) ** 2;
+        return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      }
+      const start = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+      const params = new URLSearchParams({ format: 'json', limit: '200', minmagnitude: '3.5', orderby: 'time', start });
+      const r = await fetchWithTimeout(
+        `https://www.seismicportal.eu/fdsnws/event/1/query?${params}`,
+        { headers: { Accept: 'application/json' } },
+        15000,
+      );
+      if (!r.ok) throw new Error(`EMSC ${r.status}`);
+      const data = await r.json();
+      const events = (data.features ?? []).map(f => {
+        const p = f.properties ?? {};
+        const [lon, lat, depth] = f.geometry?.coordinates ?? [0, 0, null];
+        const nearSite = TEST_SITES.find(s => haversineKm(lat, lon, s.lat, s.lon) <= s.radiusKm);
+        const suspectedNuclearTest = nearSite != null && (depth == null || depth <= 20) && (p.mag ?? 0) >= 4.0;
+        return {
+          id: f.id ?? p.unid ?? null,
+          magnitude: p.mag ?? null,
+          magnitudeType: p.magtype ?? null,
+          depth: depth ?? null,
+          lat, lon,
+          region: p.flynn_region ?? p.region ?? null,
+          time: p.time ?? null,
+          source: p.source_id ?? null,
+          suspectedNuclearTest,
+          nearTestSite: nearSite ? { label: nearSite.label, country: nearSite.country } : null,
+        };
+      });
+      setCached('emsc-seismic', events, 10 * 60 * 1000);
+      return json(events);
+    } catch (e) {
+      return json({ error: `emsc-seismic error: ${e.message ?? e}` }, 502);
+    }
+  }
+
+  // ── Travel warning RSS/Atom parser helper ─────────────────────────────────
+  function parseTravelWarnings(xml, source) {
+    const isAtom = source !== 'DFAT';
+    const itemTag = isAtom ? /(<entry>[\s\S]*?<\/entry>)/g : /(<item>[\s\S]*?<\/item>)/g;
+    const datePattern = isAtom ? /<updated>(.*?)<\/updated>/ : /<pubDate>(.*?)<\/pubDate>/;
+    const results = [];
+    for (const m of xml.matchAll(itemTag)) {
+      const block = m[1];
+      const titleRaw = block.match(/<title><!\[CDATA\[([\s\S]*?)\]\]><\/title>/) ?? block.match(/<title>([\s\S]*?)<\/title>/);
+      const title = titleRaw?.[1]?.trim() ?? '';
+      const date = block.match(datePattern)?.[1]?.trim() ?? null;
+      const linkHref = block.match(/href="([^"]+)"/)?.[1]?.trim() ?? block.match(/<link>(.*?)<\/link>/)?.[1]?.trim() ?? null;
+      const sumRaw = block.match(/<summary[^>]*>([\s\S]*?)<\/summary>/) ?? block.match(/<description><!\[CDATA\[([\s\S]*?)\]\]><\/description>/) ?? block.match(/<description>([\s\S]*?)<\/description>/);
+      const summary = sumRaw?.[1]?.replace(/<[^>]+>/g, '').trim().slice(0, 400) ?? null;
+      const country = title.replace(/\s*[-:]\s*travel (advice|advisory|warning).*$/i, '').trim();
+      if (country) results.push({ country, date, link: linkHref, summary, source, title });
+    }
+    return results;
+  }
+
+  // ── UK FCDO travel warnings ───────────────────────────────────────────────
+  if (requestUrl.pathname === '/api/fcdo-warnings') {
+    const cached = getCached('fcdo-warnings');
+    if (cached) return json(cached);
+    try {
+      const r = await fetchWithTimeout('https://www.gov.uk/foreign-travel-advice.atom', { headers: { 'User-Agent': 'WorldMonitor/1.0' } }, 12000);
+      if (!r.ok) throw new Error(`FCDO ${r.status}`);
+      const items = parseTravelWarnings(await r.text(), 'FCDO');
+      setCached('fcdo-warnings', items, 60 * 60 * 1000);
+      return json(items);
+    } catch (e) {
+      return json({ error: `fcdo-warnings error: ${e.message ?? e}` }, 502);
+    }
+  }
+
+  // ── Australia DFAT (Smartraveller) travel warnings ───────────────────────
+  if (requestUrl.pathname === '/api/dfat-warnings') {
+    const cached = getCached('dfat-warnings');
+    if (cached) return json(cached);
+    try {
+      const r = await fetchWithTimeout('https://www.smartraveller.gov.au/rss', { headers: { 'User-Agent': 'WorldMonitor/1.0' } }, 12000);
+      if (!r.ok) throw new Error(`DFAT ${r.status}`);
+      const items = parseTravelWarnings(await r.text(), 'DFAT');
+      setCached('dfat-warnings', items, 60 * 60 * 1000);
+      return json(items);
+    } catch (e) {
+      return json({ error: `dfat-warnings error: ${e.message ?? e}` }, 502);
+    }
+  }
+
+  // ── Canada GAC travel warnings ────────────────────────────────────────────
+  if (requestUrl.pathname === '/api/gac-warnings') {
+    const cached = getCached('gac-warnings');
+    if (cached) return json(cached);
+    try {
+      const r = await fetchWithTimeout('https://travel.gc.ca/travelling/advisories.atom', { headers: { 'User-Agent': 'WorldMonitor/1.0' } }, 12000);
+      if (!r.ok) throw new Error(`GAC ${r.status}`);
+      const items = parseTravelWarnings(await r.text(), 'GAC');
+      setCached('gac-warnings', items, 60 * 60 * 1000);
+      return json(items);
+    } catch (e) {
+      return json({ error: `gac-warnings error: ${e.message ?? e}` }, 502);
+    }
+  }
+
+  // ── Multi-government warning convergence signal ───────────────────────────
+  if (requestUrl.pathname === '/api/gov-convergence') {
+    const cached = getCached('gov-convergence');
+    if (cached) return json(cached);
+    try {
+      const [fcdoRes, dfatRes, gacRes] = await Promise.allSettled([
+        fetchWithTimeout('https://www.gov.uk/foreign-travel-advice.atom', { headers: { 'User-Agent': 'WorldMonitor/1.0' } }, 12000),
+        fetchWithTimeout('https://www.smartraveller.gov.au/rss', { headers: { 'User-Agent': 'WorldMonitor/1.0' } }, 12000),
+        fetchWithTimeout('https://travel.gc.ca/travelling/advisories.atom', { headers: { 'User-Agent': 'WorldMonitor/1.0' } }, 12000),
+      ]);
+      const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+      const allWarnings = [];
+      const sources = [
+        { result: fcdoRes, key: 'FCDO' },
+        { result: dfatRes, key: 'DFAT' },
+        { result: gacRes, key: 'GAC' },
+      ];
+      for (const { result, key } of sources) {
+        if (result.status === 'fulfilled' && result.value.ok) {
+          allWarnings.push(...parseTravelWarnings(await result.value.text(), key));
+        }
+      }
+      const byCountry = {};
+      for (const w of allWarnings) {
+        if (!byCountry[w.country]) byCountry[w.country] = [];
+        byCountry[w.country].push(w);
+      }
+      const convergence = Object.entries(byCountry)
+        .filter(([, warns]) => warns.length >= 2)
+        .map(([country, warns]) => {
+          const recentWarns = warns.filter(w => w.date && new Date(w.date).getTime() > sevenDaysAgo);
+          return {
+            country,
+            sources: [...new Set(warns.map(w => w.source))],
+            recentSources: [...new Set(recentWarns.map(w => w.source))],
+            recentCount: recentWarns.length,
+            isConvergenceAlert: recentWarns.length >= 2,
+            latestUpdate: warns.map(w => w.date).filter(Boolean).sort().at(-1) ?? null,
+            warnings: warns,
+          };
+        })
+        .sort((a, b) => b.recentCount - a.recentCount);
+      setCached('gov-convergence', convergence, 30 * 60 * 1000);
+      return json(convergence);
+    } catch (e) {
+      return json({ error: `gov-convergence error: ${e.message ?? e}` }, 502);
+    }
+  }
+
+  // ── US Department of Defense news RSS ────────────────────────────────────
+  if (requestUrl.pathname === '/api/dod-news') {
+    const cached = getCached('dod-news');
+    if (cached) return json(cached);
+    try {
+      const r = await fetchWithTimeout('https://www.defense.gov/News/RSS/', { headers: { 'User-Agent': 'WorldMonitor/1.0' } }, 12000);
+      if (!r.ok) throw new Error(`DoD News ${r.status}`);
+      const xml = await r.text();
+      const items = [];
+      for (const m of xml.matchAll(/<item>([\s\S]*?)<\/item>/g)) {
+        const block = m[1];
+        const titleRaw = block.match(/<title><!\[CDATA\[([\s\S]*?)\]\]><\/title>/) ?? block.match(/<title>([\s\S]*?)<\/title>/);
+        const title = titleRaw?.[1]?.trim() ?? null;
+        const link = block.match(/<link>(.*?)<\/link>/)?.[1]?.trim() ?? null;
+        const pubDate = block.match(/<pubDate>(.*?)<\/pubDate>/)?.[1]?.trim() ?? null;
+        const descRaw = block.match(/<description><!\[CDATA\[([\s\S]*?)\]\]><\/description>/) ?? block.match(/<description>([\s\S]*?)<\/description>/);
+        const description = descRaw?.[1]?.replace(/<[^>]+>/g, '').trim().slice(0, 400) ?? null;
+        if (title) items.push({ title, link, pubDate, description, source: 'US DoD' });
+      }
+      setCached('dod-news', items, 30 * 60 * 1000);
+      return json(items);
+    } catch (e) {
+      return json({ error: `dod-news error: ${e.message ?? e}` }, 502);
+    }
+  }
+
+  // ── NATO official newsroom ────────────────────────────────────────────────
+  if (requestUrl.pathname === '/api/nato-news') {
+    const cached = getCached('nato-news');
+    if (cached) return json(cached);
+    try {
+      const r = await fetchWithTimeout('https://www.nato.int/cps/en/natohq/news.htm?selectedLocale=en', { headers: { 'User-Agent': 'WorldMonitor/1.0', Accept: 'application/xml, text/xml' } }, 12000);
+      if (!r.ok) throw new Error(`NATO ${r.status}`);
+      const xml = await r.text();
+      const items = [];
+      for (const m of xml.matchAll(/<item>([\s\S]*?)<\/item>/g)) {
+        const block = m[1];
+        const titleRaw = block.match(/<title><!\[CDATA\[([\s\S]*?)\]\]><\/title>/) ?? block.match(/<title>([\s\S]*?)<\/title>/);
+        const title = titleRaw?.[1]?.trim() ?? null;
+        const link = block.match(/<link>(.*?)<\/link>/)?.[1]?.trim() ?? null;
+        const pubDate = block.match(/<pubDate>(.*?)<\/pubDate>/)?.[1]?.trim() ?? null;
+        const descRaw = block.match(/<description><!\[CDATA\[([\s\S]*?)\]\]><\/description>/) ?? block.match(/<description>([\s\S]*?)<\/description>/);
+        const description = descRaw?.[1]?.replace(/<[^>]+>/g, '').trim().slice(0, 400) ?? null;
+        if (title) items.push({ title, link, pubDate, description, source: 'NATO' });
+      }
+      setCached('nato-news', items, 30 * 60 * 1000);
+      return json(items);
+    } catch (e) {
+      return json({ error: `nato-news error: ${e.message ?? e}` }, 502);
+    }
+  }
+
+  // ── ACAPS INFORM crisis severity index ────────────────────────────────────
+  if (requestUrl.pathname === '/api/acaps-crises') {
+    const cached = getCached('acaps-crises');
+    if (cached) return json(cached);
+    try {
+      const r = await fetchWithTimeout(
+        'https://api.acaps.org/api/v1/inform-crisis-severity/',
+        { headers: { Accept: 'application/json', 'User-Agent': 'WorldMonitor/1.0' } },
+        15000,
+      );
+      if (!r.ok) throw new Error(`ACAPS ${r.status}`);
+      const data = await r.json();
+      const crises = (data.results ?? (Array.isArray(data) ? data : [])).map((item, i) => ({
+        id: item.id ?? `acaps-${i}`,
+        country: item.country ?? null,
+        countryCode: item.iso3 ?? null,
+        crisisName: item.crisis_name ?? item.name ?? null,
+        severity: item.current_crisis_severity ?? item.severity ?? null,
+        severityScore: item.inform_severity_score ?? item.score ?? null,
+        category: item.crisis_category ?? null,
+        peopleAffected: item.people_in_need ?? null,
+        lastUpdated: item.updated_at ?? null,
+        trend: item.trend ?? null,
+      }));
+      const sorted = crises.sort((a, b) => (b.severityScore ?? 0) - (a.severityScore ?? 0));
+      setCached('acaps-crises', sorted, 4 * 60 * 60 * 1000);
+      return json(sorted);
+    } catch (e) {
+      return json({ error: `acaps-crises error: ${e.message ?? e}` }, 502);
+    }
+  }
+
+  // ── LiveUAMap Ukraine frontline OSINT ─────────────────────────────────────
+  if (requestUrl.pathname === '/api/liveuamap') {
+    const cached = getCached('liveuamap');
+    if (cached) return json(cached);
+    try {
+      const r = await fetchWithTimeout('https://liveuamap.com/rss', { headers: { 'User-Agent': 'WorldMonitor/1.0 (conflict intelligence)' } }, 12000);
+      if (!r.ok) throw new Error(`LiveUAMap ${r.status}`);
+      const xml = await r.text();
+      const items = [];
+      for (const m of xml.matchAll(/<item>([\s\S]*?)<\/item>/g)) {
+        const block = m[1];
+        const titleRaw = block.match(/<title><!\[CDATA\[([\s\S]*?)\]\]><\/title>/) ?? block.match(/<title>([\s\S]*?)<\/title>/);
+        const title = titleRaw?.[1]?.trim() ?? null;
+        const link = block.match(/<link>(.*?)<\/link>/)?.[1]?.trim() ?? null;
+        const pubDate = block.match(/<pubDate>(.*?)<\/pubDate>/)?.[1]?.trim() ?? null;
+        const descRaw = block.match(/<description><!\[CDATA\[([\s\S]*?)\]\]><\/description>/) ?? block.match(/<description>([\s\S]*?)<\/description>/);
+        const description = descRaw?.[1]?.replace(/<[^>]+>/g, '').trim().slice(0, 400) ?? null;
+        const lat = parseFloat(block.match(/<geo:lat>(.*?)<\/geo:lat>/)?.[1] ?? 'NaN');
+        const lon = parseFloat(block.match(/<geo:long>(.*?)<\/geo:long>/)?.[1] ?? 'NaN');
+        if (title) items.push({ title, link, pubDate, description, lat: isNaN(lat) ? null : lat, lon: isNaN(lon) ? null : lon, source: 'LiveUAMap' });
+      }
+      setCached('liveuamap', items, 10 * 60 * 1000);
+      return json(items);
+    } catch (e) {
+      return json({ error: `liveuamap error: ${e.message ?? e}` }, 502);
+    }
+  }
+
   // ── Energy prices — Stooq (WTI/NatGas) + FRED CSV (Brent) ───────────────
   // Returns WTI (cl.f), Brent (DCOILBRENTEU), NatGas (ng.f) — no API key required
   if (requestUrl.pathname === '/api/energy-fallback') {

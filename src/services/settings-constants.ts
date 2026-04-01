@@ -139,4 +139,19 @@ export const SETTINGS_CATEGORIES: SettingsCategory[] = [
     label: 'News & Media',
     features: ['newsApiHeadlines', 'newsDataFeed', 'mediastackNews', 'redditOsint'],
   },
+  {
+    id: 'conflict-analysis',
+    label: 'Conflict Analysis',
+    features: ['iswSituationReports', 'reliefwebCrises', 'bellingcatOsint', 'liveUaMapFeed'],
+  },
+  {
+    id: 'military-diplomatic',
+    label: 'Military & Diplomatic',
+    features: ['dodNewsRss', 'natoNewsRss', 'acapsCrisisSeverity', 'emscSeismic', 'govWarningConvergence'],
+  },
+  {
+    id: 'travel-warnings',
+    label: 'Travel Warnings',
+    features: ['fcdoTravelWarnings', 'dfatTravelWarnings', 'gacTravelWarnings'],
+  },
 ];

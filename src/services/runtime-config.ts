@@ -98,7 +98,19 @@ export type RuntimeFeatureId =
   | 'openAqMonitor'
   | 'geoNames'
   | 'ripeNccData'
-  | 'ipInfoLookup';
+  | 'ipInfoLookup'
+  | 'iswSituationReports'
+  | 'reliefwebCrises'
+  | 'bellingcatOsint'
+  | 'emscSeismic'
+  | 'fcdoTravelWarnings'
+  | 'dfatTravelWarnings'
+  | 'gacTravelWarnings'
+  | 'govWarningConvergence'
+  | 'dodNewsRss'
+  | 'natoNewsRss'
+  | 'acapsCrisisSeverity'
+  | 'liveUaMapFeed';
 
 export interface RuntimeFeatureDefinition {
   id: RuntimeFeatureId;
@@ -178,6 +190,18 @@ const defaultToggles: Record<RuntimeFeatureId, boolean> = {
   geoNames: true,
   ripeNccData: true,
   ipInfoLookup: true,
+  iswSituationReports: true,
+  reliefwebCrises: true,
+  bellingcatOsint: true,
+  emscSeismic: true,
+  fcdoTravelWarnings: true,
+  dfatTravelWarnings: true,
+  gacTravelWarnings: true,
+  govWarningConvergence: true,
+  dodNewsRss: true,
+  natoNewsRss: true,
+  acapsCrisisSeverity: true,
+  liveUaMapFeed: true,
 };
 
 export const RUNTIME_FEATURES: RuntimeFeatureDefinition[] = [
@@ -570,6 +594,102 @@ export const RUNTIME_FEATURES: RuntimeFeatureDefinition[] = [
     requiredSecrets: ['IPINFO_TOKEN'],
     desktopRequiredSecrets: [],
     fallback: 'IPInfo IP lookup is disabled.',
+  },
+  {
+    id: 'iswSituationReports',
+    name: 'ISW daily situation reports',
+    description: 'Institute for the Study of War daily conflict analysis — Ukraine/Russia, Gaza, Sudan, and global hotspots. Authoritative open-source intelligence used by NATO and DoD staff.',
+    requiredSecrets: [],
+    desktopRequiredSecrets: [],
+    fallback: 'ISW situation reports are disabled.',
+  },
+  {
+    id: 'reliefwebCrises',
+    name: 'UN OCHA ReliefWeb crisis reports',
+    description: 'UN Office for the Coordination of Humanitarian Affairs authoritative situation reports for all active conflict and disaster zones — no key required.',
+    requiredSecrets: [],
+    desktopRequiredSecrets: [],
+    fallback: 'ReliefWeb crisis reports are disabled.',
+  },
+  {
+    id: 'bellingcatOsint',
+    name: 'Bellingcat OSINT investigations',
+    description: 'Open-source intelligence investigations into covert military movements, equipment losses, geolocation, and conflict verification — no key required.',
+    requiredSecrets: [],
+    desktopRequiredSecrets: [],
+    fallback: 'Bellingcat OSINT feed is disabled.',
+  },
+  {
+    id: 'emscSeismic',
+    name: 'EMSC seismic (nuclear test watch)',
+    description: 'European Mediterranean Seismological Centre — independent sensor network for M≥3.5 events. Proximity-flagged against known nuclear test sites (Punggye-ri, Novaya Zemlya, Lop Nor, Nevada) for suspected nuclear test detection.',
+    requiredSecrets: [],
+    desktopRequiredSecrets: [],
+    fallback: 'EMSC seismic feed and nuclear test watch are disabled.',
+  },
+  {
+    id: 'fcdoTravelWarnings',
+    name: 'UK FCDO travel warnings',
+    description: 'UK Foreign Commonwealth & Development Office country-level travel advisories (Level 1–4) — updated in response to security deterioration.',
+    requiredSecrets: [],
+    desktopRequiredSecrets: [],
+    fallback: 'UK FCDO travel warnings are disabled.',
+  },
+  {
+    id: 'dfatTravelWarnings',
+    name: 'Australia DFAT travel warnings',
+    description: 'Australian Department of Foreign Affairs & Trade Smartraveller country advisories — independent government threat assessment.',
+    requiredSecrets: [],
+    desktopRequiredSecrets: [],
+    fallback: 'Australia DFAT travel warnings are disabled.',
+  },
+  {
+    id: 'gacTravelWarnings',
+    name: 'Canada GAC travel warnings',
+    description: 'Global Affairs Canada country travel advisories — independent government threat assessment from a Five Eyes intelligence partner.',
+    requiredSecrets: [],
+    desktopRequiredSecrets: [],
+    fallback: 'Canada GAC travel warnings are disabled.',
+  },
+  {
+    id: 'govWarningConvergence',
+    name: 'Multi-government warning convergence',
+    description: 'Composite signal: when 2+ governments (UK, Australia, Canada) simultaneously upgrade warnings for the same country within 7 days, emits a high-confidence escalation alert.',
+    requiredSecrets: [],
+    desktopRequiredSecrets: [],
+    fallback: 'Multi-government convergence alerts are disabled.',
+  },
+  {
+    id: 'dodNewsRss',
+    name: 'US Department of Defense news',
+    description: 'Official Pentagon press releases — deployment announcements, exercise starts, force posture shifts, and security cooperation events.',
+    requiredSecrets: [],
+    desktopRequiredSecrets: [],
+    fallback: 'US DoD news feed is disabled.',
+  },
+  {
+    id: 'natoNewsRss',
+    name: 'NATO official newsroom',
+    description: 'Official NATO press releases — Article 4/5 consultations, force posture changes, new member activations, and summit outcomes.',
+    requiredSecrets: [],
+    desktopRequiredSecrets: [],
+    fallback: 'NATO news feed is disabled.',
+  },
+  {
+    id: 'acapsCrisisSeverity',
+    name: 'ACAPS humanitarian crisis index',
+    description: 'ACAPS INFORM Crisis Severity Index — quantified severity scores for all active humanitarian crises by country, updated weekly by professional analysts.',
+    requiredSecrets: [],
+    desktopRequiredSecrets: [],
+    fallback: 'ACAPS crisis severity index is disabled.',
+  },
+  {
+    id: 'liveUaMapFeed',
+    name: 'LiveUAMap Ukraine frontline',
+    description: 'Near-real-time Ukraine frontline events from LiveUAMap OSINT aggregation — geolocated conflict events updated within minutes.',
+    requiredSecrets: [],
+    desktopRequiredSecrets: [],
+    fallback: 'LiveUAMap Ukraine frontline feed is disabled.',
   },
 ];
 
