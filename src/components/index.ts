@@ -79,4 +79,5 @@ export * from './HazmatIncidentsPanel';
 export * from './OilSpillPanel';
 export * from './HazardAlertsPanel';
 export { FAAWeatherCamsPanel } from './FAAWeatherCamsPanel';
+export { showApiKeyGate } from './api-key-gate';
 

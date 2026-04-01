@@ -6151,6 +6151,76 @@ a.prediction-link:hover {
   background: rgba(255, 210, 124, 0.2);
 }
 
+.api-key-gate {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 1.5rem 1rem;
+  text-align: center;
+}
+
+.api-key-gate-label {
+  font-size: 0.8rem;
+  color: var(--text-secondary, #aaa);
+  margin: 0;
+}
+
+.api-key-gate-row {
+  display: flex;
+  gap: 0.4rem;
+  width: 100%;
+  max-width: 280px;
+}
+
+.api-key-gate-input {
+  flex: 1;
+  font-size: 0.75rem;
+  padding: 0.3rem 0.5rem;
+  background: var(--bg-secondary, #1a1a1a);
+  border: 1px solid var(--border-color, #333);
+  border-radius: 4px;
+  color: var(--text-primary, #eee);
+  outline: none;
+}
+
+.api-key-gate-input:focus {
+  border-color: var(--accent-color, #4a9eff);
+}
+
+.api-key-gate-save {
+  font-size: 0.75rem;
+  padding: 0.3rem 0.7rem;
+  background: var(--accent-color, #4a9eff);
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.api-key-gate-save:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.api-key-gate-signup {
+  font-size: 0.72rem;
+  color: var(--text-muted, #666);
+  text-decoration: none;
+}
+
+.api-key-gate-signup:hover {
+  color: var(--accent-color, #4a9eff);
+}
+
+.api-key-gate-status {
+  font-size: 0.72rem;
+  color: var(--semantic-critical, #ff4444);
+  min-height: 1em;
+}
+
 /* Modal */
 .modal-overlay {
   position: fixed;

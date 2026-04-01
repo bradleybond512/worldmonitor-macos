@@ -205,6 +205,7 @@ import { EdgarFilingsPanel } from '@/components/EdgarFilingsPanel';
 import { fetchGlobalWeather } from '@/services/global-weather';
 import { fetchRecentSanctions } from '@/services/opensanctions';
 import { fetchRecentEdgarFilings } from '@/services/sec-edgar';
+import { showApiKeyGate } from '@/components/api-key-gate';
 
 const PROTO_TO_CLIENT_LEVEL: Record<ProtoThreatLevel, ClientThreatLevel> = {
   THREAT_LEVEL_UNSPECIFIED: 'info',
@@ -977,7 +978,6 @@ export class DataLoaderManager implements AppModule {
         },
       });
 
-      const finnhubConfigMsg = 'FINNHUB_API_KEY not configured — add in Settings';
       this.ctx.latestMarkets = stocksResult.data;
       (this.ctx.panels.markets as MarketPanel).renderMarkets(stocksResult.data, stocksResult.rateLimited);
 
@@ -988,9 +988,11 @@ export class DataLoaderManager implements AppModule {
       } else if (stocksResult.skipped) {
         this.ctx.statusPanel?.updateApi('Finnhub', { status: 'error' });
         if (stocksResult.data.length === 0) {
-          this.ctx.panels.markets?.showConfigError(finnhubConfigMsg);
+          const marketsPanel = this.ctx.panels.markets;
+          if (marketsPanel) showApiKeyGate(marketsPanel, 'FINNHUB_API_KEY', () => { void this.loadMarkets(); });
         }
-        this.ctx.panels.heatmap?.showConfigError(finnhubConfigMsg);
+        const heatmapPanel = this.ctx.panels.heatmap;
+        if (heatmapPanel) showApiKeyGate(heatmapPanel, 'FINNHUB_API_KEY', () => { void this.loadMarkets(); });
       } else {
         this.ctx.statusPanel?.updateApi('Finnhub', { status: 'ok' });
 
@@ -2452,7 +2454,10 @@ export class DataLoaderManager implements AppModule {
     try {
       const fireResult = await fetchAllFires(1);
       if (fireResult.skipped) {
-        this.ctx.panels['satellite-fires']?.showConfigError('Add NASA FIRMS API key in Settings → API Keys (free at firms.modaps.eosdis.nasa.gov)');
+        const firesPanel = this.ctx.panels['satellite-fires'];
+        if (firesPanel) {
+          showApiKeyGate(firesPanel, 'NASA_FIRMS_API_KEY', () => { void this.loadFirmsData(); });
+        }
         this.ctx.statusPanel?.updateApi('FIRMS', { status: 'error' });
         return;
       }
