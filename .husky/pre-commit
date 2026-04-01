@@ -41,3 +41,8 @@ if echo "$CHANGED_FILES" | grep -Eq "^(src-tauri/sidecar/|api/)"; then
   echo "Running sidecar tests..."
   npm run test:sidecar || exit 1
 fi
+
+if echo "$CHANGED_FILES" | grep -Eq "\.(ts|js|mjs)$"; then
+  echo "Running lint-staged..."
+  npx lint-staged || exit 1
+fi

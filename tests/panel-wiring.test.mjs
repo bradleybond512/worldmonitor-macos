@@ -37,3 +37,21 @@ test('full-variant awareness panels are registered, instantiated, and refreshed'
   assert.match(appSource, /this\.dataLoader\.loadCommsHealth\(\)/);
   assert.match(appSource, /this\.dataLoader\.loadEconomicStress\(\)/);
 });
+
+test('air-traffic panel is registered, instantiated, and scheduled', () => {
+  const panelsConfig = readRepoFile('src/config/panels.ts');
+  const panelLayout = readRepoFile('src/app/panel-layout.ts');
+  const dataLoader = readRepoFile('src/app/data-loader.ts');
+  const appSource = readRepoFile('src/App.ts');
+
+  assert.match(
+    panelsConfig,
+    /['"]air-traffic['"]\s*:\s*\{/,
+    'panels config should register air-traffic',
+  );
+  assert.match(panelLayout, /new AirTrafficPanel\(\)/);
+  assert.match(panelLayout, /this\.ctx\.panels\[['"]air-traffic['"]\]\s*=/);
+  assert.match(dataLoader, /fetchAdsbSnapshot/);
+  assert.match(dataLoader, /loadAdsb\(\)/);
+  assert.match(appSource, /scheduleRefresh/);
+});
