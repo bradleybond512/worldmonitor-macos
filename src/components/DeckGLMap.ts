@@ -1321,8 +1321,9 @@ export class DeckGLMap {
       layers.push(this.createAirstrikesLayer());
     }
 
-    // S2 Underground intelligence layer
-    if (mapLayers.s2pimu && this.s2pimuData.length > 0) {
+    // S2 Underground intelligence layer — only at zoom ≥5 to avoid global dot clutter
+    const zoom = this.maplibreMap?.getZoom() ?? 0;
+    if (mapLayers.s2pimu && this.s2pimuData.length > 0 && zoom >= 5) {
       layers.push(this.createS2UndergroundLayer());
     }
 
@@ -4148,25 +4149,30 @@ export class DeckGLMap {
   }
 
   private createS2UndergroundLayer(): ScatterplotLayer<S2UndergroundEvent> {
+    // Filter to high-signal events only — skip generic/routine entries that flood the map
+    const HIGH_SIGNAL_TERMS = ['kinetic', 'attack', 'strike', 'military', 'base', 'installation',
+      'border', 'crisis', 'threat', 'terror', 'missile', 'drone', 'convoy', 'artillery'];
+    const filtered = this.s2pimuData.filter((d) => {
+      const t = (d.eventType + ' ' + d.layerTitle + ' ' + d.name).toLowerCase();
+      return HIGH_SIGNAL_TERMS.some(term => t.includes(term));
+    });
     return new ScatterplotLayer<S2UndergroundEvent>({
       id: 's2underground-layer',
-      data: this.s2pimuData,
+      data: filtered,
       getPosition: (d) => [d.lon, d.lat],
-      getRadius: 10_000,
+      getRadius: 6_000,
       getFillColor: (d) => {
         const t = (d.eventType || d.layerTitle || '').toLowerCase();
-        if (t.includes('kinetic') || t.includes('attack') || t.includes('strike')) return [255, 60, 60, 220];
-        if (t.includes('military') || t.includes('base') || t.includes('installation')) return [100, 180, 255, 200];
-        if (t.includes('border') || t.includes('crisis') || t.includes('migration')) return [255, 165, 0, 200];
-        if (t.includes('fire') || t.includes('thermal') || t.includes('hotspot')) return [255, 120, 30, 200];
+        if (t.includes('kinetic') || t.includes('attack') || t.includes('strike') || t.includes('missile') || t.includes('drone') || t.includes('artillery')) return [255, 60, 60, 220];
+        if (t.includes('military') || t.includes('base') || t.includes('installation') || t.includes('convoy')) return [100, 180, 255, 200];
+        if (t.includes('border') || t.includes('crisis')) return [255, 165, 0, 200];
         if (t.includes('threat') || t.includes('terror')) return [200, 40, 40, 220];
-        if (t.includes('weather') || t.includes('storm') || t.includes('flood')) return [30, 180, 255, 200];
-        return [180, 120, 255, 200]; // default S2 purple
+        return [180, 120, 255, 180];
       },
-      radiusMinPixels: 4,
-      radiusMaxPixels: 20,
+      radiusMinPixels: 3,
+      radiusMaxPixels: 12,
       stroked: true,
-      getLineColor: [255, 255, 255, 100],
+      getLineColor: [255, 255, 255, 80],
       lineWidthMinPixels: 1,
       pickable: true,
     });
