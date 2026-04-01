@@ -137,6 +137,9 @@ const FULL_PANELS: Record<string, PanelConfig> = {
   'combatant-commands': { name: 'Combatant Commands', enabled: true, priority: 1 },
   'foreign-mil-news': { name: 'Foreign Military News', enabled: true, priority: 1 },
   'spc-mesoscale': { name: 'SPC Mesoscale Discussions', enabled: true, priority: 2 },
+  'threat-intel-hub': { name: 'Threat Intel Hub', enabled: true, priority: 2 },
+  'geo-intel': { name: 'Geo Intel', enabled: true, priority: 2 },
+  'dark-web': { name: 'Dark Web', enabled: true, priority: 2 },
 };
 
 const FULL_MAP_LAYERS: MapLayers = {
@@ -192,6 +195,8 @@ const FULL_MAP_LAYERS: MapLayers = {
   dayNight: false,
   faaWeatherCams: true,
   adsb: false,
+  acledEvents: false,
+  militaryFlights: false,
 };
 
 const FULL_MOBILE_MAP_LAYERS: MapLayers = {
@@ -247,6 +252,8 @@ const FULL_MOBILE_MAP_LAYERS: MapLayers = {
   dayNight: false,
   faaWeatherCams: false,
   adsb: false,
+  acledEvents: false,
+  militaryFlights: false,
 };
 
 // ============================================
@@ -343,6 +350,8 @@ const TECH_MAP_LAYERS: MapLayers = {
   dayNight: false,
   faaWeatherCams: false,
   adsb: false,
+  acledEvents: false,
+  militaryFlights: false,
 };
 
 const TECH_MOBILE_MAP_LAYERS: MapLayers = {
@@ -398,6 +407,8 @@ const TECH_MOBILE_MAP_LAYERS: MapLayers = {
   dayNight: false,
   faaWeatherCams: false,
   adsb: false,
+  acledEvents: false,
+  militaryFlights: false,
 };
 
 // ============================================
@@ -490,6 +501,8 @@ const FINANCE_MAP_LAYERS: MapLayers = {
   dayNight: false,
   faaWeatherCams: false,
   adsb: false,
+  acledEvents: false,
+  militaryFlights: false,
 };
 
 const FINANCE_MOBILE_MAP_LAYERS: MapLayers = {
@@ -545,6 +558,8 @@ const FINANCE_MOBILE_MAP_LAYERS: MapLayers = {
   dayNight: false,
   faaWeatherCams: false,
   adsb: false,
+  acledEvents: false,
+  militaryFlights: false,
 };
 
 // ============================================
@@ -616,6 +631,8 @@ const HAPPY_MAP_LAYERS: MapLayers = {
   dayNight: false,
   faaWeatherCams: false,
   adsb: false,
+  acledEvents: false,
+  militaryFlights: false,
 };
 
 const HAPPY_MOBILE_MAP_LAYERS: MapLayers = {
@@ -671,6 +688,8 @@ const HAPPY_MOBILE_MAP_LAYERS: MapLayers = {
   dayNight: false,
   faaWeatherCams: false,
   adsb: false,
+  acledEvents: false,
+  militaryFlights: false,
 };
 
 // ============================================
@@ -694,6 +713,8 @@ export const LAYER_TO_SOURCE: Partial<Record<keyof MapLayers, DataSourceId[]>> =
   climate: ['climate'],
   faaWeatherCams: ['faa_weather_cams'],
   adsb: ['adsb'],
+  acledEvents: ['acled'],
+  militaryFlights: ['adsb-military'],
 };
 
 // ============================================
@@ -733,7 +754,7 @@ export const PANEL_CATEGORY_MAP: Record<string, { labelKey: string; panelKeys: s
   },
   dataTracking: {
     labelKey: 'header.panelCatDataTracking',
-    panelKeys: ['monitors', 'cyber-threats', 'local-ids', 'comms-health', 'ucdp-events', 'nuclear-risk', 'airstrikes', 'displacement', 'security-advisories', 'oref-sirens', 'space-weather', 'spaceflight-news', 'space-launches', 'population-exposure', 'internet-disruptions', 'air-traffic'],
+    panelKeys: ['monitors', 'cyber-threats', 'local-ids', 'comms-health', 'ucdp-events', 'nuclear-risk', 'airstrikes', 'displacement', 'security-advisories', 'oref-sirens', 'space-weather', 'spaceflight-news', 'space-launches', 'population-exposure', 'internet-disruptions', 'air-traffic', 'threat-intel-hub', 'geo-intel', 'dark-web'],
     variants: ['full'],
   },
   hazards: {

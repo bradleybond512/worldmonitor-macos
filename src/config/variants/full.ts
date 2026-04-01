@@ -103,6 +103,8 @@ export const DEFAULT_MAP_LAYERS: MapLayers = {
   dayNight: false,
   faaWeatherCams: false,
   adsb: false,
+  acledEvents: false,
+  militaryFlights: false,
 };
 
 // Mobile-specific defaults for geopolitical
@@ -158,6 +160,8 @@ export const MOBILE_DEFAULT_MAP_LAYERS: MapLayers = {
   dayNight: false,
   faaWeatherCams: false,
   adsb: false,
+  acledEvents: false,
+  militaryFlights: false,
 };
 
 export const VARIANT_CONFIG: VariantConfig = {

@@ -247,6 +247,8 @@ export class App {
       latestClusters: [],
       intelligenceCache: {},
       cyberThreatsCache: null,
+      acledEvents: [],
+      adsbMilitary: [],
       disabledSources,
       currentTimeRange: '7d',
       inFlight: new Set(),
@@ -641,6 +643,25 @@ export class App {
         () => this.state.mapLayers.adsb || !!this.state.panels['air-traffic']
       );
     }
+
+    this.refreshScheduler.scheduleRefresh(
+      'threat-intel-hub',
+      () => this.dataLoader.loadThreatIntelHub(),
+      15 * 60 * 1000,
+      () => !!this.state.panels['threat-intel-hub'],
+    );
+    this.refreshScheduler.scheduleRefresh(
+      'geo-intel',
+      () => this.dataLoader.loadGeoIntel(),
+      2 * 60 * 1000,
+      () => !!this.state.panels['geo-intel'],
+    );
+    this.refreshScheduler.scheduleRefresh(
+      'dark-web',
+      () => this.dataLoader.loadDarkWeb(),
+      60 * 60 * 1000,
+      () => !!this.state.panels['dark-web'],
+    );
 
     // Telegram Intel (near real-time, 60s refresh)
     this.refreshScheduler.scheduleRefresh(

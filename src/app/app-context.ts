@@ -26,6 +26,7 @@ import type { SpeciesComebackPanel } from '@/components/SpeciesComebackPanel';
 import type { RenewableEnergyPanel } from '@/components/RenewableEnergyPanel';
 import type { TvModeController } from '@/services/tv-mode';
 import type { BreakingNewsBanner } from '@/components/BreakingNewsBanner';
+import type { AcledEvent, AdsbMilitaryFlight } from '@/services/osint';
 
 export type UpdateState = {
   phase: 'checking' | 'up-to-date' | 'available' | 'installing';
@@ -136,4 +137,8 @@ export interface AppContext {
   readonly PANEL_ORDER_KEY: string;
   readonly PANEL_SPANS_KEY: string;
   updateState: UpdateState;
+
+  // OSINT panel state
+  acledEvents: AcledEvent[];
+  adsbMilitary: AdsbMilitaryFlight[];
 }

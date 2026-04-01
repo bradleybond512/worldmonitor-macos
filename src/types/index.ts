@@ -584,6 +584,9 @@ export interface MapLayers {
   faaWeatherCams: boolean;
   // ADS-B live aircraft tracking layer
   adsb: boolean;
+  // OSINT layers
+  acledEvents: boolean;
+  militaryFlights: boolean;
 }
 
 export interface AIDataCenter {
