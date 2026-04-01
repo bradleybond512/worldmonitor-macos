@@ -1,32 +1,31 @@
 /**
- * Trade policy intelligence service -- WTO data sources.
- * Trade restrictions, tariff trends, trade flows, and SPS/TBT barriers.
+ * Trade policy intelligence service -- Global Trade Alert data source.
+ * Trade restrictions via sidecar /api/trade-policy; tariffs/flows/barriers return empty stubs.
  */
 
-import {
-  TradeServiceClient,
-  type GetTradeRestrictionsResponse,
-  type GetTariffTrendsResponse,
-  type GetTradeFlowsResponse,
-  type GetTradeBarriersResponse,
-  
-  
-  
-  
-} from '@/generated/client/worldmonitor/trade/v1/service_client';
 import { createCircuitBreaker } from '@/utils';
 import { isFeatureAvailable } from '../runtime-config';
+import { getApiBaseUrl } from '../runtime';
 
-// Re-export types for consumers
+export type {
+  TradeRestriction,
+  TariffDataPoint,
+  TradeFlowRecord,
+  TradeBarrier,
+  GetTradeRestrictionsResponse,
+  GetTariffTrendsResponse,
+  GetTradeFlowsResponse,
+  GetTradeBarriersResponse,
+} from '@/generated/client/worldmonitor/trade/v1/service_client';
 
-
-
-const client = new TradeServiceClient('', { fetch: (...args) => globalThis.fetch(...args) });
+import type {
+  GetTradeRestrictionsResponse,
+  GetTariffTrendsResponse,
+  GetTradeFlowsResponse,
+  GetTradeBarriersResponse,
+} from '@/generated/client/worldmonitor/trade/v1/service_client';
 
 const restrictionsBreaker = createCircuitBreaker<GetTradeRestrictionsResponse>({ name: 'WTO Restrictions', cacheTtlMs: 30 * 60 * 1000, persistCache: true });
-const tariffsBreaker = createCircuitBreaker<GetTariffTrendsResponse>({ name: 'WTO Tariffs', cacheTtlMs: 30 * 60 * 1000, persistCache: true });
-const flowsBreaker = createCircuitBreaker<GetTradeFlowsResponse>({ name: 'WTO Flows', cacheTtlMs: 30 * 60 * 1000, persistCache: true });
-const barriersBreaker = createCircuitBreaker<GetTradeBarriersResponse>({ name: 'WTO Barriers', cacheTtlMs: 30 * 60 * 1000, persistCache: true });
 
 const emptyRestrictions: GetTradeRestrictionsResponse = { restrictions: [], fetchedAt: '', upstreamUnavailable: false };
 const emptyTariffs: GetTariffTrendsResponse = { datapoints: [], fetchedAt: '', upstreamUnavailable: false };
@@ -37,44 +36,41 @@ export async function fetchTradeRestrictions(countries: string[] = [], limit = 5
   if (!isFeatureAvailable('wtoTrade')) return emptyRestrictions;
   try {
     return await restrictionsBreaker.execute(async () => {
-      return client.getTradeRestrictions({ countries, limit });
+      const resp = await fetch(`${getApiBaseUrl()}/api/trade-policy`);
+      if (!resp.ok) return { ...emptyRestrictions, upstreamUnavailable: true };
+      const data = await resp.json() as { interventions: Array<{ id: string; title: string; country: string; type: string; announced: string; status: string; affected_countries: string[] }>; fetchedAt: string };
+      const filtered = countries.length > 0
+        ? data.interventions.filter(i => countries.includes(i.country) || i.affected_countries.some(c => countries.includes(c)))
+        : data.interventions;
+      return {
+        restrictions: filtered.slice(0, limit).map(i => ({
+          id: i.id,
+          reportingCountry: i.country,
+          affectedCountry: i.affected_countries[0] ?? '',
+          productSector: '',
+          measureType: i.type,
+          description: i.title,
+          status: i.status,
+          notifiedAt: i.announced,
+          sourceUrl: '',
+        })),
+        fetchedAt: data.fetchedAt,
+        upstreamUnavailable: false,
+      };
     }, emptyRestrictions);
   } catch {
     return emptyRestrictions;
   }
 }
 
-export async function fetchTariffTrends(reportingCountry: string, partnerCountry: string, productSector = '', years = 10): Promise<GetTariffTrendsResponse> {
-  if (!isFeatureAvailable('wtoTrade')) return emptyTariffs;
-  try {
-    return await tariffsBreaker.execute(async () => {
-      return client.getTariffTrends({ reportingCountry, partnerCountry, productSector, years });
-    }, emptyTariffs);
-  } catch {
-    return emptyTariffs;
-  }
+export async function fetchTariffTrends(_reportingCountry: string, _partnerCountry: string, _productSector = '', _years = 10): Promise<GetTariffTrendsResponse> {
+  return emptyTariffs;
 }
 
-export async function fetchTradeFlows(reportingCountry: string, partnerCountry: string, years = 10): Promise<GetTradeFlowsResponse> {
-  if (!isFeatureAvailable('wtoTrade')) return emptyFlows;
-  try {
-    return await flowsBreaker.execute(async () => {
-      return client.getTradeFlows({ reportingCountry, partnerCountry, years });
-    }, emptyFlows);
-  } catch {
-    return emptyFlows;
-  }
+export async function fetchTradeFlows(_reportingCountry: string, _partnerCountry: string, _years = 10): Promise<GetTradeFlowsResponse> {
+  return emptyFlows;
 }
 
-export async function fetchTradeBarriers(countries: string[] = [], measureType = '', limit = 50): Promise<GetTradeBarriersResponse> {
-  if (!isFeatureAvailable('wtoTrade')) return emptyBarriers;
-  try {
-    return await barriersBreaker.execute(async () => {
-      return client.getTradeBarriers({ countries, measureType, limit });
-    }, emptyBarriers);
-  } catch {
-    return emptyBarriers;
-  }
+export async function fetchTradeBarriers(_countries: string[] = [], _measureType = '', _limit = 50): Promise<GetTradeBarriersResponse> {
+  return emptyBarriers;
 }
-
-export {type TradeRestriction, type TariffDataPoint, type TradeFlowRecord, type TradeBarrier, type GetTradeRestrictionsResponse, type GetTariffTrendsResponse, type GetTradeFlowsResponse, type GetTradeBarriersResponse} from '@/generated/client/worldmonitor/trade/v1/service_client';
