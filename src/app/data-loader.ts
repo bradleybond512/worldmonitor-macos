@@ -3047,7 +3047,6 @@ export class DataLoaderManager implements AppModule {
     }
   }
 
-<<<<<<< HEAD
   async loadIswReports(): Promise<void> {
     try {
       const reports = await fetchIswReports();

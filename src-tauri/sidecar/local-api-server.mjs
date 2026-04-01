@@ -3367,14 +3367,16 @@ async function dispatch(requestUrl, req, routes, context) {
 
   // ── URLScan.io recent malicious submissions ─────────────────────────────
   if (requestUrl.pathname === '/api/urlscan-feed') {
+    // API key is optional — public search works without auth; key unlocks private scans + higher rate limits
     const apiKey = process.env.URLSCAN_API_KEY ?? '';
-    if (!apiKey) return json({ error: 'URLSCAN_API_KEY not configured' }, 403);
-    const cached = getCached('urlscan-feed');
+    const cached = getCached('urlscan-feed', 15 * 60 * 1000);
     if (cached) return json(cached);
     try {
+      const headers = { Accept: 'application/json', 'User-Agent': CHROME_UA };
+      if (apiKey) headers['API-Key'] = apiKey;
       const r = await fetchWithTimeout(
-        'https://urlscan.io/api/v1/search/?q=task.tags:malicious&size=50&sort=_score',
-        { headers: { 'API-Key': apiKey, Accept: 'application/json' } },
+        'https://urlscan.io/api/v1/search/?q=task.tags:malicious&size=20',
+        { headers },
         12000,
       );
       if (!r.ok) throw new Error(`URLScan ${r.status}`);
@@ -3391,7 +3393,7 @@ async function dispatch(requestUrl, req, routes, context) {
         submittedAt: item.task?.time ?? null,
         screenshot: item.screenshot ?? null,
       }));
-      setCached('urlscan-feed', results, 30 * 60 * 1000);
+      setCached('urlscan-feed', results);
       return json(results);
     } catch (e) {
       return json({ error: `urlscan error: ${e.message ?? e}` }, 502);

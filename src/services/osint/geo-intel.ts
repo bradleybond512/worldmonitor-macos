@@ -9,6 +9,7 @@ export interface AcledEvent {
   latitude: number;
   longitude: number;
   country: string;
+  source: string;
   notes: string;
 }
 
@@ -17,8 +18,8 @@ export interface AdsbMilitaryFlight {
   callsign: string;
   longitude: number;
   latitude: number;
-  baro_altitude: number;
-  velocity: number;
+  baro_altitude: number | null;
+  velocity: number | null;
   squawk: string;
 }
 
