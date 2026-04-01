@@ -2,7 +2,7 @@
 import http, { createServer } from 'node:http';
 import https from 'node:https';
 import dns from 'node:dns/promises';
-import { existsSync, readFileSync, writeFileSync, statSync, openSync, readSync, closeSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync, statSync, openSync, readSync, closeSync, readdirSync } from 'node:fs';
 import { readdir } from 'node:fs/promises';
 import { promisify } from 'node:util';
 import { brotliCompress, gzipSync } from 'node:zlib';
@@ -841,6 +841,20 @@ function _zeekFields(lines) {
   for (const line of lines) {
     if (line.startsWith('#fields\t')) return line.slice('#fields\t'.length).split('\t');
   }
+  return null;
+}
+
+/** Auto-detect the latest Zeek Cellar version directory (avoids hardcoding version). */
+function _zeekCellarSpool() {
+  const cellarBase = '/opt/homebrew/Cellar/zeek';
+  try {
+    if (!existsSync(cellarBase)) return null;
+    const versions = readdirSync(cellarBase).filter(d => /^\d/.test(d)).sort().reverse();
+    for (const v of versions) {
+      const spool = path.join(cellarBase, v, 'spool', 'manager');
+      if (existsSync(spool)) return spool;
+    }
+  } catch { /* */ }
   return null;
 }
 
@@ -4436,8 +4450,9 @@ async function dispatch(requestUrl, req, routes, context) {
       }
 
       // ── Zeek notice.log ────────────────────────────────────────────────
+      const _zeekSpool = _zeekCellarSpool();
       const noticeCandidates = [
-        '/opt/homebrew/Cellar/zeek/8.1.1/spool/manager/notice.log',
+        ...(_zeekSpool ? [`${_zeekSpool}/notice.log`] : []),
         '/opt/homebrew/var/log/zeek/current/notice.log',
       ];
       for (const p of noticeCandidates) {
@@ -4472,7 +4487,7 @@ async function dispatch(requestUrl, req, routes, context) {
 
       // ── Zeek conn.log (suspicious states + large transfers) ───────────
       const connCandidates = [
-        '/opt/homebrew/Cellar/zeek/8.1.1/spool/manager/conn.log',
+        ...(_zeekSpool ? [`${_zeekSpool}/conn.log`] : []),
         '/opt/homebrew/var/log/zeek/current/conn.log',
       ];
       const SUSPICIOUS_STATES = new Set(['S0', 'REJ', 'RSTRH', 'RSTOS0', 'OTH']);
