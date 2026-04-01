@@ -153,7 +153,9 @@ import { fetchThreatFoxIOCs, fetchOpenPhishFeed, fetchSpamhausDrop, fetchCisaKev
 import { fetchSpaceWeather, fetchDonkiEvents } from '@/services/space-weather';
 import { fetchSpaceflightNews } from '@/services/spaceflight-news';
 import { SpaceflightNewsPanel } from '@/components/SpaceflightNewsPanel';
-import { fetchDiseaseOutbreaks, fetchGlobalDiseaseSnapshots } from '@/services/disease-outbreak';
+import { fetchSpaceLaunches } from '@/services/space-launches';
+import { SpaceLaunchesPanel } from '@/components/SpaceLaunchesPanel';
+import { fetchDiseaseOutbreaks, fetchGlobalDiseaseSnapshots, fetchCdcSurveillance } from '@/services/disease-outbreak';
 import { fetchHdxCrises } from '@/services/hdx-crisis';
 import { HumanitarianCrisisPanel } from '@/components/HumanitarianCrisisPanel';
 import { fetchGlobalAirQuality } from '@/services/air-quality';
@@ -433,6 +435,7 @@ export class DataLoaderManager implements AppModule {
     if (SITE_VARIANT !== 'happy' && (this.ctx.mapLayers.techEvents || SITE_VARIANT === 'tech')) tasks.push({ name: 'techEvents', task: runGuarded('techEvents', () => this.loadTechEvents()) });
     if (SITE_VARIANT === 'full') tasks.push({ name: 'spaceWeather', task: runGuarded('spaceWeather', () => this.loadSpaceWeather()) });
     if (SITE_VARIANT === 'full') tasks.push({ name: 'spaceflightNews', task: runGuarded('spaceflightNews', () => this.loadSpaceflightNews()) });
+    if (SITE_VARIANT === 'full') tasks.push({ name: 'spaceLaunches', task: runGuarded('spaceLaunches', () => this.loadSpaceLaunches()) });
     if (SITE_VARIANT === 'full') tasks.push({ name: 'diseaseOutbreaks', task: runGuarded('diseaseOutbreaks', () => this.loadDiseaseOutbreaks()) });
     if (SITE_VARIANT === 'full') tasks.push({ name: 'humanitarianCrises', task: runGuarded('humanitarianCrises', () => this.loadHumanitarianCrises()) });
     if (SITE_VARIANT === 'full') tasks.push({ name: 'federalRegister', task: runGuarded('federalRegister', () => this.loadFederalRegister()) });
@@ -1640,10 +1643,37 @@ export class DataLoaderManager implements AppModule {
     }
   }
 
+  async loadSpaceLaunches(): Promise<void> {
+    try {
+      const launches = await fetchSpaceLaunches();
+      (this.ctx.panels['space-launches'] as SpaceLaunchesPanel)?.update(launches);
+    } catch (error) {
+      console.warn('[space-launches] fetch failed', error);
+      (this.ctx.panels['space-launches'] as SpaceLaunchesPanel)?.update([]);
+    }
+  }
+
   async loadDiseaseOutbreaks(): Promise<void> {
     try {
-      const [outbreaks, snapshots] = await Promise.all([fetchDiseaseOutbreaks(), fetchGlobalDiseaseSnapshots()]);
-      (this.ctx.panels['disease-outbreaks'] as DiseaseOutbreakPanel)?.update(outbreaks, snapshots);
+      const [outbreaks, snapshots, cdcSignals] = await Promise.all([
+        fetchDiseaseOutbreaks(),
+        fetchGlobalDiseaseSnapshots(),
+        fetchCdcSurveillance(),
+      ]);
+      const cdcOutbreaks = cdcSignals.map((s, i) => ({
+        id: `cdc-${i}-${s.date}`,
+        title: `${s.disease}: ${s.metric}${s.value !== null ? ` (${s.value})` : ''}`,
+        country: s.region,
+        disease: s.disease,
+        date: new Date(s.date),
+        url: s.url,
+        source: (s.source === 'WHO' ? 'WHO' : 'ReliefWeb') as 'WHO' | 'ReliefWeb' | 'ProMED',
+        severity: (s.severity === 'alert' ? 'high' : 'medium') as 'critical' | 'high' | 'medium' | 'low',
+      }));
+      (this.ctx.panels['disease-outbreaks'] as DiseaseOutbreakPanel)?.update(
+        [...outbreaks, ...cdcOutbreaks],
+        snapshots,
+      );
     } catch (error) {
       console.warn('[disease-outbreaks] fetch failed', error);
       (this.ctx.panels['disease-outbreaks'] as DiseaseOutbreakPanel)?.update([]);
