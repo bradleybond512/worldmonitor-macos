@@ -2707,12 +2707,10 @@ async function dispatch(requestUrl, req, routes, context) {
     }
   }
 
-  // ── OpenWeatherMap — current conditions for major global cities ───────────
+  // ── Open-Meteo — current conditions for major global cities (no API key required) ─
   if (requestUrl.pathname === '/api/owm-current') {
     const cached = getCached('owm-current', 30 * 60 * 1000); // 30 min
     if (cached) return json(cached);
-    const apiKey = process.env.OWM_API_KEY;
-    if (!apiKey) return json({ error: 'OWM_API_KEY not set' }, 503);
     const CITIES = [
       { name: 'New York', lat: 40.71, lon: -74.01 }, { name: 'Los Angeles', lat: 34.05, lon: -118.24 },
       { name: 'Chicago', lat: 41.85, lon: -87.65 }, { name: 'London', lat: 51.51, lon: -0.13 },
@@ -2729,26 +2727,39 @@ async function dispatch(requestUrl, req, routes, context) {
       { name: 'Sydney', lat: -33.87, lon: 151.21 }, { name: 'Kyiv', lat: 50.45, lon: 30.52 },
       { name: 'Tel Aviv', lat: 32.08, lon: 34.78 }, { name: 'Islamabad', lat: 33.72, lon: 73.04 },
     ];
+    const WMO_CONDITION = (code) => {
+      if (code === 0) return 'Clear';
+      if (code <= 3) return 'Partly Cloudy';
+      if (code === 45 || code === 48) return 'Fog';
+      if (code >= 51 && code <= 55) return 'Drizzle';
+      if (code >= 61 && code <= 65) return 'Rain';
+      if (code >= 71 && code <= 75) return 'Snow';
+      if (code >= 80 && code <= 82) return 'Showers';
+      if (code === 95 || code === 96 || code === 99) return 'Thunderstorm';
+      return 'Cloudy';
+    };
     try {
       const results = await Promise.allSettled(CITIES.map(async (city) => {
         const r = await fetchWithTimeout(
-          `https://api.openweathermap.org/data/2.5/weather?lat=${city.lat}&lon=${city.lon}&appid=${apiKey}&units=metric`,
-          { headers: { 'User-Agent': CHROME_UA } },
+          `https://api.open-meteo.com/v1/forecast?latitude=${city.lat}&longitude=${city.lon}&current=temperature_2m,wind_speed_10m,weather_code&wind_speed_unit=ms&timezone=auto`,
+          {},
           8000,
         );
         if (!r.ok) return null;
         const d = await r.json();
+        const cur = d.current ?? {};
+        const condition = WMO_CONDITION(cur.weather_code ?? -1);
         return {
           city: city.name, lat: city.lat, lon: city.lon,
-          tempC: Math.round(d.main?.temp ?? 0),
-          feelsLikeC: Math.round(d.main?.feels_like ?? 0),
-          humidity: d.main?.humidity ?? null,
-          condition: d.weather?.[0]?.main ?? 'Unknown',
-          description: d.weather?.[0]?.description ?? '',
-          icon: d.weather?.[0]?.icon ?? '',
-          windMps: d.wind?.speed ?? null,
-          visibility: d.visibility ?? null,
-          clouds: d.clouds?.all ?? null,
+          tempC: Math.round(cur.temperature_2m ?? 0),
+          feelsLikeC: null,
+          humidity: null,
+          condition,
+          description: condition,
+          icon: null,
+          windMps: cur.wind_speed_10m ?? null,
+          visibility: null,
+          clouds: null,
           updatedAt: new Date().toISOString(),
         };
       }));
@@ -4547,6 +4558,77 @@ async function dispatch(requestUrl, req, routes, context) {
       return json(Array.isArray(data) ? data : []);
     } catch {
       return json([], 200);
+    }
+  }
+
+  // ── Trade Policy — Global Trade Alert ────────────────────────────────────
+  if (requestUrl.pathname === '/api/trade-policy') {
+    const cached = getCached('trade-policy');
+    if (cached) return json(cached);
+    try {
+      const resp = await fetchWithTimeout(
+        'https://www.globaltradealert.org/api/latest.json',
+        { headers: { Accept: 'application/json', 'User-Agent': CHROME_UA } },
+        12_000,
+      );
+      if (!resp.ok) return json({ interventions: [] }, resp.status);
+      const raw = await resp.json();
+      const interventions = (Array.isArray(raw) ? raw : raw.data ?? []).slice(0, 50).map(d => ({
+        id: String(d.state_act_id ?? d.id ?? ''),
+        title: d.title ?? d.description ?? '',
+        country: d.implementing_jurisdiction ?? d.country ?? '',
+        type: d.mast_chapter ?? d.intervention_type ?? '',
+        announced: d.date_announced ?? d.date ?? '',
+        status: d.currently_in_force ? 'in_force' : 'announced',
+        affected_countries: Array.isArray(d.affected_jurisdictions) ? d.affected_jurisdictions : [],
+      }));
+      const result = { interventions, fetchedAt: new Date().toISOString() };
+      setCached('trade-policy', result, 30 * 60 * 1000);
+      return json(result);
+    } catch {
+      return json({ interventions: [] });
+    }
+  }
+
+  // ── Supply Chain — Baltic Dry Index + IMF Portwatch ───────────────────────
+  if (requestUrl.pathname === '/api/supply-chain') {
+    const cached = getCached('supply-chain');
+    if (cached) return json(cached);
+    try {
+      const bdiResp = await fetchWithTimeout(
+        'https://stooq.com/q/d/l/?s=bdi&i=d&l=20',
+        { headers: { 'User-Agent': CHROME_UA } },
+        10_000,
+      );
+      let bdi = null;
+      if (bdiResp.ok) {
+        const csv = await bdiResp.text();
+        const lines = csv.trim().split('\n');
+        const last = lines[lines.length - 1]?.split(',');
+        if (last && last[4]) bdi = { value: parseFloat(last[4]), date: last[0] };
+      }
+
+      const portResp = await fetchWithTimeout(
+        'https://portwatch.imf.org/api/chokepoints',
+        { headers: { Accept: 'application/json', 'User-Agent': CHROME_UA } },
+        10_000,
+      );
+      let chokepoints = [];
+      if (portResp.ok) {
+        const portData = await portResp.json();
+        chokepoints = (Array.isArray(portData) ? portData : portData.data ?? []).slice(0, 20).map(c => ({
+          name: c.name ?? c.chokepoint ?? '',
+          status: c.status ?? 'normal',
+          throughput_pct: c.throughput_pct ?? c.capacity_utilization ?? null,
+          region: c.region ?? '',
+        }));
+      }
+
+      const result = { bdi, chokepoints, fetchedAt: new Date().toISOString() };
+      setCached('supply-chain', result, 30 * 60 * 1000);
+      return json(result);
+    } catch {
+      return json({ bdi: null, chokepoints: [] });
     }
   }
 

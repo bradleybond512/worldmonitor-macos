@@ -11,7 +11,7 @@ export class GlobalWeatherPanel extends Panel {
       title: 'Global Weather',
       showCount: true,
       trackActivity: true,
-      infoTooltip: 'Current weather conditions for cities worldwide via OpenWeatherMap.',
+      infoTooltip: 'Current weather conditions for cities worldwide via Open-Meteo.',
     });
     this.showLoading('Fetching global weather data...');
   }
@@ -53,7 +53,7 @@ export class GlobalWeatherPanel extends Panel {
           <tbody>${rows}</tbody>
         </table>
         <div class="fires-footer">
-          <span class="fires-source">OpenWeatherMap</span>
+          <span class="fires-source">Open-Meteo</span>
         </div>
       </div>
     `);

@@ -1,5 +1,4 @@
 import { getApiBaseUrl } from '@/services/runtime';
-import { isFeatureAvailable } from '@/services/runtime-config';
 
 export interface GlobalWeatherReading {
   city: string;
@@ -18,7 +17,6 @@ export interface GlobalWeatherReading {
 }
 
 export async function fetchGlobalWeather(): Promise<GlobalWeatherReading[]> {
-  if (!isFeatureAvailable('openWeatherMap')) return [];
   try {
     const res = await fetch(`${getApiBaseUrl()}/api/owm-current`);
     if (!res.ok) return [];
