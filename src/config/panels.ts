@@ -52,7 +52,7 @@ const FULL_PANELS: Record<string, PanelConfig> = {
   'satellite-fires': { name: 'Fires', enabled: true, priority: 2 },
   earthquakes: { name: 'Earthquakes', enabled: true, priority: 2 },
   'cyber-threats': { name: 'Cyber Threats', enabled: true, priority: 2 },
-  'local-ids': { name: 'Local IDS', enabled: false, priority: 2 },
+  'local-ids': { name: 'Local IDS', enabled: true, priority: 2 },
   'comms-health': { name: 'Communications Health', enabled: true, priority: 2 },
   'macro-signals': { name: 'Market Radar', enabled: true, priority: 2 },
   'etf-flows': { name: 'BTC ETF Tracker', enabled: true, priority: 2 },
@@ -80,7 +80,7 @@ const FULL_PANELS: Record<string, PanelConfig> = {
   'wildfire-incidents': { name: 'Wildfires (InciWeb)', enabled: true, priority: 2 },
   'hazmat-incidents': { name: 'Hazmat Incidents', enabled: true, priority: 2 },
   'oil-spill': { name: 'Oil & Chemical Spills', enabled: true, priority: 2 },
-  'hazard-alerts': { name: 'Hazard Alerts — Near Me', enabled: true, priority: 1 },
+  'hazard-alerts': { name: 'Hazard Alerts \u2014 Near Me', enabled: true, priority: 1 },
   'gdacs-alerts': { name: 'GDACS Disaster Alerts', enabled: true, priority: 2 },
   'volcano-alerts': { name: 'Volcano Alerts', enabled: true, priority: 2 },
   'nws-alerts': { name: 'NWS Hazard Alerts', enabled: true, priority: 2 },
@@ -677,7 +677,7 @@ export const LAYER_TO_SOURCE: Partial<Record<keyof MapLayers, DataSourceId[]>> =
 // The `variants` field restricts a category to specific site variants;
 // omit it to show the category for all variants.
 export const PANEL_CATEGORY_MAP: Record<string, { labelKey: string; panelKeys: string[]; variants?: string[] }> = {
-  // All variants — essential panels
+  // All variants \u2014 essential panels
   core: {
     labelKey: 'header.panelCatCore',
     panelKeys: ['map', 'insights', 'strategic-posture', 'live-news', 'live-webcams'],
@@ -781,7 +781,7 @@ export const PANEL_CATEGORY_MAP: Record<string, { labelKey: string; panelKeys: s
   },
 };
 
-// Monitor palette — fixed category colors persisted to localStorage (not theme-dependent)
+// Monitor palette \u2014 fixed category colors persisted to localStorage (not theme-dependent)
 export const MONITOR_COLORS = [
   '#44ff88',
   '#ff8844',
