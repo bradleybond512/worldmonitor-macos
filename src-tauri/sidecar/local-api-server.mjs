@@ -1581,6 +1581,77 @@ async function dispatch(requestUrl, req, routes, context) {
     }
   }
 
+  // ── API Key Auto-Registration routes ─────────────────────────────────────
+  if (requestUrl.pathname === '/api/register/newsapi') {
+    try {
+      const body = await req.json().catch(() => ({}));
+      const { email, password } = body;
+      if (!email || !password) return json({ error: 'email and password required' }, 400);
+      const resp = await fetchWithTimeout(
+        'https://newsapi.org/v2/register',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'User-Agent': CHROME_UA },
+          body: JSON.stringify({ email, password }),
+        },
+        15_000,
+      );
+      const data = await resp.json();
+      return json({ apiKey: data.apiKey ?? null, status: data.status, message: data.message });
+    } catch (e) {
+      return json({ error: String(e) }, 500);
+    }
+  }
+
+  if (requestUrl.pathname === '/api/register/newsdata') {
+    try {
+      const body = await req.json().catch(() => ({}));
+      const { email, password, firstName, lastName } = body;
+      if (!email || !password) return json({ error: 'email and password required' }, 400);
+      const resp = await fetchWithTimeout(
+        'https://newsdata.io/register',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'User-Agent': CHROME_UA },
+          body: JSON.stringify({ email, password, fname: firstName ?? '', lname: lastName ?? '' }),
+        },
+        15_000,
+      );
+      const data = await resp.json().catch(() => ({}));
+      return json({ apiKey: data.apikey ?? data.api_key ?? null, message: data.message ?? '' });
+    } catch (e) {
+      return json({ error: String(e) }, 500);
+    }
+  }
+
+  if (requestUrl.pathname === '/api/register/nasa-firms') {
+    try {
+      const body = await req.json().catch(() => ({}));
+      const { email, firstName, lastName, organization } = body;
+      if (!email) return json({ error: 'email required' }, 400);
+      const params = new URLSearchParams({
+        email,
+        username: email.split('@')[0].replace(/[^a-zA-Z0-9]/g, '').slice(0, 20) + Math.floor(Math.random() * 999),
+        firstname: firstName ?? '',
+        lastname: lastName ?? '',
+        organization: organization ?? 'Personal',
+        purpose: 'World Monitor app — wildfire situational awareness',
+      });
+      const resp = await fetchWithTimeout(
+        'https://firms.modaps.eosdis.nasa.gov/api/area/csv/register',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'User-Agent': CHROME_UA },
+          body: params.toString(),
+        },
+        15_000,
+      );
+      return json({ submitted: resp.ok, message: resp.ok ? 'Check your email for the API key' : 'Registration failed', status: resp.status });
+    } catch (e) {
+      return json({ error: String(e) }, 500);
+    }
+  }
+
   // ── OREF (Israel Home Front Command) alerts ──────────────────────────────
   // Handled before dynamic dispatch so we control the relay→tzevaadom fallback
   // chain here rather than relying on the oref-alerts.js bundle which requires

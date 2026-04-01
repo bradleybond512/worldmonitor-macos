@@ -21,6 +21,8 @@ import { isDesktopRuntime } from '@/services/runtime';
 import { t } from '@/services/i18n';
 import { trackFeatureToggle } from '@/services/analytics';
 import { SIGNUP_URLS, PLAINTEXT_KEYS, MASKED_SENTINEL, SETTINGS_CATEGORIES } from '@/services/settings-constants';
+import { getRegistrationProfile, saveRegistrationProfile, clearRegistrationProfile } from '@/services/registration-profile';
+import type { RegistrationProfile } from '@/services/registration-profile';
 
 interface RuntimeConfigPanelOptions {
   mode?: 'full' | 'alert';
@@ -240,6 +242,7 @@ export class RuntimeConfigPanel extends Panel {
     const uncategorized = features.filter(f => !categorized.has(f.id));
 
     this.content.innerHTML = `
+      ${this.renderProfileSection()}
       <div class="runtime-config-summary">
         ${desktop ? t('modals.runtimeConfig.summary.desktop') : t('modals.runtimeConfig.summary.web')} · ${features.filter(f => isFeatureAvailable(f.id)).length}/${features.length} ${t('modals.runtimeConfig.summary.available')}
       </div>
@@ -250,6 +253,79 @@ export class RuntimeConfigPanel extends Panel {
     `;
 
     this.attachListeners();
+    this.attachProfileListeners();
+  }
+
+  private renderProfileSection(): string {
+    const profile = getRegistrationProfile();
+    if (profile) {
+      return `
+        <details class="reg-profile-section">
+          <summary class="reg-profile-summary">
+            Registered as: ${escapeHtml(profile.firstName)} ${escapeHtml(profile.lastName)} (${escapeHtml(profile.email)})
+            <span class="reg-profile-edit-hint">— click to edit</span>
+          </summary>
+          <div class="reg-profile-form">
+            <input type="text" class="reg-profile-input" data-reg-field="firstName" placeholder="First name" value="${escapeHtml(profile.firstName)}">
+            <input type="text" class="reg-profile-input" data-reg-field="lastName" placeholder="Last name" value="${escapeHtml(profile.lastName)}">
+            <input type="email" class="reg-profile-input" data-reg-field="email" placeholder="Email" value="${escapeHtml(profile.email)}">
+            <input type="text" class="reg-profile-input" data-reg-field="organization" placeholder="Organization (optional)" value="${escapeHtml(profile.organization)}">
+            <div class="reg-profile-actions">
+              <button type="button" class="reg-profile-save-btn" data-reg-save>Save Profile</button>
+              <button type="button" class="reg-profile-clear-btn" data-reg-clear>Clear</button>
+            </div>
+            <span class="reg-profile-status"></span>
+          </div>
+        </details>
+      `;
+    }
+    return `
+      <details class="reg-profile-section">
+        <summary class="reg-profile-summary">
+          Save your info once to auto-register for API keys
+          <span class="reg-profile-edit-hint">— click to set up</span>
+        </summary>
+        <div class="reg-profile-form">
+          <input type="text" class="reg-profile-input" data-reg-field="firstName" placeholder="First name" value="">
+          <input type="text" class="reg-profile-input" data-reg-field="lastName" placeholder="Last name" value="">
+          <input type="email" class="reg-profile-input" data-reg-field="email" placeholder="Email" value="">
+          <input type="text" class="reg-profile-input" data-reg-field="organization" placeholder="Organization (optional)" value="">
+          <div class="reg-profile-actions">
+            <button type="button" class="reg-profile-save-btn" data-reg-save>Save Profile</button>
+          </div>
+          <span class="reg-profile-status"></span>
+        </div>
+      </details>
+    `;
+  }
+
+  private attachProfileListeners(): void {
+    const saveBtn = this.content.querySelector<HTMLButtonElement>('[data-reg-save]');
+    const clearBtn = this.content.querySelector<HTMLButtonElement>('[data-reg-clear]');
+    const statusEl = this.content.querySelector<HTMLSpanElement>('.reg-profile-status');
+
+    saveBtn?.addEventListener('click', () => {
+      const get = (field: string) =>
+        (this.content.querySelector<HTMLInputElement>(`[data-reg-field="${field}"]`)?.value.trim()) ?? '';
+      const profile: RegistrationProfile = {
+        firstName: get('firstName'),
+        lastName: get('lastName'),
+        email: get('email'),
+        organization: get('organization'),
+      };
+      if (!profile.email) {
+        if (statusEl) statusEl.textContent = 'Email required';
+        return;
+      }
+      saveRegistrationProfile(profile);
+      if (statusEl) statusEl.textContent = 'Profile saved';
+      this.render();
+    });
+
+    clearBtn?.addEventListener('click', () => {
+      clearRegistrationProfile();
+      this.render();
+    });
   }
 
   private renderFeature(feature: RuntimeFeatureDefinition): string {
