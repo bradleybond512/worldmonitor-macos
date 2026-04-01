@@ -5310,6 +5310,177 @@ async function dispatch(requestUrl, req, routes, context) {
     }
   }
 
+  // ── GreyNoise scanner seed list ──────────────────────────────────────────
+  if (requestUrl.pathname === '/api/greynoise-scanners') {
+    const apiKey = process.env.GREYNOISE_API_KEY ?? '';
+    if (!apiKey) return json({ error: 'GREYNOISE_API_KEY not configured' });
+    const cached = getCached('greynoise-scanners', 15 * 60 * 1000);
+    if (cached) return json(cached);
+    const SEED_IPS = [
+      '45.83.64.1', '80.82.77.33', '185.220.101.1', '193.32.127.1', '198.20.69.74',
+      '198.20.69.98', '198.20.70.114', '198.20.70.242', '205.210.31.1', '209.126.110.1',
+      '71.6.146.130', '71.6.146.185', '71.6.158.166', '71.6.165.200', '71.6.167.142',
+      '89.248.165.1', '89.248.167.1', '94.102.49.1', '94.102.49.190', '198.199.119.1',
+    ];
+    try {
+      const results = [];
+      for (let i = 0; i < SEED_IPS.length; i += 5) {
+        const batch = SEED_IPS.slice(i, i + 5);
+        await Promise.all(batch.map(async (ip) => {
+          try {
+            const r = await fetchWithTimeout(
+              `https://api.greynoise.io/v3/community/${ip}`,
+              { headers: { 'key': apiKey, 'User-Agent': CHROME_UA } },
+              10000,
+            );
+            if (!r.ok) return;
+            const d = await r.json();
+            results.push({ ip: d.ip ?? ip, noise: d.noise ?? false, riot: d.riot ?? false, classification: d.classification ?? 'unknown', name: d.name ?? null, link: d.link ?? null });
+          } catch {}
+        }));
+        if (i + 5 < SEED_IPS.length) {
+          await new Promise(r => setTimeout(r, 200));
+        }
+      }
+      setCached('greynoise-scanners', results);
+      return json(results);
+    } catch (e) {
+      return json({ error: `greynoise-scanners error: ${e.message ?? e}` }, 502);
+    }
+  }
+
+  // ── OTX subscribed pulses ────────────────────────────────────────────────
+  if (requestUrl.pathname === '/api/otx-pulses') {
+    const apiKey = process.env.OTX_API_KEY ?? '';
+    if (!apiKey) return json({ error: 'OTX_API_KEY not configured' });
+    const cached = getCached('otx-pulses', 30 * 60 * 1000);
+    if (cached) return json(cached);
+    try {
+      const r = await fetchWithTimeout(
+        'https://otx.alienvault.com/api/v1/pulses/subscribed?limit=20',
+        { headers: { 'X-OTX-API-KEY': apiKey, 'User-Agent': CHROME_UA } },
+        12000,
+      );
+      if (!r.ok) throw new Error(`OTX API ${r.status}`);
+      const data = await r.json();
+      const pulses = (data.results ?? []).map(pulse => ({
+        id: pulse.id,
+        name: pulse.name,
+        description: pulse.description,
+        created: pulse.created,
+        author_name: pulse.author_name,
+        tags: pulse.tags,
+        targeted_countries: pulse.targeted_countries,
+        indicators_count: pulse.indicators?.length ?? 0,
+      }));
+      setCached('otx-pulses', pulses);
+      return json(pulses);
+    } catch (e) {
+      return json({ error: `otx-pulses error: ${e.message ?? e}` }, 502);
+    }
+  }
+
+  // ── AbuseIPDB blacklist ──────────────────────────────────────────────────
+  if (requestUrl.pathname === '/api/abuseipdb-reports') {
+    const apiKey = process.env.ABUSEIPDB_API_KEY ?? '';
+    if (!apiKey) return json({ error: 'ABUSEIPDB_API_KEY not configured' });
+    const cached = getCached('abuseipdb-reports', 30 * 60 * 1000);
+    if (cached) return json(cached);
+    try {
+      const r = await fetchWithTimeout(
+        'https://api.abuseipdb.com/api/v2/blacklist?limit=50',
+        { headers: { 'Key': apiKey, 'Accept': 'application/json', 'User-Agent': CHROME_UA } },
+        12000,
+      );
+      if (!r.ok) throw new Error(`AbuseIPDB API ${r.status}`);
+      const data = await r.json();
+      const entries = (data.data ?? []).map(entry => ({
+        ipAddress: entry.ipAddress,
+        abuseConfidenceScore: entry.abuseConfidenceScore,
+        countryCode: entry.countryCode,
+        usageType: entry.usageType,
+        isp: entry.isp,
+        totalReports: entry.totalReports,
+        lastReportedAt: entry.lastReportedAt,
+      }));
+      setCached('abuseipdb-reports', entries);
+      return json(entries);
+    } catch (e) {
+      return json({ error: `abuseipdb-reports error: ${e.message ?? e}` }, 502);
+    }
+  }
+
+  // ── ADS-B military aircraft filter ──────────────────────────────────────
+  if (requestUrl.pathname === '/api/adsb-military') {
+    const cached = getCached('adsb-military', 3 * 60 * 1000);
+    if (cached) return json(cached);
+    const clientId = process.env.OPENSKY_CLIENT_ID?.trim() || '';
+    const clientSecret = process.env.OPENSKY_CLIENT_SECRET?.trim() || '';
+    const headers = { 'User-Agent': CHROME_UA };
+    if (clientId && clientSecret) {
+      const creds = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
+      headers['Authorization'] = `Basic ${creds}`;
+    }
+    try {
+      const r = await fetchWithTimeout('https://opensky-network.org/api/states/all', { headers }, 12000);
+      if (!r.ok) throw new Error(`OpenSky HTTP ${r.status}`);
+      const data = await r.json();
+      const MILITARY_SQUAWKS = new Set(['7700', '7600', '7500']);
+      const MILITARY_ICAO_PREFIXES = ['ae', 'a9', '43', '47', '48', '4b', '4c'];
+      const military = (data.states ?? []).filter(state => {
+        if (state[8] === true) return false;
+        if (state[6] == null || state[5] == null) return false;
+        const icao24 = (state[0] ?? '').toLowerCase();
+        const squawk = state[14] ?? '';
+        if (MILITARY_SQUAWKS.has(squawk)) return true;
+        return MILITARY_ICAO_PREFIXES.some(prefix => icao24.startsWith(prefix));
+      }).map(state => ({
+        icao24: state[0],
+        callsign: (state[1] ?? '').trim(),
+        longitude: state[5],
+        latitude: state[6],
+        baro_altitude: state[7],
+        velocity: state[9],
+        squawk: state[14],
+      }));
+      setCached('adsb-military', military);
+      return json(military);
+    } catch (e) {
+      return json({ error: `adsb-military error: ${e.message ?? e}` }, 502);
+    }
+  }
+
+  // ── Tor relay metrics ────────────────────────────────────────────────────
+  if (requestUrl.pathname === '/api/tor-metrics') {
+    const cached = getCached('tor-metrics', 60 * 60 * 1000);
+    if (cached) return json(cached);
+    try {
+      const r = await fetchWithTimeout(
+        'https://onionoo.torproject.org/summary?type=relay&running=true',
+        { headers: { 'User-Agent': CHROME_UA } },
+        12000,
+      );
+      if (!r.ok) throw new Error(`Onionoo HTTP ${r.status}`);
+      const data = await r.json();
+      const relays = data.relays ?? [];
+      const totalRelays = relays.length;
+      const exitNodes = relays.filter(relay => Array.isArray(relay.f) && relay.f.includes('Exit')).length;
+      const countryCounts = {};
+      for (const relay of relays) {
+        const cc = relay.c;
+        if (cc) countryCounts[cc] = (countryCounts[cc] ?? 0) + 1;
+      }
+      const byCountry = Object.fromEntries(
+        Object.entries(countryCounts).sort((a, b) => b[1] - a[1]).slice(0, 20)
+      );
+      const result = { totalRelays, exitNodes, byCountry };
+      setCached('tor-metrics', result);
+      return json(result);
+    } catch (e) {
+      return json({ error: `tor-metrics error: ${e.message ?? e}` }, 502);
+    }
+  }
+
   if (context.cloudFallback && cloudPreferred.has(requestUrl.pathname)) {
     const cloudResponse = await tryCloudFallback(requestUrl, req, context);
     if (cloudResponse) return cloudResponse;
