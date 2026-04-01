@@ -203,6 +203,51 @@ import { fetchNewsApiHeadlines } from '@/services/newsapi';
 import { fetchNewsDataFeed } from '@/services/newsdata';
 import type { ThreatLevel as ClientThreatLevel } from '@/services/threat-classifier';
 import type { NewsItem as ProtoNewsItem, ThreatLevel as ProtoThreatLevel } from '@/generated/client/worldmonitor/news/v1/service_client';
+import { fetchIswReports } from '@/services/isw-reports';
+import { IswReportsPanel } from '@/components/IswReportsPanel';
+import { NatoNewsPanel } from '@/components/NatoNewsPanel';
+import { DodNewsPanel } from '@/components/DodNewsPanel';
+import { ReliefWebPanel } from '@/components/ReliefWebPanel';
+import { BellingcatPanel } from '@/components/BellingcatPanel';
+import { FcdoWarningsPanel } from '@/components/FcdoWarningsPanel';
+import { DfatWarningsPanel } from '@/components/DfatWarningsPanel';
+import { GacWarningsPanel } from '@/components/GacWarningsPanel';
+import { GovConvergencePanel } from '@/components/GovConvergencePanel';
+import { EmscSeismicPanel } from '@/components/EmscSeismicPanel';
+import { AcapsPanel } from '@/components/AcapsPanel';
+import { LiveUaMapPanel } from '@/components/LiveUaMapPanel';
+import { AerospaceReentryPanel } from '@/components/AerospaceReentryPanel';
+import { AmtrakAlertsPanel } from '@/components/AmtrakAlertsPanel';
+import { AvalancheHazardPanel } from '@/components/AvalancheHazardPanel';
+import { DscaArmsPanel } from '@/components/DscaArmsPanel';
+import { EcdcSurveillancePanel } from '@/components/EcdcSurveillancePanel';
+import { FdicFailuresPanel } from '@/components/FdicFailuresPanel';
+import { HabsosPanel } from '@/components/HabsosPanel';
+import { UnSecurityCouncilPanel } from '@/components/UnSecurityCouncilPanel';
+import { WildfireSmokePanel } from '@/components/WildfireSmokePanel';
+import { CentralBankCalendarPanel } from '@/components/CentralBankCalendarPanel';
+import { fetchNatoNews } from '@/services/nato-news';
+import { fetchDodNews } from '@/services/dod-news';
+import { fetchReliefWebCrises } from '@/services/reliefweb';
+import { fetchBellingcatOsint } from '@/services/bellingcat';
+import { fetchFcdoWarnings, fetchDfatWarnings, fetchGacWarnings, fetchGovWarningConvergence, getConvergenceAlerts } from '@/services/travel-warnings';
+import { fetchEmscSeismic } from '@/services/emsc-seismic';
+import { fetchAcapsCrises } from '@/services/acaps';
+import { fetchLiveUaMap } from '@/services/liveuamap';
+import { fetchDebrisReentries } from '@/services/aerospace-reentry';
+import { fetchAmtrakAlerts } from '@/services/amtrak-alerts';
+import { fetchAvalancheHazard } from '@/services/avalanche-hazard';
+import { fetchArmsTransfers } from '@/services/dsca-arms-transfers';
+import { fetchEcdcAlerts } from '@/services/ecdc-surveillance';
+import { fetchBankFailures } from '@/services/fdic-failures';
+import { fetchHabObservations } from '@/services/habsos';
+import { fetchUnSecurityCouncil } from '@/services/un-security-council';
+import { fetchWildfireSmoke } from '@/services/wildfire-smoke';
+import { getUpcomingMeetings } from '@/services/central-bank-calendar';
+import { fetchCongressDefense } from '@/services/congress-defense';
+import { fetchCombatantCommands } from '@/services/combatant-commands';
+import { fetchForeignMilNews } from '@/services/foreign-mil-news';
+import { fetchMesoscaleDiscussions } from '@/services/spc-mesoscale';
 import { GlobalWeatherPanel } from '@/components/GlobalWeatherPanel';
 import { OpenSanctionsPanel } from '@/components/OpenSanctionsPanel';
 import { EdgarFilingsPanel } from '@/components/EdgarFilingsPanel';
@@ -459,6 +504,29 @@ export class DataLoaderManager implements AppModule {
     if (SITE_VARIANT === 'full') tasks.push({ name: 'openSanctions', task: runGuarded('openSanctions', () => this.loadOpenSanctions()) });
     if (SITE_VARIANT === 'full') tasks.push({ name: 'edgarFilings', task: runGuarded('edgarFilings', () => this.loadEdgarFilings()) });
     if (SITE_VARIANT === 'full') tasks.push({ name: 'infrastructure', task: runGuarded('infrastructure', () => this.loadInfrastructure()) });
+    if (SITE_VARIANT === 'full') tasks.push({ name: 'iswReports', task: runGuarded('iswReports', () => this.loadIswReports()) });
+    if (SITE_VARIANT === 'full') tasks.push({ name: 'natoNews', task: runGuarded('natoNews', () => this.loadNatoNews()) });
+    if (SITE_VARIANT === 'full') tasks.push({ name: 'dodNews', task: runGuarded('dodNews', () => this.loadDodNews()) });
+    if (SITE_VARIANT === 'full') tasks.push({ name: 'reliefWeb', task: runGuarded('reliefWeb', () => this.loadReliefWebCrises()) });
+    if (SITE_VARIANT === 'full') tasks.push({ name: 'bellingcat', task: runGuarded('bellingcat', () => this.loadBellingcat()) });
+    if (SITE_VARIANT === 'full') tasks.push({ name: 'travelWarnings', task: runGuarded('travelWarnings', () => this.loadTravelWarnings()) });
+    if (SITE_VARIANT === 'full') tasks.push({ name: 'emscSeismic', task: runGuarded('emscSeismic', () => this.loadEmscSeismic()) });
+    if (SITE_VARIANT === 'full') tasks.push({ name: 'acapsCrises', task: runGuarded('acapsCrises', () => this.loadAcapsCrises()) });
+    if (SITE_VARIANT === 'full') tasks.push({ name: 'liveUaMap', task: runGuarded('liveUaMap', () => this.loadLiveUaMap()) });
+    if (SITE_VARIANT === 'full') tasks.push({ name: 'debrisReentries', task: runGuarded('debrisReentries', () => this.loadDebrisReentries()) });
+    if (SITE_VARIANT === 'full') tasks.push({ name: 'amtrakAlerts', task: runGuarded('amtrakAlerts', () => this.loadAmtrakAlerts()) });
+    if (SITE_VARIANT === 'full') tasks.push({ name: 'avalancheHazard', task: runGuarded('avalancheHazard', () => this.loadAvalancheHazard()) });
+    if (SITE_VARIANT === 'full') tasks.push({ name: 'armsTransfers', task: runGuarded('armsTransfers', () => this.loadArmsTransfers()) });
+    if (SITE_VARIANT === 'full') tasks.push({ name: 'ecdcSurveillance', task: runGuarded('ecdcSurveillance', () => this.loadEcdcSurveillance()) });
+    if (SITE_VARIANT === 'full') tasks.push({ name: 'fdicFailures', task: runGuarded('fdicFailures', () => this.loadFdicFailures()) });
+    if (SITE_VARIANT === 'full') tasks.push({ name: 'habsos', task: runGuarded('habsos', () => this.loadHabsos()) });
+    if (SITE_VARIANT === 'full') tasks.push({ name: 'unSecurityCouncil', task: runGuarded('unSecurityCouncil', () => this.loadUnSecurityCouncil()) });
+    if (SITE_VARIANT === 'full') tasks.push({ name: 'wildfireSmoke', task: runGuarded('wildfireSmoke', () => this.loadWildfireSmoke()) });
+    if (SITE_VARIANT === 'full') tasks.push({ name: 'centralBankCalendar', task: runGuarded('centralBankCalendar', () => this.loadCentralBankCalendar()) });
+    if (SITE_VARIANT === 'full') tasks.push({ name: 'congressDefense', task: runGuarded('congressDefense', () => this.loadCongressDefense()) });
+    if (SITE_VARIANT === 'full') tasks.push({ name: 'combatantCommands', task: runGuarded('combatantCommands', () => this.loadCombatantCommands()) });
+    if (SITE_VARIANT === 'full') tasks.push({ name: 'foreignMilNews', task: runGuarded('foreignMilNews', () => this.loadForeignMilNews()) });
+    if (SITE_VARIANT === 'full') tasks.push({ name: 'spcMesoscale', task: runGuarded('spcMesoscale', () => this.loadSpcMesoscale()) });
 
     if (SITE_VARIANT === 'tech') {
       tasks.push({ name: 'techReadiness', task: runGuarded('techReadiness', () => (this.ctx.panels['tech-readiness'] as TechReadinessPanel)?.refresh()) });
@@ -2962,6 +3030,241 @@ export class DataLoaderManager implements AppModule {
     } catch (error) {
       console.warn('[infrastructure] fetch failed', error);
       (this.ctx.panels['infrastructure'] as InfrastructurePanel | undefined)?.update([]);
+    }
+  }
+
+  async loadIswReports(): Promise<void> {
+    try {
+      const reports = await fetchIswReports();
+      (this.ctx.panels['isw-reports'] as IswReportsPanel | undefined)?.updateReports(reports);
+    } catch (error) {
+      console.warn('[isw-reports] fetch failed', error);
+      (this.ctx.panels['isw-reports'] as IswReportsPanel | undefined)?.updateReports([]);
+    }
+  }
+
+  async loadNatoNews(): Promise<void> {
+    try {
+      const items = await fetchNatoNews();
+      (this.ctx.panels['nato-news'] as NatoNewsPanel | undefined)?.updateNews(items);
+    } catch (error) {
+      console.warn('[nato-news] fetch failed', error);
+      (this.ctx.panels['nato-news'] as NatoNewsPanel | undefined)?.updateNews([]);
+    }
+  }
+
+  async loadDodNews(): Promise<void> {
+    try {
+      const items = await fetchDodNews();
+      (this.ctx.panels['dod-news'] as DodNewsPanel | undefined)?.updateNews(items);
+    } catch (error) {
+      console.warn('[dod-news] fetch failed', error);
+      (this.ctx.panels['dod-news'] as DodNewsPanel | undefined)?.updateNews([]);
+    }
+  }
+
+  async loadReliefWebCrises(): Promise<void> {
+    try {
+      const crises = await fetchReliefWebCrises();
+      (this.ctx.panels['reliefweb'] as ReliefWebPanel | undefined)?.updateReports(crises);
+    } catch (error) {
+      console.warn('[reliefweb] fetch failed', error);
+      (this.ctx.panels['reliefweb'] as ReliefWebPanel | undefined)?.updateReports([]);
+    }
+  }
+
+  async loadBellingcat(): Promise<void> {
+    try {
+      const posts = await fetchBellingcatOsint();
+      (this.ctx.panels['bellingcat'] as BellingcatPanel | undefined)?.updatePosts(posts);
+    } catch (error) {
+      console.warn('[bellingcat] fetch failed', error);
+      (this.ctx.panels['bellingcat'] as BellingcatPanel | undefined)?.updatePosts([]);
+    }
+  }
+
+  async loadTravelWarnings(): Promise<void> {
+    try {
+      const [fcdo, dfat, gac, convergence] = await Promise.all([
+        fetchFcdoWarnings(),
+        fetchDfatWarnings(),
+        fetchGacWarnings(),
+        fetchGovWarningConvergence(),
+      ]);
+      const alerts = getConvergenceAlerts(convergence);
+      (this.ctx.panels['fcdo-warnings'] as FcdoWarningsPanel | undefined)?.updateWarnings(fcdo);
+      (this.ctx.panels['dfat-warnings'] as DfatWarningsPanel | undefined)?.updateWarnings(dfat);
+      (this.ctx.panels['gac-warnings'] as GacWarningsPanel | undefined)?.updateWarnings(gac);
+      (this.ctx.panels['gov-convergence'] as GovConvergencePanel | undefined)?.updateResults(alerts);
+    } catch (error) {
+      console.warn('[travel-warnings] fetch failed', error);
+    }
+  }
+
+  async loadEmscSeismic(): Promise<void> {
+    try {
+      const events = await fetchEmscSeismic();
+      (this.ctx.panels['emsc-seismic'] as EmscSeismicPanel | undefined)?.updateEvents(events);
+    } catch (error) {
+      console.warn('[emsc-seismic] fetch failed', error);
+      (this.ctx.panels['emsc-seismic'] as EmscSeismicPanel | undefined)?.updateEvents([]);
+    }
+  }
+
+  async loadAcapsCrises(): Promise<void> {
+    try {
+      const crises = await fetchAcapsCrises();
+      (this.ctx.panels['acaps'] as AcapsPanel | undefined)?.updateCrises(crises);
+    } catch (error) {
+      console.warn('[acaps] fetch failed', error);
+      (this.ctx.panels['acaps'] as AcapsPanel | undefined)?.updateCrises([]);
+    }
+  }
+
+  async loadLiveUaMap(): Promise<void> {
+    try {
+      const events = await fetchLiveUaMap();
+      (this.ctx.panels['liveuamap'] as LiveUaMapPanel | undefined)?.updateEvents(events);
+    } catch (error) {
+      console.warn('[liveuamap] fetch failed', error);
+      (this.ctx.panels['liveuamap'] as LiveUaMapPanel | undefined)?.updateEvents([]);
+    }
+  }
+
+  async loadDebrisReentries(): Promise<void> {
+    try {
+      const report = await fetchDebrisReentries();
+      (this.ctx.panels['aerospace-reentry'] as AerospaceReentryPanel | undefined)?.updatePredictions(report.predictions);
+    } catch (error) {
+      console.warn('[aerospace-reentry] fetch failed', error);
+      (this.ctx.panels['aerospace-reentry'] as AerospaceReentryPanel | undefined)?.updatePredictions([]);
+    }
+  }
+
+  async loadAmtrakAlerts(): Promise<void> {
+    try {
+      const alerts = await fetchAmtrakAlerts();
+      (this.ctx.panels['amtrak-alerts'] as AmtrakAlertsPanel | undefined)?.updateAlerts(alerts);
+    } catch (error) {
+      console.warn('[amtrak-alerts] fetch failed', error);
+      (this.ctx.panels['amtrak-alerts'] as AmtrakAlertsPanel | undefined)?.updateAlerts([]);
+    }
+  }
+
+  async loadAvalancheHazard(): Promise<void> {
+    try {
+      const report = await fetchAvalancheHazard();
+      (this.ctx.panels['avalanche-hazard'] as AvalancheHazardPanel | undefined)?.updateForecasts(report.forecasts);
+    } catch (error) {
+      console.warn('[avalanche-hazard] fetch failed', error);
+      (this.ctx.panels['avalanche-hazard'] as AvalancheHazardPanel | undefined)?.updateForecasts([]);
+    }
+  }
+
+  async loadArmsTransfers(): Promise<void> {
+    try {
+      const transfers = await fetchArmsTransfers();
+      (this.ctx.panels['dsca-arms'] as DscaArmsPanel | undefined)?.updateTransfers(transfers);
+    } catch (error) {
+      console.warn('[dsca-arms] fetch failed', error);
+      (this.ctx.panels['dsca-arms'] as DscaArmsPanel | undefined)?.updateTransfers([]);
+    }
+  }
+
+  async loadEcdcSurveillance(): Promise<void> {
+    try {
+      const alerts = await fetchEcdcAlerts();
+      (this.ctx.panels['ecdc-surveillance'] as EcdcSurveillancePanel | undefined)?.updateAlerts(alerts);
+    } catch (error) {
+      console.warn('[ecdc-surveillance] fetch failed', error);
+      (this.ctx.panels['ecdc-surveillance'] as EcdcSurveillancePanel | undefined)?.updateAlerts([]);
+    }
+  }
+
+  async loadFdicFailures(): Promise<void> {
+    try {
+      const summary = await fetchBankFailures();
+      (this.ctx.panels['fdic-failures'] as FdicFailuresPanel | undefined)?.updateSummary(summary);
+    } catch (error) {
+      console.warn('[fdic-failures] fetch failed', error);
+    }
+  }
+
+  async loadHabsos(): Promise<void> {
+    try {
+      const observations = await fetchHabObservations();
+      (this.ctx.panels['habsos'] as HabsosPanel | undefined)?.updateObservations(observations);
+    } catch (error) {
+      console.warn('[habsos] fetch failed', error);
+      (this.ctx.panels['habsos'] as HabsosPanel | undefined)?.updateObservations([]);
+    }
+  }
+
+  async loadUnSecurityCouncil(): Promise<void> {
+    try {
+      const items = await fetchUnSecurityCouncil();
+      (this.ctx.panels['un-security-council'] as UnSecurityCouncilPanel | undefined)?.updateItems(items);
+    } catch (error) {
+      console.warn('[un-security-council] fetch failed', error);
+      (this.ctx.panels['un-security-council'] as UnSecurityCouncilPanel | undefined)?.updateItems([]);
+    }
+  }
+
+  async loadWildfireSmoke(): Promise<void> {
+    try {
+      const report = await fetchWildfireSmoke();
+      (this.ctx.panels['wildfire-smoke'] as WildfireSmokePanel | undefined)?.updateReport(report);
+    } catch (error) {
+      console.warn('[wildfire-smoke] fetch failed', error);
+    }
+  }
+
+  async loadCentralBankCalendar(): Promise<void> {
+    try {
+      const meetings = getUpcomingMeetings();
+      (this.ctx.panels['central-bank-calendar'] as CentralBankCalendarPanel | undefined)?.updateMeetings(meetings);
+    } catch (error) {
+      console.warn('[central-bank-calendar] load failed', error);
+    }
+  }
+
+  async loadCongressDefense(): Promise<void> {
+    try {
+      const items = await fetchCongressDefense();
+      (this.ctx.panels['congress-defense'] as any)?.update(items);
+    } catch (error) {
+      console.warn('[congress-defense] fetch failed', error);
+      (this.ctx.panels['congress-defense'] as any)?.update([]);
+    }
+  }
+
+  async loadCombatantCommands(): Promise<void> {
+    try {
+      const releases = await fetchCombatantCommands();
+      (this.ctx.panels['combatant-commands'] as any)?.update(releases);
+    } catch (error) {
+      console.warn('[combatant-commands] fetch failed', error);
+      (this.ctx.panels['combatant-commands'] as any)?.update([]);
+    }
+  }
+
+  async loadForeignMilNews(): Promise<void> {
+    try {
+      const items = await fetchForeignMilNews();
+      (this.ctx.panels['foreign-mil-news'] as any)?.update(items);
+    } catch (error) {
+      console.warn('[foreign-mil-news] fetch failed', error);
+      (this.ctx.panels['foreign-mil-news'] as any)?.update([]);
+    }
+  }
+
+  async loadSpcMesoscale(): Promise<void> {
+    try {
+      const discussions = await fetchMesoscaleDiscussions();
+      (this.ctx.panels['spc-mesoscale'] as any)?.update(discussions);
+    } catch (error) {
+      console.warn('[spc-mesoscale] fetch failed', error);
+      (this.ctx.panels['spc-mesoscale'] as any)?.update([]);
     }
   }
 }

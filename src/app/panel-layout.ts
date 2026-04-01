@@ -71,6 +71,32 @@ import { AirstrikesPanel } from '@/components/AirstrikesPanel';
 import { GDACSAlertsPanel } from '@/components/GDACSAlertsPanel';
 import { VolcanoAlertsPanel } from '@/components/VolcanoAlertsPanel';
 import { NWSAlertsPanel } from '@/components/NWSAlertsPanel';
+import { IswReportsPanel } from '@/components/IswReportsPanel';
+import { NatoNewsPanel } from '@/components/NatoNewsPanel';
+import { DodNewsPanel } from '@/components/DodNewsPanel';
+import { ReliefWebPanel } from '@/components/ReliefWebPanel';
+import { BellingcatPanel } from '@/components/BellingcatPanel';
+import { FcdoWarningsPanel } from '@/components/FcdoWarningsPanel';
+import { DfatWarningsPanel } from '@/components/DfatWarningsPanel';
+import { GacWarningsPanel } from '@/components/GacWarningsPanel';
+import { GovConvergencePanel } from '@/components/GovConvergencePanel';
+import { EmscSeismicPanel } from '@/components/EmscSeismicPanel';
+import { AcapsPanel } from '@/components/AcapsPanel';
+import { LiveUaMapPanel } from '@/components/LiveUaMapPanel';
+import { AerospaceReentryPanel } from '@/components/AerospaceReentryPanel';
+import { AmtrakAlertsPanel } from '@/components/AmtrakAlertsPanel';
+import { AvalancheHazardPanel } from '@/components/AvalancheHazardPanel';
+import { DscaArmsPanel } from '@/components/DscaArmsPanel';
+import { EcdcSurveillancePanel } from '@/components/EcdcSurveillancePanel';
+import { FdicFailuresPanel } from '@/components/FdicFailuresPanel';
+import { HabsosPanel } from '@/components/HabsosPanel';
+import { UnSecurityCouncilPanel } from '@/components/UnSecurityCouncilPanel';
+import { WildfireSmokePanel } from '@/components/WildfireSmokePanel';
+import { CentralBankCalendarPanel } from '@/components/CentralBankCalendarPanel';
+import { CongressDefensePanel } from '@/components/CongressDefensePanel';
+import { CombatantCommandsPanel } from '@/components/CombatantCommandsPanel';
+import { ForeignMilNewsPanel } from '@/components/ForeignMilNewsPanel';
+import { SpcMesoscalePanel } from '@/components/SpcMesoscalePanel';
 import { FAAWeatherCamsPanel } from '@/components/FAAWeatherCamsPanel';
 import { CommsHealthPanel } from '@/components/CommsHealthPanel';
 import { FearGreedPanel } from '@/components/FearGreedPanel';
@@ -1030,6 +1056,36 @@ export class PanelLayoutManager implements AppModule {
 
       const telegramIntelPanel = new TelegramIntelPanel();
       this.ctx.panels['telegram-intel'] = telegramIntelPanel;
+
+      // WW3 escalation intel panels
+      this.ctx.panels['isw-reports'] = new IswReportsPanel();
+      this.ctx.panels['nato-news'] = new NatoNewsPanel();
+      this.ctx.panels['dod-news'] = new DodNewsPanel();
+      this.ctx.panels['reliefweb-crises'] = new ReliefWebPanel();
+      this.ctx.panels['bellingcat-osint'] = new BellingcatPanel();
+      this.ctx.panels['fcdo-warnings'] = new FcdoWarningsPanel();
+      this.ctx.panels['dfat-warnings'] = new DfatWarningsPanel();
+      this.ctx.panels['gac-warnings'] = new GacWarningsPanel();
+      this.ctx.panels['gov-warning-convergence'] = new GovConvergencePanel();
+      this.ctx.panels['emsc-seismic'] = new EmscSeismicPanel();
+      this.ctx.panels['acaps-crises'] = new AcapsPanel();
+      this.ctx.panels['liveuamap'] = new LiveUaMapPanel();
+
+      // Previously orphaned services now wired
+      this.ctx.panels['aerospace-reentry'] = new AerospaceReentryPanel();
+      this.ctx.panels['amtrak-alerts'] = new AmtrakAlertsPanel();
+      this.ctx.panels['avalanche-hazard'] = new AvalancheHazardPanel();
+      this.ctx.panels['dsca-arms-transfers'] = new DscaArmsPanel();
+      this.ctx.panels['ecdc-surveillance'] = new EcdcSurveillancePanel();
+      this.ctx.panels['fdic-failures'] = new FdicFailuresPanel();
+      this.ctx.panels['habsos'] = new HabsosPanel();
+      this.ctx.panels['un-security-council'] = new UnSecurityCouncilPanel();
+      this.ctx.panels['wildfire-smoke'] = new WildfireSmokePanel();
+      this.ctx.panels['central-bank-calendar'] = new CentralBankCalendarPanel();
+      this.ctx.panels['congress-defense'] = new CongressDefensePanel();
+      this.ctx.panels['combatant-commands'] = new CombatantCommandsPanel();
+      this.ctx.panels['foreign-mil-news'] = new ForeignMilNewsPanel();
+      this.ctx.panels['spc-mesoscale'] = new SpcMesoscalePanel();
     }
 
     if (SITE_VARIANT === 'finance') {

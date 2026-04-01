@@ -811,15 +811,16 @@ async function fetchWithTimeout(url, options = {}, timeoutMs = 12_000) {
 const _sidecarCache = new Map(); // key -> { data, ts }
 function getCached(key, ttlMs) {
   const entry = _sidecarCache.get(key);
-  if (entry && Date.now() - entry.ts < ttlMs) return entry.data;
+  const effective = ttlMs ?? entry?.ttlMs;
+  if (entry && effective != null && Date.now() - entry.ts < effective) return entry.data;
   return null;
 }
 function getCachedStale(key) {
   const entry = _sidecarCache.get(key);
   return entry ? entry.data : null;
 }
-function setCached(key, data) {
-  _sidecarCache.set(key, { data, ts: Date.now() });
+function setCached(key, data, ttlMs) {
+  _sidecarCache.set(key, { data, ts: Date.now(), ...(ttlMs != null && { ttlMs }) });
 }
 
 // ── Local IDS log helpers ─────────────────────────────────────────────────
@@ -4479,18 +4480,8 @@ async function dispatch(requestUrl, req, routes, context) {
 
   // ── AI Strategic Posture — proxy cloud API server-side (bypasses browser CORS) ─
   if (requestUrl.pathname === '/api/military/v1/get-theater-posture') {
-    const now = Math.floor(Date.now() / 1000);
-    const THEATER_STUB = [
-      { theater: 'iran-theater',        postureLevel: 'normal', activeFlights: 0, trackedVessels: 0, activeOperations: [], assessedAt: now },
-      { theater: 'taiwan-theater',      postureLevel: 'normal', activeFlights: 0, trackedVessels: 0, activeOperations: [], assessedAt: now },
-      { theater: 'baltic-theater',      postureLevel: 'normal', activeFlights: 0, trackedVessels: 0, activeOperations: [], assessedAt: now },
-      { theater: 'blacksea-theater',    postureLevel: 'normal', activeFlights: 0, trackedVessels: 0, activeOperations: [], assessedAt: now },
-      { theater: 'korea-theater',       postureLevel: 'normal', activeFlights: 0, trackedVessels: 0, activeOperations: [], assessedAt: now },
-      { theater: 'south-china-sea',     postureLevel: 'normal', activeFlights: 0, trackedVessels: 0, activeOperations: [], assessedAt: now },
-      { theater: 'east-med-theater',    postureLevel: 'normal', activeFlights: 0, trackedVessels: 0, activeOperations: [], assessedAt: now },
-      { theater: 'israel-gaza-theater', postureLevel: 'normal', activeFlights: 0, trackedVessels: 0, activeOperations: [], assessedAt: now },
-      { theater: 'yemen-redsea-theater',postureLevel: 'normal', activeFlights: 0, trackedVessels: 0, activeOperations: [], assessedAt: now },
-    ];
+    const cached = getCached('theater-posture', 5 * 60 * 1000);
+    if (cached) return json(cached);
     try {
       // Node.js is not subject to browser CORS — proxy directly to cloud API server-side
       const cloudUrl = 'https://api.worldmonitor.app/api/military/v1/get-theater-posture' + requestUrl.search;
@@ -4499,12 +4490,76 @@ async function dispatch(requestUrl, req, routes, context) {
       }, 10_000);
       if (cloudResp.ok) {
         const body = await cloudResp.json();
-        // Validate shape before forwarding
-        if (body && Array.isArray(body.theaters)) return json(body);
+        if (body && Array.isArray(body.theaters)) {
+          setCached('theater-posture', body, 5 * 60 * 1000);
+          return json(body);
+        }
       }
-    } catch { /* timeout / network error — fall through to stub */ }
-    // Return stub so panel renders all theaters at "normal" rather than spinning forever
-    return json({ theaters: THEATER_STUB });
+    } catch { /* timeout / network error — fall through to local computation */ }
+
+    // Compute from locally cached ACLED, AIS, and ADSB data
+    const THEATER_DEFS = [
+      { theater: 'iran-theater',         latMin: 23, latMax: 38, lonMin: 44, lonMax: 63 },
+      { theater: 'taiwan-theater',       latMin: 22, latMax: 26, lonMin: 119, lonMax: 124 },
+      { theater: 'baltic-theater',       latMin: 53, latMax: 61, lonMin: 10, lonMax: 30 },
+      { theater: 'blacksea-theater',     latMin: 40, latMax: 48, lonMin: 28, lonMax: 42 },
+      { theater: 'korea-theater',        latMin: 34, latMax: 42, lonMin: 124, lonMax: 131 },
+      { theater: 'south-china-sea',      latMin: 5,  latMax: 24, lonMin: 108, lonMax: 122 },
+      { theater: 'east-med-theater',     latMin: 30, latMax: 40, lonMin: 24, lonMax: 38 },
+      { theater: 'israel-gaza-theater',  latMin: 29, latMax: 34, lonMin: 34, lonMax: 36 },
+      { theater: 'yemen-redsea-theater', latMin: 12, latMax: 20, lonMin: 40, lonMax: 52 },
+    ];
+    const inBox = (lat, lon, t) => lat >= t.latMin && lat <= t.latMax && lon >= t.lonMin && lon <= t.lonMax;
+
+    // Gather available cached data sources
+    const acledCache = getCachedStale('acled-events');
+    const acledEvents = acledCache?.events ?? [];
+    const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    const recentAcled = acledEvents.filter(e => {
+      const ts = e.event_date ? new Date(e.event_date).getTime() : 0;
+      return ts > sevenDaysAgo;
+    });
+
+    const adsbCache = getCachedStale('adsb');
+    const adsbStates = adsbCache?.states ?? [];
+
+    const now = Math.floor(Date.now() / 1000);
+    const theaters = THEATER_DEFS.map(t => {
+      // Count ACLED strike/attack events
+      const theaterAcled = recentAcled.filter(e => {
+        const lat = parseFloat(e.latitude);
+        const lon = parseFloat(e.longitude);
+        return Number.isFinite(lat) && Number.isFinite(lon) && inBox(lat, lon, t);
+      });
+      const activeOperations = theaterAcled.slice(0, 5).map(e =>
+        `${e.event_type ?? 'Event'}: ${e.location ?? ''}, ${e.country ?? ''}`.trim().replace(/,$/, '')
+      );
+
+      // Count AIS vessels in theater bbox
+      let trackedVessels = 0;
+      for (const v of aisState.vessels.values()) {
+        if (inBox(v.lat, v.lon, t)) trackedVessels++;
+      }
+
+      // Count ADSB flights: state vector = [icao, callsign, country, time_pos, last_contact, lon, lat, ...]
+      const activeFlights = adsbStates.filter(s => {
+        const lat = s[6]; const lon = s[5];
+        return Number.isFinite(lat) && Number.isFinite(lon) && inBox(lat, lon, t);
+      }).length;
+
+      // Derive posture from activity counts
+      const strikeCount = theaterAcled.length;
+      let postureLevel = 'normal';
+      if (strikeCount >= 20 || trackedVessels >= 15 || activeFlights >= 30) postureLevel = 'critical';
+      else if (strikeCount >= 10 || trackedVessels >= 8 || activeFlights >= 15) postureLevel = 'high';
+      else if (strikeCount >= 3 || trackedVessels >= 3 || activeFlights >= 5) postureLevel = 'elevated';
+
+      return { theater: t.theater, postureLevel, activeFlights, trackedVessels, activeOperations, assessedAt: now };
+    });
+
+    const result = { theaters, source: 'local-compute', assessedAt: now };
+    setCached('theater-posture', result, 5 * 60 * 1000);
+    return json(result);
   }
 
   if (requestUrl.pathname === '/api/comms-health') {

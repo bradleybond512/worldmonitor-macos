@@ -123,6 +123,20 @@ const FULL_PANELS: Record<string, PanelConfig> = {
   'openaq-monitor': { name: 'OpenAQ Air Quality', enabled: true, priority: 2 },
   'ripe-ncc': { name: 'RIPE NCC BGP', enabled: true, priority: 2 },
   'ipinfo-lookup': { name: 'IPInfo Lookup', enabled: true, priority: 2 },
+  'aerospace-reentry': { name: 'Aerospace Reentry Tracker', enabled: true, priority: 2 },
+  'amtrak-alerts': { name: 'Amtrak Service Alerts', enabled: true, priority: 2 },
+  'avalanche-hazard': { name: 'Avalanche Hazard', enabled: true, priority: 2 },
+  'dsca-arms-transfers': { name: 'DSCA Arms Transfers', enabled: true, priority: 2 },
+  'ecdc-surveillance': { name: 'ECDC Disease Surveillance', enabled: true, priority: 2 },
+  'fdic-failures': { name: 'FDIC Bank Failures', enabled: true, priority: 2 },
+  'habsos': { name: 'Harmful Algal Bloom Watch', enabled: true, priority: 2 },
+  'un-security-council': { name: 'UN Security Council', enabled: true, priority: 1 },
+  'wildfire-smoke': { name: 'Wildfire Smoke Tracker', enabled: true, priority: 2 },
+  'central-bank-calendar': { name: 'Central Bank Calendar', enabled: true, priority: 2 },
+  'congress-defense': { name: 'Congress Defense Activity', enabled: true, priority: 2 },
+  'combatant-commands': { name: 'Combatant Commands', enabled: true, priority: 1 },
+  'foreign-mil-news': { name: 'Foreign Military News', enabled: true, priority: 1 },
+  'spc-mesoscale': { name: 'SPC Mesoscale Discussions', enabled: true, priority: 2 },
 };
 
 const FULL_MAP_LAYERS: MapLayers = {
