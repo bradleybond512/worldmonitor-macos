@@ -146,6 +146,8 @@ import { WildfireIncidentsPanel } from '@/components/WildfireIncidentsPanel';
 import { HazmatIncidentsPanel } from '@/components/HazmatIncidentsPanel';
 import { OilSpillPanel } from '@/components/OilSpillPanel';
 import { HazardAlertsPanel } from '@/components/HazardAlertsPanel';
+import { InfrastructurePanel } from '@/components/InfrastructurePanel';
+import { fetchNearbyInfrastructure } from '@/services/infrastructure/hifld';
 import { AirstrikesPanel } from '@/components/AirstrikesPanel';
 import { fetchAirstrikes } from '@/services/airstrikes';
 import { fetchS2Underground } from '@/services/s2-underground';
@@ -153,7 +155,9 @@ import { fetchThreatFoxIOCs, fetchOpenPhishFeed, fetchSpamhausDrop, fetchCisaKev
 import { fetchSpaceWeather, fetchDonkiEvents } from '@/services/space-weather';
 import { fetchSpaceflightNews } from '@/services/spaceflight-news';
 import { SpaceflightNewsPanel } from '@/components/SpaceflightNewsPanel';
-import { fetchDiseaseOutbreaks, fetchGlobalDiseaseSnapshots } from '@/services/disease-outbreak';
+import { fetchSpaceLaunches } from '@/services/space-launches';
+import { SpaceLaunchesPanel } from '@/components/SpaceLaunchesPanel';
+import { fetchDiseaseOutbreaks, fetchGlobalDiseaseSnapshots, fetchCdcSurveillance } from '@/services/disease-outbreak';
 import { fetchHdxCrises } from '@/services/hdx-crisis';
 import { HumanitarianCrisisPanel } from '@/components/HumanitarianCrisisPanel';
 import { fetchGlobalAirQuality } from '@/services/air-quality';
@@ -205,6 +209,11 @@ import { EdgarFilingsPanel } from '@/components/EdgarFilingsPanel';
 import { fetchGlobalWeather } from '@/services/global-weather';
 import { fetchRecentSanctions } from '@/services/opensanctions';
 import { fetchRecentEdgarFilings } from '@/services/sec-edgar';
+import { showApiKeyGate } from '@/components/api-key-gate';
+import { detectCompoundThreats, toHazardSignal } from '@/services/compound-threat';
+import { fetchFloodGauges } from '@/services/flood-gauges';
+import { fetchDamSafetyAlerts } from '@/services/dam-safety';
+import { fetchPowerGridAlerts } from '@/services/power-grid-alerts';
 
 const PROTO_TO_CLIENT_LEVEL: Record<ProtoThreatLevel, ClientThreatLevel> = {
   THREAT_LEVEL_UNSPECIFIED: 'info',
@@ -432,6 +441,7 @@ export class DataLoaderManager implements AppModule {
     if (SITE_VARIANT !== 'happy' && (this.ctx.mapLayers.techEvents || SITE_VARIANT === 'tech')) tasks.push({ name: 'techEvents', task: runGuarded('techEvents', () => this.loadTechEvents()) });
     if (SITE_VARIANT === 'full') tasks.push({ name: 'spaceWeather', task: runGuarded('spaceWeather', () => this.loadSpaceWeather()) });
     if (SITE_VARIANT === 'full') tasks.push({ name: 'spaceflightNews', task: runGuarded('spaceflightNews', () => this.loadSpaceflightNews()) });
+    if (SITE_VARIANT === 'full') tasks.push({ name: 'spaceLaunches', task: runGuarded('spaceLaunches', () => this.loadSpaceLaunches()) });
     if (SITE_VARIANT === 'full') tasks.push({ name: 'diseaseOutbreaks', task: runGuarded('diseaseOutbreaks', () => this.loadDiseaseOutbreaks()) });
     if (SITE_VARIANT === 'full') tasks.push({ name: 'humanitarianCrises', task: runGuarded('humanitarianCrises', () => this.loadHumanitarianCrises()) });
     if (SITE_VARIANT === 'full') tasks.push({ name: 'federalRegister', task: runGuarded('federalRegister', () => this.loadFederalRegister()) });
@@ -448,6 +458,7 @@ export class DataLoaderManager implements AppModule {
     if (SITE_VARIANT === 'full') tasks.push({ name: 'globalWeather', task: runGuarded('globalWeather', () => this.loadGlobalWeather()) });
     if (SITE_VARIANT === 'full') tasks.push({ name: 'openSanctions', task: runGuarded('openSanctions', () => this.loadOpenSanctions()) });
     if (SITE_VARIANT === 'full') tasks.push({ name: 'edgarFilings', task: runGuarded('edgarFilings', () => this.loadEdgarFilings()) });
+    if (SITE_VARIANT === 'full') tasks.push({ name: 'infrastructure', task: runGuarded('infrastructure', () => this.loadInfrastructure()) });
 
     if (SITE_VARIANT === 'tech') {
       tasks.push({ name: 'techReadiness', task: runGuarded('techReadiness', () => (this.ctx.panels['tech-readiness'] as TechReadinessPanel)?.refresh()) });
@@ -977,7 +988,6 @@ export class DataLoaderManager implements AppModule {
         },
       });
 
-      const finnhubConfigMsg = 'FINNHUB_API_KEY not configured — add in Settings';
       this.ctx.latestMarkets = stocksResult.data;
       (this.ctx.panels.markets as MarketPanel).renderMarkets(stocksResult.data, stocksResult.rateLimited);
 
@@ -988,9 +998,11 @@ export class DataLoaderManager implements AppModule {
       } else if (stocksResult.skipped) {
         this.ctx.statusPanel?.updateApi('Finnhub', { status: 'error' });
         if (stocksResult.data.length === 0) {
-          this.ctx.panels.markets?.showConfigError(finnhubConfigMsg);
+          const marketsPanel = this.ctx.panels.markets;
+          if (marketsPanel) showApiKeyGate(marketsPanel, 'FINNHUB_API_KEY', () => { void this.loadMarkets(); });
         }
-        this.ctx.panels.heatmap?.showConfigError(finnhubConfigMsg);
+        const heatmapPanel = this.ctx.panels.heatmap;
+        if (heatmapPanel) showApiKeyGate(heatmapPanel, 'FINNHUB_API_KEY', () => { void this.loadMarkets(); });
       } else {
         this.ctx.statusPanel?.updateApi('Finnhub', { status: 'ok' });
 
@@ -1638,10 +1650,37 @@ export class DataLoaderManager implements AppModule {
     }
   }
 
+  async loadSpaceLaunches(): Promise<void> {
+    try {
+      const launches = await fetchSpaceLaunches();
+      (this.ctx.panels['space-launches'] as SpaceLaunchesPanel)?.update(launches);
+    } catch (error) {
+      console.warn('[space-launches] fetch failed', error);
+      (this.ctx.panels['space-launches'] as SpaceLaunchesPanel)?.update([]);
+    }
+  }
+
   async loadDiseaseOutbreaks(): Promise<void> {
     try {
-      const [outbreaks, snapshots] = await Promise.all([fetchDiseaseOutbreaks(), fetchGlobalDiseaseSnapshots()]);
-      (this.ctx.panels['disease-outbreaks'] as DiseaseOutbreakPanel)?.update(outbreaks, snapshots);
+      const [outbreaks, snapshots, cdcSignals] = await Promise.all([
+        fetchDiseaseOutbreaks(),
+        fetchGlobalDiseaseSnapshots(),
+        fetchCdcSurveillance(),
+      ]);
+      const cdcOutbreaks = cdcSignals.map((s, i) => ({
+        id: `cdc-${i}-${s.date}`,
+        title: `${s.disease}: ${s.metric}${s.value !== null ? ` (${s.value})` : ''}`,
+        country: s.region,
+        disease: s.disease,
+        date: new Date(s.date),
+        url: s.url,
+        source: (s.source === 'WHO' ? 'WHO' : 'ReliefWeb') as 'WHO' | 'ReliefWeb' | 'ProMED',
+        severity: (s.severity === 'alert' ? 'high' : 'medium') as 'critical' | 'high' | 'medium' | 'low',
+      }));
+      (this.ctx.panels['disease-outbreaks'] as DiseaseOutbreakPanel)?.update(
+        [...outbreaks, ...cdcOutbreaks],
+        snapshots,
+      );
     } catch (error) {
       console.warn('[disease-outbreaks] fetch failed', error);
       (this.ctx.panels['disease-outbreaks'] as DiseaseOutbreakPanel)?.update([]);
@@ -1664,6 +1703,7 @@ export class DataLoaderManager implements AppModule {
       (this.ctx.panels['air-quality'] as AirQualityPanel)?.update(readings);
       void proximityAlertService.checkAirQuality(readings);
       (this.ctx.panels['hazard-alerts'] as HazardAlertsPanel)?.refresh();
+      void this.evaluateCompoundThreats();
     } catch (error) {
       console.warn('[air-quality] fetch failed', error);
       (this.ctx.panels['air-quality'] as AirQualityPanel)?.update([]);
@@ -1676,6 +1716,7 @@ export class DataLoaderManager implements AppModule {
       (this.ctx.panels['wildfire-incidents'] as WildfireIncidentsPanel)?.update(incidents);
       void proximityAlertService.checkWildfires(incidents);
       (this.ctx.panels['hazard-alerts'] as HazardAlertsPanel)?.refresh();
+      void this.evaluateCompoundThreats();
     } catch (error) {
       console.warn('[wildfire-incidents] fetch failed', error);
       (this.ctx.panels['wildfire-incidents'] as WildfireIncidentsPanel)?.update([]);
@@ -1688,6 +1729,7 @@ export class DataLoaderManager implements AppModule {
       (this.ctx.panels['hazmat-incidents'] as HazmatIncidentsPanel)?.update(incidents);
       void proximityAlertService.checkHazmat(incidents);
       (this.ctx.panels['hazard-alerts'] as HazardAlertsPanel)?.refresh();
+      void this.evaluateCompoundThreats();
     } catch (error) {
       console.warn('[hazmat-incidents] fetch failed', error);
       (this.ctx.panels['hazmat-incidents'] as HazmatIncidentsPanel)?.update([]);
@@ -1703,6 +1745,97 @@ export class DataLoaderManager implements AppModule {
     } catch (error) {
       console.warn('[oil-spills] fetch failed', error);
       (this.ctx.panels['oil-spill'] as OilSpillPanel)?.update([]);
+    }
+  }
+
+  async evaluateCompoundThreats(): Promise<void> {
+    try {
+      const [wildfires, aqReadings, hazmat, floodGauges, damAlerts, gridAlerts] = await Promise.allSettled([
+        fetchInciwebIncidents(),
+        fetchGlobalAirQuality(),
+        fetchHazmatIncidents(),
+        fetchFloodGauges(),
+        fetchDamSafetyAlerts(),
+        fetchPowerGridAlerts(),
+      ]);
+
+      const signals = [];
+
+      // Wildfire signals
+      if (wildfires.status === 'fulfilled') {
+        for (const inc of wildfires.value) {
+          if (inc.lat === null || inc.lon === null) continue;
+          if (inc.severity === 'low') continue;
+          signals.push(toHazardSignal(inc.id, 'wildfire', inc.severity, inc.lat, inc.lon, inc.name, 'inciweb'));
+        }
+      }
+
+      // Air quality signals — unhealthy or worse
+      if (aqReadings.status === 'fulfilled') {
+        for (const r of aqReadings.value) {
+          if (r.aqiLevel === 'good' || r.aqiLevel === 'moderate' || r.aqiLevel === 'sensitive') continue;
+          const sev = r.aqiLevel === 'hazardous' ? 'critical' : r.aqiLevel === 'very_unhealthy' ? 'high' : 'medium';
+          signals.push(toHazardSignal(`aq-${r.city}`, 'air_quality', sev, r.lat, r.lon, `${r.city} AQI ${r.aqi}`, 'air-quality'));
+        }
+      }
+
+      // Hazmat signals
+      if (hazmat.status === 'fulfilled') {
+        for (const inc of hazmat.value) {
+          if (inc.lat === null || inc.lon === null) continue;
+          if (inc.severity === 'low') continue;
+          signals.push(toHazardSignal(inc.id, 'industrial', inc.severity, inc.lat, inc.lon, inc.title, 'hazmat'));
+        }
+      }
+
+      // Flood gauge signals — major or moderate only
+      if (floodGauges.status === 'fulfilled') {
+        for (const g of floodGauges.value) {
+          if (g.floodCategory !== 'major' && g.floodCategory !== 'moderate') continue;
+          const sev = g.floodCategory === 'major' ? 'critical' : 'high';
+          signals.push(toHazardSignal(g.id, 'flood', sev, g.lat, g.lon, g.siteName, 'flood-gauges'));
+        }
+      }
+
+      // Dam safety signals
+      if (damAlerts.status === 'fulfilled') {
+        for (const a of damAlerts.value) {
+          if (a.lat === null || a.lon === null) continue;
+          signals.push(toHazardSignal(a.id, 'flood', a.severity, a.lat, a.lon, a.damName, 'dam-safety'));
+        }
+      }
+
+      // Grid alerts — map to approximate US region centroid
+      const REGION_COORDS: Record<string, [number, number]> = {
+        WECC: [37.5, -110.0], SERC: [33.0, -86.0], RFC: [41.0, -80.0],
+        NPCC: [42.5, -73.0], MRO: [45.0, -93.0], FRCC: [27.0, -81.0],
+        Texas: [31.0, -99.0], California: [36.5, -119.0], PJM: [40.0, -77.0],
+        MISO: [42.0, -89.0], SPP: [38.0, -97.0], NYISO: [43.0, -75.0],
+        ISONE: [43.5, -71.5],
+      };
+      if (gridAlerts.status === 'fulfilled') {
+        for (const a of gridAlerts.value) {
+          if (a.severity === 'low' || a.alertType === 'info') continue;
+          const regionKey = Object.keys(REGION_COORDS).find(k => a.region.includes(k));
+          const [lat, lon] = REGION_COORDS[regionKey ?? ''] ?? [38.0, -97.0];
+          signals.push(toHazardSignal(a.id, 'grid', a.severity, lat, lon, a.title, 'power-grid'));
+        }
+      }
+
+      // Cyber threat signals from cached layer data
+      if (this.ctx.cyberThreatsCache) {
+        const highCyber = this.ctx.cyberThreatsCache.filter(t => t.severity === 'critical' || t.severity === 'high');
+        for (const t of highCyber.slice(0, 20)) {
+          signals.push(toHazardSignal(t.id, 'cyber', t.severity as 'critical' | 'high', t.lat, t.lon, t.indicator, 'cyber-threats'));
+        }
+      }
+
+      const threats = detectCompoundThreats(signals);
+      if (threats.length > 0) {
+        document.dispatchEvent(new CustomEvent('wm:compound-threats-updated', { detail: threats }));
+      }
+    } catch (error) {
+      console.warn('[compound-threats] evaluation failed', error);
     }
   }
 
@@ -2452,7 +2585,10 @@ export class DataLoaderManager implements AppModule {
     try {
       const fireResult = await fetchAllFires(1);
       if (fireResult.skipped) {
-        this.ctx.panels['satellite-fires']?.showConfigError('Add NASA FIRMS API key in Settings → API Keys (free at firms.modaps.eosdis.nasa.gov)');
+        const firesPanel = this.ctx.panels['satellite-fires'];
+        if (firesPanel) {
+          showApiKeyGate(firesPanel, 'NASA_FIRMS_API_KEY', () => { void this.loadFirmsData(); });
+        }
         this.ctx.statusPanel?.updateApi('FIRMS', { status: 'error' });
         return;
       }
@@ -2816,6 +2952,16 @@ export class DataLoaderManager implements AppModule {
       }
     } catch (error) {
       console.error('[App] FAA cameras fetch failed:', error);
+    }
+  }
+
+  async loadInfrastructure(): Promise<void> {
+    try {
+      const assets = await fetchNearbyInfrastructure(50);
+      (this.ctx.panels['infrastructure'] as InfrastructurePanel | undefined)?.update(assets);
+    } catch (error) {
+      console.warn('[infrastructure] fetch failed', error);
+      (this.ctx.panels['infrastructure'] as InfrastructurePanel | undefined)?.update([]);
     }
   }
 }

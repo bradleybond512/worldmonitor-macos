@@ -73,6 +73,7 @@ const FULL_PANELS: Record<string, PanelConfig> = {
   'telegram-intel': { name: 'Telegram Intel', enabled: true, priority: 2 },
   'space-weather': { name: 'Space Weather', enabled: true, priority: 2 },
   'spaceflight-news': { name: 'Spaceflight News', enabled: true, priority: 2 },
+  'space-launches': { name: 'Space Launches', enabled: true, priority: 2 },
   'disease-outbreaks': { name: 'Disease Outbreaks', enabled: true, priority: 2 },
   'humanitarian-crisis': { name: 'Humanitarian Crises', enabled: true, priority: 2 },
   'air-quality': { name: 'Air Quality', enabled: true, priority: 2 },
@@ -80,6 +81,7 @@ const FULL_PANELS: Record<string, PanelConfig> = {
   'hazmat-incidents': { name: 'Hazmat Incidents', enabled: true, priority: 2 },
   'oil-spill': { name: 'Oil & Chemical Spills', enabled: true, priority: 2 },
   'hazard-alerts': { name: 'Hazard Alerts — Near Me', enabled: true, priority: 1 },
+  'infrastructure': { name: 'Critical Infrastructure', enabled: true, priority: 2 },
   'gdacs-alerts': { name: 'GDACS Disaster Alerts', enabled: true, priority: 2 },
   'volcano-alerts': { name: 'Volcano Alerts', enabled: true, priority: 2 },
   'nws-alerts': { name: 'NWS Hazard Alerts', enabled: true, priority: 2 },
@@ -705,7 +707,7 @@ export const PANEL_CATEGORY_MAP: Record<string, { labelKey: string; panelKeys: s
   },
   dataTracking: {
     labelKey: 'header.panelCatDataTracking',
-    panelKeys: ['monitors', 'cyber-threats', 'local-ids', 'comms-health', 'ucdp-events', 'nuclear-risk', 'airstrikes', 'displacement', 'security-advisories', 'oref-sirens', 'space-weather', 'spaceflight-news', 'population-exposure', 'internet-disruptions', 'air-traffic'],
+    panelKeys: ['monitors', 'cyber-threats', 'local-ids', 'comms-health', 'ucdp-events', 'nuclear-risk', 'airstrikes', 'displacement', 'security-advisories', 'oref-sirens', 'space-weather', 'spaceflight-news', 'space-launches', 'population-exposure', 'internet-disruptions', 'air-traffic'],
     variants: ['full'],
   },
   hazards: {
@@ -716,7 +718,7 @@ export const PANEL_CATEGORY_MAP: Record<string, { labelKey: string; panelKeys: s
   },
   healthEnv: {
     labelKey: 'header.panelCatHealthEnv',
-    panelKeys: ['hazard-alerts', 'giving', 'daily-wisdom', 'stoic-reflections', 'biblical-encouragement', 'alan-watts-reflections', 'mckenna-visions', 'disease-outbreaks', 'humanitarian-crisis', 'air-quality', 'food-insecurity', 'radiation-decay', 'resource-inventory'],
+    panelKeys: ['hazard-alerts', 'infrastructure', 'giving', 'daily-wisdom', 'stoic-reflections', 'biblical-encouragement', 'alan-watts-reflections', 'mckenna-visions', 'disease-outbreaks', 'humanitarian-crisis', 'air-quality', 'food-insecurity', 'radiation-decay', 'resource-inventory'],
     variants: ['full'],
   },
 

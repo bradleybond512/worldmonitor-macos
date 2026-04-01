@@ -1581,6 +1581,125 @@ async function dispatch(requestUrl, req, routes, context) {
     }
   }
 
+  // ── API Key Auto-Registration routes ─────────────────────────────────────
+  if (requestUrl.pathname === '/api/register/newsapi') {
+    try {
+      const body = await req.json().catch(() => ({}));
+      const { email, password } = body;
+      if (!email || !password) return json({ error: 'email and password required' }, 400);
+      const resp = await fetchWithTimeout(
+        'https://newsapi.org/v2/register',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'User-Agent': CHROME_UA },
+          body: JSON.stringify({ email, password }),
+        },
+        15_000,
+      );
+      const data = await resp.json();
+      return json({ apiKey: data.apiKey ?? null, status: data.status, message: data.message });
+    } catch (e) {
+      return json({ error: String(e) }, 500);
+    }
+  }
+
+  if (requestUrl.pathname === '/api/register/newsdata') {
+    try {
+      const body = await req.json().catch(() => ({}));
+      const { email, password, firstName, lastName } = body;
+      if (!email || !password) return json({ error: 'email and password required' }, 400);
+      const resp = await fetchWithTimeout(
+        'https://newsdata.io/register',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'User-Agent': CHROME_UA },
+          body: JSON.stringify({ email, password, fname: firstName ?? '', lname: lastName ?? '' }),
+        },
+        15_000,
+      );
+      const data = await resp.json().catch(() => ({}));
+      return json({ apiKey: data.apikey ?? data.api_key ?? null, message: data.message ?? '' });
+    } catch (e) {
+      return json({ error: String(e) }, 500);
+    }
+  }
+
+  if (requestUrl.pathname === '/api/register/nasa-firms') {
+    try {
+      const body = await req.json().catch(() => ({}));
+      const { email, firstName, lastName, organization } = body;
+      if (!email) return json({ error: 'email required' }, 400);
+      const params = new URLSearchParams({
+        email,
+        username: email.split('@')[0].replace(/[^a-zA-Z0-9]/g, '').slice(0, 20) + Math.floor(Math.random() * 999),
+        firstname: firstName ?? '',
+        lastname: lastName ?? '',
+        organization: organization ?? 'Personal',
+        purpose: 'World Monitor app — wildfire situational awareness',
+      });
+      const resp = await fetchWithTimeout(
+        'https://firms.modaps.eosdis.nasa.gov/api/area/csv/register',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'User-Agent': CHROME_UA },
+          body: params.toString(),
+        },
+        15_000,
+      );
+      return json({ submitted: resp.ok, message: resp.ok ? 'Check your email for the API key' : 'Registration failed', status: resp.status });
+    } catch (e) {
+      return json({ error: String(e) }, 500);
+    }
+  }
+
+  // ── ACLED OAuth connect (exchange username+password for access token) ─────
+  if (requestUrl.pathname === '/api/acled/connect') {
+    try {
+      const body = await req.json().catch(() => ({}));
+      const { email, password } = body;
+      if (!email || !password) return json({ error: 'email and password required' }, 400);
+      const resp = await fetchWithTimeout(
+        'https://acleddata.com/oauth/token',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'User-Agent': CHROME_UA },
+          body: new URLSearchParams({ username: email, password, grant_type: 'password', client_id: 'acled' }).toString(),
+        },
+        15_000,
+      );
+      if (!resp.ok) return json({ error: `ACLED auth failed (${resp.status})` }, resp.status);
+      const data = await resp.json();
+      if (!data.access_token) return json({ error: data.error_description ?? 'No access token returned' }, 401);
+      return json({ accessToken: data.access_token, refreshToken: data.refresh_token ?? null, email });
+    } catch (e) {
+      return json({ error: String(e) }, 500);
+    }
+  }
+
+  // ── ACLED OAuth token refresh ─────────────────────────────────────────────
+  if (requestUrl.pathname === '/api/acled/refresh') {
+    try {
+      const body = await req.json().catch(() => ({}));
+      const { refreshToken } = body;
+      if (!refreshToken) return json({ error: 'refreshToken required' }, 400);
+      const resp = await fetchWithTimeout(
+        'https://acleddata.com/oauth/token',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'User-Agent': CHROME_UA },
+          body: new URLSearchParams({ grant_type: 'refresh_token', refresh_token: refreshToken, client_id: 'acled' }).toString(),
+        },
+        15_000,
+      );
+      if (!resp.ok) return json({ error: `Token refresh failed (${resp.status})` }, resp.status);
+      const data = await resp.json();
+      if (!data.access_token) return json({ error: 'No access token in refresh response' }, 401);
+      return json({ accessToken: data.access_token, refreshToken: data.refresh_token ?? refreshToken });
+    } catch (e) {
+      return json({ error: String(e) }, 500);
+    }
+  }
+
   // ── OREF (Israel Home Front Command) alerts ──────────────────────────────
   // Handled before dynamic dispatch so we control the relay→tzevaadom fallback
   // chain here rather than relying on the oref-alerts.js bundle which requires
@@ -1809,6 +1928,76 @@ async function dispatch(requestUrl, req, routes, context) {
       return json(threats);
     } catch {
       return json([], 200);
+    }
+  }
+
+  // ── CDC FluView / respiratory surveillance ───────────────────────────────
+  if (requestUrl.pathname === '/api/cdc-surveillance') {
+    const cached = getCached('cdc-surveillance');
+    if (cached) return json(cached);
+    try {
+      const [fluResp, covidResp] = await Promise.allSettled([
+        fetchWithTimeout(
+          'https://www.cdc.gov/flu/weekly/flureport.xml',
+          { headers: { 'User-Agent': CHROME_UA } },
+          10_000,
+        ),
+        fetchWithTimeout(
+          'https://data.cdc.gov/resource/pwn4-m3yp.json?$limit=10&$order=date_updated DESC',
+          { headers: { Accept: 'application/json', 'User-Agent': CHROME_UA } },
+          10_000,
+        ),
+      ]);
+
+      const signals = [];
+
+      // Parse COVID hospitalization data
+      if (covidResp.status === 'fulfilled' && covidResp.value.ok) {
+        const covidData = await covidResp.value.json();
+        if (Array.isArray(covidData) && covidData.length > 0) {
+          const latest = covidData[0];
+          signals.push({
+            source: 'CDC',
+            disease: 'COVID-19',
+            metric: 'Weekly Hospitalizations',
+            value: latest.weekly_hospital_admissions_covid ?? latest.total_hospitalized_covid ?? null,
+            date: latest.date_updated ?? latest.end_date ?? new Date().toISOString().slice(0, 10),
+            severity: 'watch',
+            region: 'USA',
+            url: 'https://covid.cdc.gov/covid-data-tracker/',
+          });
+        }
+      }
+
+      // Try WHO disease outbreak news as additional source
+      const whoResp = await fetchWithTimeout(
+        'https://www.who.int/api/hubs/cms/s3fs-public/attachments/disease-outbreak-news.json',
+        { headers: { Accept: 'application/json', 'User-Agent': CHROME_UA } },
+        10_000,
+      ).catch(() => null);
+
+      if (whoResp?.ok) {
+        const whoData = await whoResp.json().catch(() => ({ value: [] }));
+        const items = Array.isArray(whoData?.value) ? whoData.value : [];
+        items.slice(0, 5).forEach(item => {
+          signals.push({
+            source: 'WHO',
+            disease: item.Title ?? item.PageTitle ?? 'Disease Outbreak',
+            metric: 'Outbreak Report',
+            value: null,
+            date: item.PublicationDate ?? item.ContentDate ?? new Date().toISOString().slice(0, 10),
+            severity: 'alert',
+            region: item.CountryName ?? 'Global',
+            url: item.Url ?? 'https://www.who.int/emergencies/disease-outbreak-news',
+          });
+        });
+      }
+
+      const result = { signals, fetchedAt: new Date().toISOString() };
+      setCached('cdc-surveillance', result, 60 * 60 * 1000); // 1 hour cache
+      return json(result);
+    } catch (e) {
+      return json({ signals: [], error: String(e) });
     }
   }
 
@@ -2707,12 +2896,10 @@ async function dispatch(requestUrl, req, routes, context) {
     }
   }
 
-  // ── OpenWeatherMap — current conditions for major global cities ───────────
+  // ── Open-Meteo — current conditions for major global cities (no API key required) ─
   if (requestUrl.pathname === '/api/owm-current') {
     const cached = getCached('owm-current', 30 * 60 * 1000); // 30 min
     if (cached) return json(cached);
-    const apiKey = process.env.OWM_API_KEY;
-    if (!apiKey) return json({ error: 'OWM_API_KEY not set' }, 503);
     const CITIES = [
       { name: 'New York', lat: 40.71, lon: -74.01 }, { name: 'Los Angeles', lat: 34.05, lon: -118.24 },
       { name: 'Chicago', lat: 41.85, lon: -87.65 }, { name: 'London', lat: 51.51, lon: -0.13 },
@@ -2729,26 +2916,39 @@ async function dispatch(requestUrl, req, routes, context) {
       { name: 'Sydney', lat: -33.87, lon: 151.21 }, { name: 'Kyiv', lat: 50.45, lon: 30.52 },
       { name: 'Tel Aviv', lat: 32.08, lon: 34.78 }, { name: 'Islamabad', lat: 33.72, lon: 73.04 },
     ];
+    const WMO_CONDITION = (code) => {
+      if (code === 0) return 'Clear';
+      if (code <= 3) return 'Partly Cloudy';
+      if (code === 45 || code === 48) return 'Fog';
+      if (code >= 51 && code <= 55) return 'Drizzle';
+      if (code >= 61 && code <= 65) return 'Rain';
+      if (code >= 71 && code <= 75) return 'Snow';
+      if (code >= 80 && code <= 82) return 'Showers';
+      if (code === 95 || code === 96 || code === 99) return 'Thunderstorm';
+      return 'Cloudy';
+    };
     try {
       const results = await Promise.allSettled(CITIES.map(async (city) => {
         const r = await fetchWithTimeout(
-          `https://api.openweathermap.org/data/2.5/weather?lat=${city.lat}&lon=${city.lon}&appid=${apiKey}&units=metric`,
-          { headers: { 'User-Agent': CHROME_UA } },
+          `https://api.open-meteo.com/v1/forecast?latitude=${city.lat}&longitude=${city.lon}&current=temperature_2m,wind_speed_10m,weather_code&wind_speed_unit=ms&timezone=auto`,
+          {},
           8000,
         );
         if (!r.ok) return null;
         const d = await r.json();
+        const cur = d.current ?? {};
+        const condition = WMO_CONDITION(cur.weather_code ?? -1);
         return {
           city: city.name, lat: city.lat, lon: city.lon,
-          tempC: Math.round(d.main?.temp ?? 0),
-          feelsLikeC: Math.round(d.main?.feels_like ?? 0),
-          humidity: d.main?.humidity ?? null,
-          condition: d.weather?.[0]?.main ?? 'Unknown',
-          description: d.weather?.[0]?.description ?? '',
-          icon: d.weather?.[0]?.icon ?? '',
-          windMps: d.wind?.speed ?? null,
-          visibility: d.visibility ?? null,
-          clouds: d.clouds?.all ?? null,
+          tempC: Math.round(cur.temperature_2m ?? 0),
+          feelsLikeC: null,
+          humidity: null,
+          condition,
+          description: condition,
+          icon: null,
+          windMps: cur.wind_speed_10m ?? null,
+          visibility: null,
+          clouds: null,
           updatedAt: new Date().toISOString(),
         };
       }));
@@ -4547,6 +4747,115 @@ async function dispatch(requestUrl, req, routes, context) {
       return json(Array.isArray(data) ? data : []);
     } catch {
       return json([], 200);
+    }
+  }
+
+  // ── Trade Policy — Global Trade Alert ────────────────────────────────────
+  if (requestUrl.pathname === '/api/trade-policy') {
+    const cached = getCached('trade-policy');
+    if (cached) return json(cached);
+    try {
+      const resp = await fetchWithTimeout(
+        'https://www.globaltradealert.org/api/latest.json',
+        { headers: { Accept: 'application/json', 'User-Agent': CHROME_UA } },
+        12_000,
+      );
+      if (!resp.ok) return json({ interventions: [] }, resp.status);
+      const raw = await resp.json();
+      const interventions = (Array.isArray(raw) ? raw : raw.data ?? []).slice(0, 50).map(d => ({
+        id: String(d.state_act_id ?? d.id ?? ''),
+        title: d.title ?? d.description ?? '',
+        country: d.implementing_jurisdiction ?? d.country ?? '',
+        type: d.mast_chapter ?? d.intervention_type ?? '',
+        announced: d.date_announced ?? d.date ?? '',
+        status: d.currently_in_force ? 'in_force' : 'announced',
+        affected_countries: Array.isArray(d.affected_jurisdictions) ? d.affected_jurisdictions : [],
+      }));
+      const result = { interventions, fetchedAt: new Date().toISOString() };
+      setCached('trade-policy', result, 30 * 60 * 1000);
+      return json(result);
+    } catch {
+      return json({ interventions: [] });
+    }
+  }
+
+  // ── Supply Chain — Baltic Dry Index + IMF Portwatch ───────────────────────
+  if (requestUrl.pathname === '/api/supply-chain') {
+    const cached = getCached('supply-chain');
+    if (cached) return json(cached);
+    try {
+      const bdiResp = await fetchWithTimeout(
+        'https://stooq.com/q/d/l/?s=bdi&i=d&l=20',
+        { headers: { 'User-Agent': CHROME_UA } },
+        10_000,
+      );
+      let bdi = null;
+      if (bdiResp.ok) {
+        const csv = await bdiResp.text();
+        const lines = csv.trim().split('\n');
+        const last = lines[lines.length - 1]?.split(',');
+        if (last && last[4]) bdi = { value: parseFloat(last[4]), date: last[0] };
+      }
+
+      const portResp = await fetchWithTimeout(
+        'https://portwatch.imf.org/api/chokepoints',
+        { headers: { Accept: 'application/json', 'User-Agent': CHROME_UA } },
+        10_000,
+      );
+      let chokepoints = [];
+      if (portResp.ok) {
+        const portData = await portResp.json();
+        chokepoints = (Array.isArray(portData) ? portData : portData.data ?? []).slice(0, 20).map(c => ({
+          name: c.name ?? c.chokepoint ?? '',
+          status: c.status ?? 'normal',
+          throughput_pct: c.throughput_pct ?? c.capacity_utilization ?? null,
+          region: c.region ?? '',
+        }));
+      }
+
+      const result = { bdi, chokepoints, fetchedAt: new Date().toISOString() };
+      setCached('supply-chain', result, 30 * 60 * 1000);
+      return json(result);
+    } catch {
+      return json({ bdi: null, chokepoints: [] });
+    }
+  }
+
+  // ── HIFLD critical infrastructure (hospitals, urgent care) ──────────────
+  if (requestUrl.pathname === '/api/hifld-infrastructure') {
+    const lat = parseFloat(requestUrl.searchParams.get('lat') ?? '0');
+    const lon = parseFloat(requestUrl.searchParams.get('lon') ?? '0');
+    const radiusMiles = parseFloat(requestUrl.searchParams.get('radius') ?? '50');
+
+    if (!lat || !lon) return json({ assets: [] });
+
+    const cached = getCached(`hifld-${lat.toFixed(2)}-${lon.toFixed(2)}`, 24 * 60 * 60 * 1000);
+    if (cached) return json(cached);
+
+    const radiusMeters = radiusMiles * 1609.34;
+
+    try {
+      const hospitalsUrl = `https://services1.arcgis.com/Hp6G80Pky0om7QvQ/arcgis/rest/services/Hospitals/FeatureServer/0/query?where=1%3D1&geometry=${lon},${lat}&geometryType=esriGeometryPoint&inSR=4326&spatialRel=esriSpatialRelIntersects&distance=${radiusMeters}&units=esriSRUnit_Meter&outFields=NAME,ADDRESS,CITY,STATE,ZIP,TELEPHONE,BEDS,TYPE&f=json&resultRecordCount=10`;
+
+      const resp = await fetchWithTimeout(hospitalsUrl, { headers: { 'User-Agent': CHROME_UA } }, 12_000);
+      const data = resp.ok ? await resp.json() : { features: [] };
+
+      const assets = (data.features ?? []).map(f => ({
+        type: 'hospital',
+        name: f.attributes?.NAME ?? 'Unknown Hospital',
+        address: `${f.attributes?.ADDRESS ?? ''}, ${f.attributes?.CITY ?? ''}, ${f.attributes?.STATE ?? ''}`.trim().replace(/^,\s*/, ''),
+        phone: f.attributes?.TELEPHONE ?? null,
+        beds: f.attributes?.BEDS ?? null,
+        subtype: f.attributes?.TYPE ?? 'GENERAL ACUTE CARE',
+        lat: f.geometry?.y ?? null,
+        lon: f.geometry?.x ?? null,
+      }));
+
+      const result = { assets, fetchedAt: new Date().toISOString() };
+      setCached(`hifld-${lat.toFixed(2)}-${lon.toFixed(2)}`, result);
+      return json(result);
+    } catch (e) {
+      return json({ assets: [], error: String(e) });
     }
   }
 

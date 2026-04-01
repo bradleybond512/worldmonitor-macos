@@ -69,6 +69,7 @@ const SECRET_ANALYTICS_NAMES: Record<RuntimeSecretKey, string> = {
   CLOUDFLARE_API_TOKEN: 'cloudflare',
   ACLED_ACCESS_TOKEN: 'acled',
   ACLED_EMAIL: 'acled_email',
+  ACLED_REFRESH_TOKEN: 'acled_refresh',
   URLHAUS_AUTH_KEY: 'urlhaus',
   OTX_API_KEY: 'otx',
   ABUSEIPDB_API_KEY: 'abuseipdb',

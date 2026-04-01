@@ -11,6 +11,7 @@ export type RuntimeSecretKey =
   | 'CLOUDFLARE_API_TOKEN'
   | 'ACLED_ACCESS_TOKEN'
   | 'ACLED_EMAIL'
+  | 'ACLED_REFRESH_TOKEN'
   | 'URLHAUS_AUTH_KEY'
   | 'OTX_API_KEY'
   | 'ABUSEIPDB_API_KEY'
@@ -428,9 +429,9 @@ export const RUNTIME_FEATURES: RuntimeFeatureDefinition[] = [
   },
   {
     id: 'openWeatherMap',
-    name: 'OpenWeatherMap global conditions',
-    description: 'Current weather conditions for 28 major world cities via OpenWeatherMap API (free tier: 1M calls/month).',
-    requiredSecrets: ['OWM_API_KEY'],
+    name: 'Global weather conditions',
+    description: 'Current weather conditions for 28 major world cities via Open-Meteo (no API key required).',
+    requiredSecrets: [],
     desktopRequiredSecrets: [],
     fallback: 'Global weather panel shows no data.',
   },
