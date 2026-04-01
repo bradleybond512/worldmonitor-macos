@@ -1931,6 +1931,76 @@ async function dispatch(requestUrl, req, routes, context) {
     }
   }
 
+  // ── CDC FluView / respiratory surveillance ───────────────────────────────
+  if (requestUrl.pathname === '/api/cdc-surveillance') {
+    const cached = getCached('cdc-surveillance');
+    if (cached) return json(cached);
+    try {
+      const [fluResp, covidResp] = await Promise.allSettled([
+        fetchWithTimeout(
+          'https://www.cdc.gov/flu/weekly/flureport.xml',
+          { headers: { 'User-Agent': CHROME_UA } },
+          10_000,
+        ),
+        fetchWithTimeout(
+          'https://data.cdc.gov/resource/pwn4-m3yp.json?$limit=10&$order=date_updated DESC',
+          { headers: { Accept: 'application/json', 'User-Agent': CHROME_UA } },
+          10_000,
+        ),
+      ]);
+
+      const signals = [];
+
+      // Parse COVID hospitalization data
+      if (covidResp.status === 'fulfilled' && covidResp.value.ok) {
+        const covidData = await covidResp.value.json();
+        if (Array.isArray(covidData) && covidData.length > 0) {
+          const latest = covidData[0];
+          signals.push({
+            source: 'CDC',
+            disease: 'COVID-19',
+            metric: 'Weekly Hospitalizations',
+            value: latest.weekly_hospital_admissions_covid ?? latest.total_hospitalized_covid ?? null,
+            date: latest.date_updated ?? latest.end_date ?? new Date().toISOString().slice(0, 10),
+            severity: 'watch',
+            region: 'USA',
+            url: 'https://covid.cdc.gov/covid-data-tracker/',
+          });
+        }
+      }
+
+      // Try WHO disease outbreak news as additional source
+      const whoResp = await fetchWithTimeout(
+        'https://www.who.int/api/hubs/cms/s3fs-public/attachments/disease-outbreak-news.json',
+        { headers: { Accept: 'application/json', 'User-Agent': CHROME_UA } },
+        10_000,
+      ).catch(() => null);
+
+      if (whoResp?.ok) {
+        const whoData = await whoResp.json().catch(() => ({ value: [] }));
+        const items = Array.isArray(whoData?.value) ? whoData.value : [];
+        items.slice(0, 5).forEach(item => {
+          signals.push({
+            source: 'WHO',
+            disease: item.Title ?? item.PageTitle ?? 'Disease Outbreak',
+            metric: 'Outbreak Report',
+            value: null,
+            date: item.PublicationDate ?? item.ContentDate ?? new Date().toISOString().slice(0, 10),
+            severity: 'alert',
+            region: item.CountryName ?? 'Global',
+            url: item.Url ?? 'https://www.who.int/emergencies/disease-outbreak-news',
+          });
+        });
+      }
+
+      const result = { signals, fetchedAt: new Date().toISOString() };
+      setCached('cdc-surveillance', result, 60 * 60 * 1000); // 1 hour cache
+      return json(result);
+    } catch (e) {
+      return json({ signals: [], error: String(e) });
+    }
+  }
+
   // ── PhishStats phishing database ─────────────────────────────────────────
   if (requestUrl.pathname === '/api/phishstats-feed') {
     try {

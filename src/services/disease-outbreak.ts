@@ -1,5 +1,7 @@
-// Disease outbreak surveillance — WHO Disease Outbreak News + ReliefWeb API + ProMED
+// Disease outbreak surveillance — WHO Disease Outbreak News + ReliefWeb API + ProMED + CDC
 // All sources are free with no API key required
+
+import { getApiBaseUrl } from '@/services/runtime';
 
 export interface DiseaseOutbreak {
   id: string;
@@ -254,6 +256,38 @@ export async function fetchGlobalDiseaseSnapshots(): Promise<GlobalDiseaseSnapsh
     return snapshots;
   } catch {
     _diseaseShCache = { snapshots: [], ts: Date.now() };
+    return [];
+  }
+}
+
+export interface CdcSurveillanceSignal {
+  source: string;
+  disease: string;
+  metric: string;
+  value: string | number | null;
+  date: string;
+  severity: string;
+  region: string;
+  url: string;
+}
+
+let _cdcCache: { signals: CdcSurveillanceSignal[]; ts: number } | null = null;
+const CDC_TTL_MS = 60 * 60 * 1000; // 1 hour
+
+export async function fetchCdcSurveillance(): Promise<CdcSurveillanceSignal[]> {
+  if (_cdcCache && Date.now() - _cdcCache.ts < CDC_TTL_MS) {
+    return _cdcCache.signals;
+  }
+  try {
+    const base = getApiBaseUrl();
+    if (!base) return [];
+    const res = await fetch(`${base}/api/cdc-surveillance`, { signal: AbortSignal.timeout(15_000) });
+    if (!res.ok) return [];
+    const data = await res.json() as { signals?: CdcSurveillanceSignal[] };
+    const signals = Array.isArray(data?.signals) ? data.signals : [];
+    _cdcCache = { signals, ts: Date.now() };
+    return signals;
+  } catch {
     return [];
   }
 }
