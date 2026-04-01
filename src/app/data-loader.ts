@@ -259,6 +259,12 @@ import { detectCompoundThreats, toHazardSignal } from '@/services/compound-threa
 import { fetchFloodGauges } from '@/services/flood-gauges';
 import { fetchDamSafetyAlerts } from '@/services/dam-safety';
 import { fetchPowerGridAlerts } from '@/services/power-grid-alerts';
+import { fetchGreyNoise, fetchOtxPulses, fetchAbuseIpDb, fetchUrlscanFeed } from '@/services/osint';
+import { fetchAcledEvents, fetchAdsbMilitary } from '@/services/osint';
+import { fetchHibpBreaches, fetchTorMetrics } from '@/services/osint';
+import type { ThreatIntelHubPanel } from '@/components/ThreatIntelHubPanel';
+import type { GeoIntelPanel } from '@/components/GeoIntelPanel';
+import type { DarkWebPanel } from '@/components/DarkWebPanel';
 
 const PROTO_TO_CLIENT_LEVEL: Record<ProtoThreatLevel, ClientThreatLevel> = {
   THREAT_LEVEL_UNSPECIFIED: 'info',
@@ -527,6 +533,9 @@ export class DataLoaderManager implements AppModule {
     if (SITE_VARIANT === 'full') tasks.push({ name: 'combatantCommands', task: runGuarded('combatantCommands', () => this.loadCombatantCommands()) });
     if (SITE_VARIANT === 'full') tasks.push({ name: 'foreignMilNews', task: runGuarded('foreignMilNews', () => this.loadForeignMilNews()) });
     if (SITE_VARIANT === 'full') tasks.push({ name: 'spcMesoscale', task: runGuarded('spcMesoscale', () => this.loadSpcMesoscale()) });
+    if (SITE_VARIANT !== 'happy') tasks.push({ name: 'threat-intel-hub', task: runGuarded('threat-intel-hub', () => this.loadThreatIntelHub()) });
+    if (SITE_VARIANT !== 'happy') tasks.push({ name: 'geo-intel', task: runGuarded('geo-intel', () => this.loadGeoIntel()) });
+    if (SITE_VARIANT !== 'happy') tasks.push({ name: 'dark-web', task: runGuarded('dark-web', () => this.loadDarkWeb()) });
 
     if (SITE_VARIANT === 'tech') {
       tasks.push({ name: 'techReadiness', task: runGuarded('techReadiness', () => (this.ctx.panels['tech-readiness'] as TechReadinessPanel)?.refresh()) });
@@ -617,6 +626,11 @@ export class DataLoaderManager implements AppModule {
         }
         case 'adsb': {
           await this.loadAdsb();
+          break;
+        }
+        case 'acledEvents':
+        case 'militaryFlights': {
+          await this.loadGeoIntel();
           break;
         }
       }
@@ -3033,6 +3047,7 @@ export class DataLoaderManager implements AppModule {
     }
   }
 
+<<<<<<< HEAD
   async loadIswReports(): Promise<void> {
     try {
       const reports = await fetchIswReports();
@@ -3265,6 +3280,53 @@ export class DataLoaderManager implements AppModule {
     } catch (error) {
       console.warn('[spc-mesoscale] fetch failed', error);
       (this.ctx.panels['spc-mesoscale'] as any)?.update([]);
+    }
+  }
+
+  async loadThreatIntelHub(): Promise<void> {
+    try {
+      const [greyNoise, otxPulses, abuseIp, urlscan] = await Promise.all([
+        fetchGreyNoise(),
+        fetchOtxPulses(),
+        fetchAbuseIpDb(),
+        fetchUrlscanFeed(),
+      ]);
+      (this.ctx.panels['threat-intel-hub'] as ThreatIntelHubPanel | undefined)?.update({
+        greyNoise, otxPulses, abuseIp, urlscan,
+      });
+    } catch (error) {
+      console.error('[ThreatIntelHub] load error:', error);
+    }
+  }
+
+  async loadGeoIntel(): Promise<void> {
+    try {
+      const [acled, military] = await Promise.all([
+        fetchAcledEvents(),
+        fetchAdsbMilitary(),
+      ]);
+      this.ctx.acledEvents = acled;
+      this.ctx.adsbMilitary = military;
+      (this.ctx.panels['geo-intel'] as GeoIntelPanel | undefined)?.update({
+        acled,
+        military,
+      });
+    } catch (error) {
+      console.error('[GeoIntel] load error:', error);
+    }
+  }
+
+  async loadDarkWeb(): Promise<void> {
+    try {
+      const [breaches, tor] = await Promise.all([
+        fetchHibpBreaches(),
+        fetchTorMetrics(),
+      ]);
+      (this.ctx.panels['dark-web'] as DarkWebPanel | undefined)?.update({
+        breaches, tor,
+      });
+    } catch (error) {
+      console.error('[DarkWeb] load error:', error);
     }
   }
 }

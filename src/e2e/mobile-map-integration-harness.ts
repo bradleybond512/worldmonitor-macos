@@ -133,6 +133,8 @@ const layers = {
   dayNight: false,
   faaWeatherCams: false,
   adsb: false,
+  acledEvents: false,
+  militaryFlights: false,
 };
 
 await initI18n();
