@@ -71,6 +71,7 @@ export * from './NationalDebtPanel';
 export * from './FuelPricesPanel';
 export * from './WatchlistPanel';
 export * from './SavedPlacesPanel';
+export * from './WatchlistLocationsPanel';
 export * from './LocalLogisticsPanel';
 export * from './CommsPlanPanel';
 

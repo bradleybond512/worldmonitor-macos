@@ -40,6 +40,7 @@ import {
   TelegramIntelPanel,
   WatchlistPanel,
   SavedPlacesPanel,
+  WatchlistLocationsPanel,
   LocalLogisticsPanel,
   CommsPlanPanel,
   StoicQuotePanel,
@@ -879,6 +880,9 @@ export class PanelLayoutManager implements AppModule {
         editPlace: openEdit,
       });
       this.ctx.panels['saved-places'] = savedPlacesPanel;
+
+      const watchlistLocationsPanel = new WatchlistLocationsPanel();
+      this.ctx.panels['watchlist-locations'] = watchlistLocationsPanel;
 
       this.ctx.unifiedSettings?.setPlaceCallbacks(openCreate, openEdit);
 
