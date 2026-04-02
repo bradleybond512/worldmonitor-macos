@@ -226,6 +226,7 @@ export const DEFAULT_MAP_LAYERS: MapLayers = {
   acledEvents: false,
   militaryFlights: false,
   diseaseIntel: false,
+  forecastOverlay: false,
 };
 
 // Mobile defaults for finance variant
@@ -284,6 +285,7 @@ export const MOBILE_DEFAULT_MAP_LAYERS: MapLayers = {
   acledEvents: false,
   militaryFlights: false,
   diseaseIntel: false,
+  forecastOverlay: false,
 };
 
 export const VARIANT_CONFIG: VariantConfig = {
