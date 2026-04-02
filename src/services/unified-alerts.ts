@@ -8,6 +8,7 @@
 
 import type { EvidencePack } from './evidence-pack';
 import { alertDB } from './alert-store';
+import { notificationDispatcher, actionForSeverity } from './notification-dispatcher';
 
 export type AlertSource =
   | 'breaking-news'
@@ -55,9 +56,10 @@ class UnifiedAlertStore {
     this.loadFromStorage();
   }
 
-  /** Add or update alerts. Deduplicates by id. */
+  /** Add or update alerts. Deduplicates by id. Dispatches notifications for new alerts. */
   ingest(incoming: UnifiedAlert[]): void {
     let changed = false;
+    const newAlerts: UnifiedAlert[] = [];
     for (const alert of incoming) {
       const existing = this.alerts.get(alert.id);
       if (existing) {
@@ -72,6 +74,7 @@ class UnifiedAlertStore {
         }
       } else {
         this.alerts.set(alert.id, alert);
+        newAlerts.push(alert);
         changed = true;
       }
     }
@@ -82,6 +85,10 @@ class UnifiedAlertStore {
 
       // Fire-and-forget: persist to IndexedDB for 30-day retention
       alertDB.putBatch(incoming).catch(() => { /* silent — IDB persistence is best-effort */ });
+    }
+    // Dispatch notifications for genuinely new alerts (after store update)
+    for (const alert of newAlerts) {
+      notificationDispatcher.dispatchNotification(alert, actionForSeverity(alert.severity));
     }
   }
 
