@@ -158,6 +158,8 @@ import { SpaceflightNewsPanel } from '@/components/SpaceflightNewsPanel';
 import { fetchSpaceLaunches } from '@/services/space-launches';
 import { SpaceLaunchesPanel } from '@/components/SpaceLaunchesPanel';
 import { fetchDiseaseOutbreaks, fetchGlobalDiseaseSnapshots, fetchCdcSurveillance } from '@/services/disease-outbreak';
+import { fetchDiseaseIntel } from '@/services/disease-intel';
+import { DiseaseIntelPanel } from '@/components/DiseaseIntelPanel';
 import { fetchHdxCrises } from '@/services/hdx-crisis';
 import { HumanitarianCrisisPanel } from '@/components/HumanitarianCrisisPanel';
 import { fetchGlobalAirQuality } from '@/services/air-quality';
@@ -443,6 +445,7 @@ export class DataLoaderManager implements AppModule {
     if (SITE_VARIANT === 'full') tasks.push({ name: 'spaceflightNews', task: runGuarded('spaceflightNews', () => this.loadSpaceflightNews()) });
     if (SITE_VARIANT === 'full') tasks.push({ name: 'spaceLaunches', task: runGuarded('spaceLaunches', () => this.loadSpaceLaunches()) });
     if (SITE_VARIANT === 'full') tasks.push({ name: 'diseaseOutbreaks', task: runGuarded('diseaseOutbreaks', () => this.loadDiseaseOutbreaks()) });
+    if (SITE_VARIANT === 'full') tasks.push({ name: 'diseaseIntel', task: runGuarded('diseaseIntel', () => this.loadDiseaseIntel()) });
     if (SITE_VARIANT === 'full') tasks.push({ name: 'humanitarianCrises', task: runGuarded('humanitarianCrises', () => this.loadHumanitarianCrises()) });
     if (SITE_VARIANT === 'full') tasks.push({ name: 'federalRegister', task: runGuarded('federalRegister', () => this.loadFederalRegister()) });
     if (SITE_VARIANT === 'full') tasks.push({ name: 'airQuality', task: runGuarded('airQuality', () => this.loadAirQuality()) });
@@ -1684,6 +1687,20 @@ export class DataLoaderManager implements AppModule {
     } catch (error) {
       console.warn('[disease-outbreaks] fetch failed', error);
       (this.ctx.panels['disease-outbreaks'] as DiseaseOutbreakPanel)?.update([]);
+    }
+  }
+
+  async loadDiseaseIntel(): Promise<void> {
+    try {
+      const data = await fetchDiseaseIntel();
+      (this.ctx.panels['disease-intel'] as DiseaseIntelPanel)?.update(data);
+      if (this.ctx.mapLayers.diseaseIntel) {
+        this.ctx.map?.setDiseaseIntel(data);
+      }
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.warn('[disease-intel] fetch failed', error);
+      (this.ctx.panels['disease-intel'] as DiseaseIntelPanel)?.update(null);
     }
   }
 

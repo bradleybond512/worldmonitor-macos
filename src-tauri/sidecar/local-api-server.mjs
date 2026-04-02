@@ -2580,6 +2580,39 @@ async function dispatch(requestUrl, req, routes, context) {
     }
   }
 
+  // ── Disease Intelligence (Nextstrain + disease.sh + ReliefWeb EP + WHO DON) ──
+  if (requestUrl.pathname === '/api/disease-intel') {
+    const cached = getCached('disease-intel', 30 * 60 * 1000);
+    if (cached) return json(cached);
+
+    const NEXTSTRAIN_URL =
+      'https://data.nextstrain.org/files/workflows/forecasts-ncov/open/nextstrain_clades/global/mlr/latest_results.json';
+    const DISEASE_SH_URL = 'https://disease.sh/v3/covid-19/countries';
+    const RELIEFWEB_URL =
+      'https://api.reliefweb.int/v1/disasters?appname=worldmonitor&filter[field]=type&filter[value]=EP&limit=20&sort[]=date:desc&fields[include][]=name&fields[include][]=date&fields[include][]=country&fields[include][]=status&fields[include][]=url';
+    const WHO_DON_URL = 'https://www.who.int/api/news/diseaseoutbreaknews';
+
+    try {
+      const [nsRes, dsRes, rwRes, whoRes] = await Promise.allSettled([
+        fetchWithTimeout(NEXTSTRAIN_URL, { headers: { Accept: 'application/json', 'User-Agent': CHROME_UA } }, 20_000),
+        fetchWithTimeout(DISEASE_SH_URL, { headers: { Accept: 'application/json', 'User-Agent': CHROME_UA } }, 15_000),
+        fetchWithTimeout(RELIEFWEB_URL,  { headers: { Accept: 'application/json', 'User-Agent': CHROME_UA } }, 15_000),
+        fetchWithTimeout(WHO_DON_URL,    { headers: { Accept: 'application/json', 'User-Agent': CHROME_UA } }, 15_000),
+      ]);
+
+      const nextstrain     = nsRes.status  === 'fulfilled' && nsRes.value.ok  ? await nsRes.value.json()  : null;
+      const covidCountries = dsRes.status  === 'fulfilled' && dsRes.value.ok  ? await dsRes.value.json()  : null;
+      const reliefweb      = rwRes.status  === 'fulfilled' && rwRes.value.ok  ? await rwRes.value.json()  : null;
+      const whoDon         = whoRes.status === 'fulfilled' && whoRes.value.ok ? await whoRes.value.json() : null;
+
+      const result = { nextstrain, covidCountries, reliefweb, whoDon, fetchedAt: new Date().toISOString() };
+      setCached('disease-intel', result);
+      return json(result);
+    } catch (error) {
+      return json({ error: `disease-intel fetch error: ${error.message ?? error}` }, 502);
+    }
+  }
+
   // ── HDX (UN OCHA) humanitarian crisis datasets ───────────────────────────
   if (requestUrl.pathname === '/api/hdx-crises') {
     try {

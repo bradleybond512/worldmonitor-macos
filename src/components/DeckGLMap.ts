@@ -38,6 +38,7 @@ import type {
 import { fetchMilitaryBases, type MilitaryBaseCluster as ServerBaseCluster } from '@/services/military-bases';
 import type { AirportDelayAlert } from '@/services/aviation';
 import type { ScoredFAACamera } from '@/services/faa-cameras';
+import type { DiseaseIntelData, CovidCountry, EpidemicEvent, WhoDonAlert } from '@/services/disease-intel';
 import type { IranEvent } from '@/services/conflict';
 import type { GpsJamHex } from '@/services/gps-interference';
 import type { DisplacementFlow } from '@/services/displacement';
@@ -175,6 +176,48 @@ const TERRAIN_STYLE = '/map-styles/terrain.json';
 
 type BaseMapStyle = 'dark' | 'light' | 'satellite' | 'terrain';
 const BASEMAP_STORAGE_KEY = 'wm-basemap';
+
+// Clade family → RGBA color for variant dot layer
+const CLADE_COLORS: Record<string, [number, number, number, number]> = {
+  JN: [100, 180, 255, 180],   // JN.1 lineage — blue
+  KP: [255, 120, 60, 180],    // KP.2 / KP lineage — orange
+  XBB: [160, 100, 255, 180],  // XBB lineage — purple
+  EG: [100, 220, 160, 180],   // EG.5 lineage — green
+};
+
+// Match an outbreak country name to a lat/lon from the disease.sh country list.
+// Pass 1: exact case-insensitive match. Pass 2: either name starts with the other
+// (handles "Democratic Republic of the Congo" ↔ "Congo (Kinshasa)" etc.).
+function resolveCountryCoords(
+  name: string,
+  countries: CovidCountry[]
+): [number, number] | null {
+  const needle = name.toLowerCase().trim();
+  // Pass 1 — exact
+  let match = countries.find(c => c.country.toLowerCase() === needle);
+  // Pass 2 — prefix fold: either string is a prefix of the other
+  match ??= countries.find(c => {
+    const hay = c.country.toLowerCase();
+    return hay.startsWith(needle.slice(0, 5)) || needle.startsWith(hay.slice(0, 5));
+  });
+  if (!match || match.lat === 0 && match.lon === 0) return null;
+  return [match.lat, match.lon];
+}
+
+function getDominantCladeColorForIso2(data: DiseaseIntelData, iso2: string): [number, number, number, number] {
+  const country = data.covidCountries.find(c => c.iso2 === iso2);
+  if (!country) return [180, 180, 180, 120];
+  const loc = data.variants.find(v =>
+    v.location.toLowerCase().includes(country.country.toLowerCase().slice(0, 6))
+  );
+  if (!loc || loc.clades.length === 0) return [180, 180, 180, 120];
+  const dominant = [...loc.clades].sort((a, b) => b.freq.value - a.freq.value)[0];
+  if (!dominant) return [180, 180, 180, 120];
+  for (const [prefix, color] of Object.entries(CLADE_COLORS)) {
+    if (dominant.clade.startsWith(prefix)) return color;
+  }
+  return [180, 180, 180, 120];
+}
 
 function getStyleUrl(basemap: BaseMapStyle): string {
   switch (basemap) {
@@ -368,6 +411,9 @@ export class DeckGLMap {
   private techEvents: TechEventMarker[] = [];
   private flightDelays: AirportDelayAlert[] = [];
   private faaCameras: ScoredFAACamera[] = [];
+  private diseaseIntelData: DiseaseIntelData | null = null;
+  private diseaseIntelCountryCaseMap = new Map<string, number>();
+  private diseaseIntelGeoJson: import('geojson').FeatureCollection | null = null;
   private news: NewsItem[] = [];
   private newsLocations: { lat: number; lon: number; title: string; threatLevel: string; timestamp?: Date }[] = [];
   private newsLocationFirstSeen = new Map<string, number>();
@@ -1244,6 +1290,23 @@ export class DeckGLMap {
       layers.push(this.createFAACamerasLayer(this.faaCameras));
     }
 
+    // Disease Intelligence layers (choropleth + variant dots + outbreak pins)
+    if (mapLayers.diseaseIntel && this.diseaseIntelData) {
+      if (this.diseaseIntelGeoJson) {
+        layers.push(this.createDiseaseIntelChoroplethLayer(this.diseaseIntelGeoJson));
+      }
+      if (this.diseaseIntelData.covidCountries.length > 0) {
+        layers.push(this.createDiseaseIntelVariantDotsLayer(this.diseaseIntelData.covidCountries));
+      }
+      const outbreakPins = [
+        ...this.diseaseIntelData.epidemicEvents,
+        ...this.diseaseIntelData.whoDon,
+      ];
+      if (outbreakPins.length > 0) {
+        layers.push(this.createDiseaseIntelOutbreakPinsLayer(outbreakPins));
+      }
+    }
+
     // Protests layer (Supercluster-based deck.gl layers)
     if (mapLayers.protests && this.protests.length > 0) {
       layers.push(...this.createProtestClusterLayers());
@@ -1705,6 +1768,79 @@ export class DeckGLMap {
         d.alertProximityMi !== null ? [255, 160, 60, 220] : [100, 180, 255, 80],
       radiusMinPixels: 4,
       radiusMaxPixels: 12,
+      pickable: true,
+      autoHighlight: true,
+    });
+  }
+
+  private createDiseaseIntelChoroplethLayer(geoJson: import('geojson').FeatureCollection): GeoJsonLayer {
+    const caseMap = this.diseaseIntelCountryCaseMap;
+    return new GeoJsonLayer({
+      id: 'disease-intel-choropleth',
+      data: geoJson,
+      filled: true,
+      stroked: false,
+      getFillColor: (d: import('geojson').Feature) => {
+        const iso2 =
+          (d.properties?.['ISO3166-1-Alpha-2'] as string | undefined)?.toUpperCase() ??
+          (d.properties?.ISO_A2 as string | undefined)?.toUpperCase() ??
+          '';
+        const perM = caseMap.get(iso2) ?? 0;
+        if (perM <= 0) return [0, 0, 0, 0];
+        if (perM >= 20_000) return [200, 0, 0, 130];
+        if (perM >= 5000) return [255, 80, 0, 100];
+        if (perM >= 1000) return [255, 180, 0, 60];
+        return [255, 220, 100, 30];
+      },
+      pickable: false,
+      updateTriggers: { getFillColor: [caseMap.size] },
+    });
+  }
+
+  private createDiseaseIntelVariantDotsLayer(countries: CovidCountry[]): ScatterplotLayer<CovidCountry> {
+    const data = this.diseaseIntelData;
+    return new ScatterplotLayer<CovidCountry>({
+      id: 'disease-intel-variant-dots',
+      data: countries.filter(c => c.lat !== 0 && c.lon !== 0),
+      getPosition: d => [d.lon, d.lat],
+      getRadius: 5,
+      getFillColor: d => {
+        const clade = data ? getDominantCladeColorForIso2(data, d.iso2) : [180, 180, 180, 160];
+        return clade as [number, number, number, number];
+      },
+      radiusMinPixels: 3,
+      radiusMaxPixels: 8,
+      pickable: true,
+      autoHighlight: true,
+    });
+  }
+
+  private createDiseaseIntelOutbreakPinsLayer(
+    items: (EpidemicEvent | WhoDonAlert)[]
+  ): ScatterplotLayer<{ lat: number; lon: number; isAlert: boolean }> {
+    const countries = this.diseaseIntelData?.covidCountries ?? [];
+
+    const pins = items
+      .map(item => {
+        const countryName = item.country;
+        const coords = resolveCountryCoords(countryName, countries);
+        if (!coords) return null;
+        const isAlert = 'status' in item ? (item as EpidemicEvent).status === 'alert' : false;
+        return { lat: coords[0], lon: coords[1], isAlert };
+      })
+      .filter((p): p is { lat: number; lon: number; isAlert: boolean } => p !== null);
+
+    return new ScatterplotLayer({
+      id: 'disease-intel-outbreak-pins',
+      data: pins,
+      getPosition: d => [d.lon, d.lat],
+      getRadius: 8,
+      getFillColor: d => d.isAlert ? [255, 60, 60, 220] : [255, 160, 60, 200],
+      radiusMinPixels: 6,
+      radiusMaxPixels: 14,
+      stroked: true,
+      getLineColor: [255, 255, 255, 100],
+      lineWidthMinPixels: 1,
       pickable: true,
       autoHighlight: true,
     });
@@ -4409,6 +4545,22 @@ export class DeckGLMap {
   public setFAACameras(cameras: ScoredFAACamera[]): void {
     this.faaCameras = cameras;
     this.render();
+  }
+
+  public setDiseaseIntel(data: DiseaseIntelData): void {
+    this.diseaseIntelData = data;
+    this.diseaseIntelCountryCaseMap = new Map(
+      data.covidCountries.map(c => [c.iso2, c.casesPerOneMillion])
+    );
+    // Lazy-load country GeoJSON once; re-use on subsequent calls
+    if (this.diseaseIntelGeoJson) {
+      this.render();
+    } else {
+      void getCountriesGeoJson().then(gj => {
+        this.diseaseIntelGeoJson = gj;
+        this.render();
+      });
+    }
   }
 
   public setMilitaryFlights(flights: MilitaryFlight[], clusters: MilitaryFlightCluster[] = []): void {

@@ -584,6 +584,8 @@ export interface MapLayers {
   faaWeatherCams: boolean;
   // ADS-B live aircraft tracking layer
   adsb: boolean;
+  // Disease Intelligence layer (choropleth + variant dots + outbreak pins)
+  diseaseIntel: boolean;
 }
 
 export interface AIDataCenter {

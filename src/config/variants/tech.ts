@@ -253,6 +253,7 @@ export const DEFAULT_MAP_LAYERS: MapLayers = {
   dayNight: false,
   faaWeatherCams: false,
   adsb: false,
+  diseaseIntel: false,
 };
 
 // Mobile defaults for tech variant
@@ -308,6 +309,7 @@ export const MOBILE_DEFAULT_MAP_LAYERS: MapLayers = {
   dayNight: false,
   faaWeatherCams: false,
   adsb: false,
+  diseaseIntel: false,
 };
 
 export const VARIANT_CONFIG: VariantConfig = {

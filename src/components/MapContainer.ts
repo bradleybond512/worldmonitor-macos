@@ -42,6 +42,7 @@ import type { S2UndergroundEvent } from '@/services/s2-underground';
 import type { GeoHubActivity } from '@/services/geo-activity';
 import type { TechHubActivity } from '@/services/tech-activity';
 import type { ScoredFAACamera } from '@/services/faa-cameras';
+import type { DiseaseIntelData } from '@/services/disease-intel';
 
 export type TimeRange = '1h' | '6h' | '24h' | '48h' | '7d' | 'all';
 export type MapView = 'global' | 'america' | 'mena' | 'eu' | 'asia' | 'latam' | 'africa' | 'oceania';
@@ -464,6 +465,12 @@ export class MapContainer {
       this.deckGLMap?.setFAACameras(cameras);
     }
     // SVG map does not support FAA camera layer
+  }
+
+  public setDiseaseIntel(data: DiseaseIntelData): void {
+    if (this.useDeckGL) {
+      this.deckGLMap?.setDiseaseIntel(data);
+    }
   }
 
   public updateHotspotActivity(news: NewsItem[]): void {
