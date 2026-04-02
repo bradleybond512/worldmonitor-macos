@@ -7,6 +7,7 @@
  */
 
 import type { EvidencePack } from './evidence-pack';
+import { alertDB } from './alert-store';
 
 export type AlertSource =
   | 'breaking-news'
@@ -47,8 +48,8 @@ const PRUNE_AGE_MS = 48 * 60 * 60 * 1000; // 48 hours
  * Persisted to localStorage for cross-session survival.
  */
 class UnifiedAlertStore {
-  private alerts: Map<string, UnifiedAlert> = new Map();
-  private listeners: Set<() => void> = new Set();
+  private alerts = new Map<string, UnifiedAlert>();
+  private listeners = new Set<() => void>();
 
   constructor() {
     this.loadFromStorage();
@@ -78,11 +79,14 @@ class UnifiedAlertStore {
       this.prune();
       this.persist();
       this.notify();
+
+      // Fire-and-forget: persist to IndexedDB for 30-day retention
+      alertDB.putBatch(incoming).catch(() => { /* silent — IDB persistence is best-effort */ });
     }
   }
 
   getAll(): UnifiedAlert[] {
-    return Array.from(this.alerts.values());
+    return [...this.alerts.values()];
   }
 
   getUnacknowledgedCount(): number {
@@ -146,7 +150,7 @@ class UnifiedAlertStore {
     }
     // Cap size — remove oldest acknowledged first, then oldest unacknowledged
     if (this.alerts.size > MAX_ALERTS) {
-      const sorted = Array.from(this.alerts.values()).sort((a, b) => {
+      const sorted = [...this.alerts.values()].sort((a, b) => {
         if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
         if (a.acknowledged !== b.acknowledged) return a.acknowledged ? 1 : -1;
         return a.timestamp - b.timestamp;
@@ -160,7 +164,7 @@ class UnifiedAlertStore {
 
   private persist(): void {
     try {
-      const entries = Array.from(this.alerts.values());
+      const entries = [...this.alerts.values()];
       localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
     } catch { /* storage full — silently drop */ }
   }
