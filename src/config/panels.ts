@@ -12,6 +12,8 @@ const FULL_PANELS: Record<string, PanelConfig> = {
   'saved-places': { name: 'Saved Places', enabled: true, priority: 1 },
   'local-logistics': { name: 'Local Logistics', enabled: true, priority: 1 },
   'comms-plan': { name: 'Tactical Comms', enabled: true, priority: 1 },
+  'unified-alert-inbox': { name: 'Alert Inbox', enabled: true, priority: 1 },
+  'situation-awareness': { name: 'Situation Awareness', enabled: true, priority: 1 },
   'alert-center': { name: 'Alert Center', enabled: true, priority: 1 },
   'strategic-risk': { name: 'Strategic Risk Overview', enabled: true, priority: 1 },
   'strategic-posture': { name: 'AI Strategic Posture', enabled: true, priority: 1 },
@@ -699,7 +701,7 @@ export const PANEL_CATEGORY_MAP: Record<string, { labelKey: string; panelKeys: s
   // Full (geopolitical) variant
   intelligence: {
     labelKey: 'header.panelCatIntelligence',
-    panelKeys: ['watchlist', 'saved-places', 'local-logistics', 'comms-plan', 'alert-center', 'strategic-risk', 'cii', 'geo-hubs', 'intel', 'gdelt-intel', 'cascade', 'telegram-intel'],
+    panelKeys: ['watchlist', 'saved-places', 'local-logistics', 'comms-plan', 'unified-alert-inbox', 'situation-awareness', 'alert-center', 'strategic-risk', 'cii', 'geo-hubs', 'intel', 'gdelt-intel', 'cascade', 'telegram-intel'],
     variants: ['full'],
   },
   regionalNews: {
