@@ -44,6 +44,23 @@ export interface SituationGeo {
   radiusKm: number;
 }
 
+export type VerificationVerdict = 'verified' | 'likely' | 'unverified' | 'contradicted';
+
+export interface VerificationDetails {
+  /** Count of distinct source types (e.g. RSS, GDACS, NWS, ACLED, correlation-signal, cyber) */
+  independentSources: number;
+  /** Whether signals from different sources arrived within a tight window (< 30 min) */
+  temporalCorroboration: boolean;
+  /** Whether signals span 2+ distinct domains */
+  crossDomainVerified: boolean;
+  /** Whether signals contain conflicting severity assessments */
+  hasContradictions: boolean;
+  /** 0–1 freshness score (1 = very fresh, decays with staleness) */
+  freshnessScore: number;
+  /** Overall verification verdict */
+  overallVerdict: VerificationVerdict;
+}
+
 export interface Situation {
   id: string;
   /** Short human-readable title, e.g. "Taiwan Strait Military Buildup" */
@@ -64,6 +81,8 @@ export interface Situation {
   domainDiversity: number;
   /** Evidence aggregated from all contributing signals */
   evidence: EvidencePack | null;
+  /** Multi-factor verification details from the OODA verify step */
+  verificationDetails?: VerificationDetails;
   /** Projected scenarios (sorted by probability descending) */
   scenarios: Scenario[];
   /** User-specific action recommendations */
