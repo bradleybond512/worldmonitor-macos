@@ -129,6 +129,7 @@ import { TechHubsPanel } from '@/components/TechHubsPanel';
 import { RegulationPanel } from '@/components/RegulationPanel';
 import { GivingPanel } from '@/components';
 import { UnifiedAlertInboxPanel } from '@/components/UnifiedAlertInboxPanel';
+import { AlertRulesPanel } from '@/components/AlertRulesPanel';
 import { focusInvestmentOnMap } from '@/services/investments-focus';
 import { debounce, saveToStorage } from '@/utils';
 import { escapeHtml } from '@/utils/sanitize';
@@ -1010,6 +1011,7 @@ export class PanelLayoutManager implements AppModule {
       this.ctx.panels['gdacs-alerts'] = gdacsAlertsPanel;
 
       this.ctx.panels['unified-inbox'] = new UnifiedAlertInboxPanel();
+      this.ctx.panels['alert-rules'] = new AlertRulesPanel();
 
       const volcanoAlertsPanel = new VolcanoAlertsPanel();
       volcanoAlertsPanel.setEventClickHandler((lat, lon) => {
