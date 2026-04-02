@@ -186,6 +186,7 @@ const allLayersEnabled: MapLayers = {
   adsb: false,
   acledEvents: false,
   militaryFlights: false,
+  diseaseIntel: false,
 };
 
 const allLayersDisabled: MapLayers = {
@@ -239,6 +240,7 @@ const allLayersDisabled: MapLayers = {
   adsb: false,
   acledEvents: false,
   militaryFlights: false,
+  diseaseIntel: false,
 };
 
 const SEEDED_NEWS_LOCATIONS: {

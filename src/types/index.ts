@@ -587,6 +587,8 @@ export interface MapLayers {
   // OSINT layers
   acledEvents: boolean;
   militaryFlights: boolean;
+  // Disease Intelligence layer (choropleth + variant dots + outbreak pins)
+  diseaseIntel: boolean;
 }
 
 export interface AIDataCenter {
