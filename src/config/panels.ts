@@ -77,6 +77,7 @@ const FULL_PANELS: Record<string, PanelConfig> = {
   'spaceflight-news': { name: 'Spaceflight News', enabled: true, priority: 2 },
   'space-launches': { name: 'Space Launches', enabled: true, priority: 2 },
   'disease-outbreaks': { name: 'Disease Outbreaks', enabled: true, priority: 2 },
+  'disease-intel': { name: 'Disease Intelligence', enabled: true, priority: 2 },
   'humanitarian-crisis': { name: 'Humanitarian Crises', enabled: true, priority: 2 },
   'air-quality': { name: 'Air Quality', enabled: true, priority: 2 },
   'wildfire-incidents': { name: 'Wildfires (InciWeb)', enabled: true, priority: 2 },
@@ -200,6 +201,7 @@ const FULL_MAP_LAYERS: MapLayers = {
   adsb: false,
   acledEvents: false,
   militaryFlights: false,
+  diseaseIntel: false,
 };
 
 const FULL_MOBILE_MAP_LAYERS: MapLayers = {
@@ -257,6 +259,7 @@ const FULL_MOBILE_MAP_LAYERS: MapLayers = {
   adsb: false,
   acledEvents: false,
   militaryFlights: false,
+  diseaseIntel: false,
 };
 
 // ============================================
@@ -355,6 +358,7 @@ const TECH_MAP_LAYERS: MapLayers = {
   adsb: false,
   acledEvents: false,
   militaryFlights: false,
+  diseaseIntel: false,
 };
 
 const TECH_MOBILE_MAP_LAYERS: MapLayers = {
@@ -412,6 +416,7 @@ const TECH_MOBILE_MAP_LAYERS: MapLayers = {
   adsb: false,
   acledEvents: false,
   militaryFlights: false,
+  diseaseIntel: false,
 };
 
 // ============================================
@@ -506,6 +511,7 @@ const FINANCE_MAP_LAYERS: MapLayers = {
   adsb: false,
   acledEvents: false,
   militaryFlights: false,
+  diseaseIntel: false,
 };
 
 const FINANCE_MOBILE_MAP_LAYERS: MapLayers = {
@@ -563,6 +569,7 @@ const FINANCE_MOBILE_MAP_LAYERS: MapLayers = {
   adsb: false,
   acledEvents: false,
   militaryFlights: false,
+  diseaseIntel: false,
 };
 
 // ============================================
@@ -636,6 +643,7 @@ const HAPPY_MAP_LAYERS: MapLayers = {
   adsb: false,
   acledEvents: false,
   militaryFlights: false,
+  diseaseIntel: false,
 };
 
 const HAPPY_MOBILE_MAP_LAYERS: MapLayers = {
@@ -693,6 +701,7 @@ const HAPPY_MOBILE_MAP_LAYERS: MapLayers = {
   adsb: false,
   acledEvents: false,
   militaryFlights: false,
+  diseaseIntel: false,
 };
 
 // ============================================
@@ -768,7 +777,7 @@ export const PANEL_CATEGORY_MAP: Record<string, { labelKey: string; panelKeys: s
   },
   healthEnv: {
     labelKey: 'header.panelCatHealthEnv',
-    panelKeys: ['hazard-alerts', 'infrastructure', 'giving', 'daily-wisdom', 'stoic-reflections', 'biblical-encouragement', 'alan-watts-reflections', 'mckenna-visions', 'disease-outbreaks', 'humanitarian-crisis', 'air-quality', 'food-insecurity', 'radiation-decay', 'resource-inventory'],
+    panelKeys: ['hazard-alerts', 'infrastructure', 'giving', 'daily-wisdom', 'stoic-reflections', 'biblical-encouragement', 'alan-watts-reflections', 'mckenna-visions', 'disease-outbreaks', 'disease-intel', 'humanitarian-crisis', 'air-quality', 'food-insecurity', 'radiation-decay', 'resource-inventory'],
     variants: ['full'],
   },
 

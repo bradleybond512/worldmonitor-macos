@@ -135,6 +135,7 @@ const layers = {
   adsb: false,
   acledEvents: false,
   militaryFlights: false,
+  diseaseIntel: false,
 };
 
 await initI18n();

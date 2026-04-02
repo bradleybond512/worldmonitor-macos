@@ -74,6 +74,7 @@ export const DEFAULT_MAP_LAYERS: MapLayers = {
   adsb: false,
   acledEvents: false,
   militaryFlights: false,
+  diseaseIntel: false,
 };
 
 // Mobile defaults — same as desktop for happy variant
@@ -132,6 +133,7 @@ export const MOBILE_DEFAULT_MAP_LAYERS: MapLayers = {
   adsb: false,
   acledEvents: false,
   militaryFlights: false,
+  diseaseIntel: false,
 };
 
 export const VARIANT_CONFIG: VariantConfig = {
