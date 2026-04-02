@@ -53,6 +53,7 @@ import { EarthquakesPanel } from '@/components/EarthquakesPanel';
 import { CyberThreatPanel } from '@/components/CyberThreatPanel';
 import { LocalIDSPanel } from '@/components/LocalIDSPanel';
 import { AlertCenterPanel } from '@/components/AlertCenterPanel';
+import { SituationPanel } from '@/components/SituationPanel';
 import { SpaceWeatherPanel } from '@/components/SpaceWeatherPanel';
 import { SpaceflightNewsPanel } from '@/components/SpaceflightNewsPanel';
 import { SpaceLaunchesPanel } from '@/components/SpaceLaunchesPanel';
@@ -922,6 +923,9 @@ export class PanelLayoutManager implements AppModule {
 
       const localIDSPanel = new LocalIDSPanel();
       this.ctx.panels['local-ids'] = localIDSPanel;
+
+      const situationPanel = new SituationPanel();
+      this.ctx.panels['situation-awareness'] = situationPanel;
 
       const alertCenterPanel = new AlertCenterPanel();
       this.ctx.panels['alert-center'] = alertCenterPanel;

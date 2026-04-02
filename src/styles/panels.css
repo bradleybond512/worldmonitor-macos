@@ -391,6 +391,58 @@
 .ids-src-zeek_conn { background: color-mix(in srgb, #a855f7 15%, transparent); color: #a855f7; }
 
 /* ----------------------------------------------------------
+   Situation Awareness Panel
+   ---------------------------------------------------------- */
+.sit-empty { color: #888; text-align: center; padding: 2rem 1rem; font-size: 0.85rem; }
+.sit-card { border: 1px solid #2a2a2a; border-radius: 6px; margin-bottom: 0.5rem; padding: 0.5rem 0.6rem; background: #111; }
+.sit-card.sit-phase-active { border-left: 3px solid #d9534f; }
+.sit-card.sit-phase-developing { border-left: 3px solid #f0ad4e; }
+.sit-card.sit-phase-emerging { border-left: 3px solid #888; }
+.sit-card.sit-phase-de-escalating { border-left: 3px solid #5bc0de; }
+.sit-header { display: flex; align-items: center; gap: 0.4rem; cursor: pointer; user-select: none; }
+.sit-domain-icon { font-size: 1rem; }
+.sit-title { flex: 1; font-size: 0.82rem; font-weight: 600; color: #e0e0e0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sit-phase-badge { font-size: 0.65rem; font-weight: 700; padding: 1px 5px; border-radius: 3px; color: #000; letter-spacing: 0.03em; }
+.sit-conf-bar { position: relative; height: 14px; background: #1a1a1a; border-radius: 3px; margin: 0.3rem 0 0.2rem; overflow: hidden; }
+.sit-conf-fill { height: 100%; border-radius: 3px; transition: width 0.3s; }
+.sit-conf-label { position: absolute; top: 0; left: 6px; font-size: 0.62rem; line-height: 14px; color: #ccc; }
+.sit-summary { font-size: 0.76rem; color: #999; margin-bottom: 0.3rem; }
+.sit-geo { font-size: 0.72rem; color: #7a7; margin-bottom: 0.4rem; }
+.sit-section-title { font-size: 0.68rem; font-weight: 700; color: #666; text-transform: uppercase; letter-spacing: 0.05em; margin: 0.5rem 0 0.25rem; border-top: 1px solid #222; padding-top: 0.4rem; }
+/* Scenarios */
+.sit-scenario { margin-bottom: 0.4rem; }
+.sit-sc-header { display: flex; justify-content: space-between; align-items: center; }
+.sit-sc-label { font-size: 0.76rem; font-weight: 600; color: #ccc; }
+.sit-sc-prob { font-size: 0.78rem; font-weight: 700; }
+.sit-sc-bar { height: 6px; background: #1a1a1a; border-radius: 3px; margin: 2px 0; overflow: hidden; }
+.sit-sc-fill { height: 100%; border-radius: 3px; }
+.sit-sc-desc { font-size: 0.7rem; color: #888; margin: 2px 0; }
+.sit-sc-horizon { font-size: 0.65rem; color: #666; }
+/* Action cards */
+.sit-action { border: 1px solid #222; border-radius: 4px; padding: 0.4rem; margin-bottom: 0.35rem; background: #0d0d0d; }
+.sit-act-header { display: flex; align-items: center; gap: 0.3rem; margin-bottom: 0.2rem; }
+.sit-act-urgency { font-size: 0.6rem; font-weight: 700; padding: 1px 4px; border-radius: 2px; color: #000; }
+.sit-act-headline { font-size: 0.76rem; font-weight: 600; color: #ddd; }
+.sit-act-rationale { font-size: 0.7rem; color: #888; margin-bottom: 0.2rem; }
+.sit-act-steps { margin: 0; padding-left: 1.1rem; font-size: 0.7rem; color: #aaa; }
+.sit-act-steps li { margin-bottom: 1px; }
+.sit-act-dismiss { background: none; border: 1px solid #333; color: #666; font-size: 0.62rem; padding: 1px 6px; border-radius: 2px; cursor: pointer; margin-top: 0.2rem; }
+.sit-act-dismiss:hover { color: #aaa; border-color: #555; }
+/* Signals list */
+.sit-signal-item { display: flex; gap: 0.4rem; font-size: 0.7rem; color: #888; padding: 1px 0; }
+.sit-sig-type { color: #aaa; font-family: monospace; min-width: 120px; }
+.sit-sig-conf { color: #7a7; min-width: 35px; text-align: right; }
+.sit-sig-time { color: #666; margin-left: auto; }
+/* Evidence */
+.sit-evidence { display: flex; gap: 0.5rem; align-items: center; font-size: 0.68rem; padding: 0.3rem 0.4rem; border-radius: 3px; margin-top: 0.3rem; background: #0a0a0a; }
+.sit-ev-verdict { font-weight: 700; padding: 1px 4px; border-radius: 2px; }
+.sit-ev-reported .sit-ev-verdict { color: #888; }
+.sit-ev-corroborated .sit-ev-verdict { color: #f0ad4e; }
+.sit-ev-actionable .sit-ev-verdict { color: #5cb85c; }
+.sit-ev-reason { color: #888; }
+.sit-ev-action { color: #666; margin-left: auto; }
+
+/* ----------------------------------------------------------
    Alert Center Panel
    ---------------------------------------------------------- */
 .ac-sev { width: 70px; }

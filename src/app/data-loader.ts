@@ -85,6 +85,7 @@ import { fetchCachedTheaterPosture, ingestLocalPostures } from '@/services/cache
 import { ingestProtestsForCII, ingestMilitaryForCII, ingestNewsForCII, ingestOutagesForCII, ingestConflictsForCII, ingestUcdpForCII, ingestHapiForCII, ingestDisplacementForCII, ingestClimateForCII, ingestStrikesForCII, ingestOrefForCII, ingestAviationForCII, ingestAdvisoriesForCII, ingestGpsJammingForCII, ingestAisDisruptionsForCII, ingestSatelliteFiresForCII, ingestCyberThreatsForCII, ingestTemporalAnomaliesForCII, isInLearningMode } from '@/services/country-instability';
 import { fetchGpsInterference } from '@/services/gps-interference';
 import { fetchLocalIDSAlerts } from '@/services/local-ids';
+import { situationEngine } from '@/services/situation-engine';
 import { dataFreshness, type DataSourceId } from '@/services/data-freshness';
 import { fetchConflictEvents, fetchUcdpClassifications, fetchHapiSummary, fetchUcdpEvents, deduplicateAgainstAcled, fetchIranEvents } from '@/services/conflict';
 import { fetchUnhcrPopulation } from '@/services/displacement';
@@ -1450,6 +1451,7 @@ export class DataLoaderManager implements AppModule {
           if (surgeAlerts.length > 0) {
             const surgeSignals = surgeAlerts.map(surgeAlertToSignal);
             addToSignalHistory(surgeSignals);
+            situationEngine.observeSignals(surgeSignals);
             evaluateWarThreat(surgeSignals);
             (this.ctx.panels['alert-center'] as AlertCenterPanel)?.addSignals(surgeSignals);
             if (this.shouldShowIntelligenceNotifications()) this.ctx.signalModal?.show(surgeSignals);
@@ -1458,6 +1460,7 @@ export class DataLoaderManager implements AppModule {
           if (foreignAlerts.length > 0) {
             const foreignSignals = foreignAlerts.map(foreignPresenceToSignal);
             addToSignalHistory(foreignSignals);
+            situationEngine.observeSignals(foreignSignals);
             evaluateWarThreat(foreignSignals);
             (this.ctx.panels['alert-center'] as AlertCenterPanel)?.addSignals(foreignSignals);
             if (this.shouldShowIntelligenceNotifications()) this.ctx.signalModal?.show(foreignSignals);
@@ -2110,6 +2113,7 @@ export class DataLoaderManager implements AppModule {
         },
       }));
       addToSignalHistory(signals);
+      situationEngine.observeSignals(signals);
       evaluateWarThreat(signals);
     }
   }
@@ -2391,6 +2395,7 @@ export class DataLoaderManager implements AppModule {
         if (surgeAlerts.length > 0) {
           const surgeSignals = surgeAlerts.map(surgeAlertToSignal);
           addToSignalHistory(surgeSignals);
+          situationEngine.observeSignals(surgeSignals);
           evaluateWarThreat(surgeSignals);
           (this.ctx.panels['alert-center'] as AlertCenterPanel)?.addSignals(surgeSignals);
           if (this.shouldShowIntelligenceNotifications()) this.ctx.signalModal?.show(surgeSignals);
@@ -2399,6 +2404,7 @@ export class DataLoaderManager implements AppModule {
         if (foreignAlerts.length > 0) {
           const foreignSignals = foreignAlerts.map(foreignPresenceToSignal);
           addToSignalHistory(foreignSignals);
+          situationEngine.observeSignals(foreignSignals);
           evaluateWarThreat(foreignSignals);
           (this.ctx.panels['alert-center'] as AlertCenterPanel)?.addSignals(foreignSignals);
           if (this.shouldShowIntelligenceNotifications()) this.ctx.signalModal?.show(foreignSignals);
@@ -2670,6 +2676,7 @@ export class DataLoaderManager implements AppModule {
       const allSignals = [...signals, ...geoSignals, ...keywordSpikeSignals];
       if (allSignals.length > 0) {
         addToSignalHistory(allSignals);
+        situationEngine.observeSignals(allSignals);
         evaluateWarThreat(allSignals);
         (this.ctx.panels['alert-center'] as AlertCenterPanel)?.addSignals(allSignals);
         if (this.shouldShowIntelligenceNotifications()) this.ctx.signalModal?.show(allSignals);
