@@ -80,6 +80,7 @@ const FULL_PANELS: Record<string, PanelConfig> = {
   'wildfire-incidents': { name: 'Wildfires (InciWeb)', enabled: true, priority: 2 },
   'hazmat-incidents': { name: 'Hazmat Incidents', enabled: true, priority: 2 },
   'oil-spill': { name: 'Oil & Chemical Spills', enabled: true, priority: 2 },
+  'unified-inbox': { name: 'Alert Inbox', enabled: true, priority: 1 },
   'hazard-alerts': { name: 'Hazard Alerts — Near Me', enabled: true, priority: 1 },
   'infrastructure': { name: 'Critical Infrastructure', enabled: true, priority: 2 },
   'gdacs-alerts': { name: 'GDACS Disaster Alerts', enabled: true, priority: 2 },

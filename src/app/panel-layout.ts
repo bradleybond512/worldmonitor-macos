@@ -126,6 +126,7 @@ import { GeoHubsPanel } from '@/components/GeoHubsPanel';
 import { TechHubsPanel } from '@/components/TechHubsPanel';
 import { RegulationPanel } from '@/components/RegulationPanel';
 import { GivingPanel } from '@/components';
+import { UnifiedAlertInboxPanel } from '@/components/UnifiedAlertInboxPanel';
 import { focusInvestmentOnMap } from '@/services/investments-focus';
 import { debounce, saveToStorage } from '@/utils';
 import { escapeHtml } from '@/utils/sanitize';
@@ -999,6 +1000,8 @@ export class PanelLayoutManager implements AppModule {
         this.ctx.map?.setCenter(lat, lon, 5);
       });
       this.ctx.panels['gdacs-alerts'] = gdacsAlertsPanel;
+
+      this.ctx.panels['unified-inbox'] = new UnifiedAlertInboxPanel();
 
       const volcanoAlertsPanel = new VolcanoAlertsPanel();
       volcanoAlertsPanel.setEventClickHandler((lat, lon) => {
