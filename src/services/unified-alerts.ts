@@ -41,8 +41,58 @@ export interface UnifiedAlert {
 }
 
 const STORAGE_KEY = 'wm-unified-alerts-v1';
+const USER_LOCATION_KEY = 'worldmonitor-user-location';
 const MAX_ALERTS = 500;
 const PRUNE_AGE_MS = 48 * 60 * 60 * 1000; // 48 hours
+
+// ── Haversine distance ──────────────────────────────────────────────────
+
+const EARTH_RADIUS_KM = 6371;
+
+/** Compute great-circle distance in km between two points. */
+export function computeDistanceKm(
+  lat1: number, lon1: number, lat2: number, lon2: number,
+): number {
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+  return EARTH_RADIUS_KM * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+/** Compute distance in miles from the user's location. Returns undefined if alert has no coords. */
+export function computeDistance(
+  alert: UnifiedAlert, userLat: number, userLon: number,
+): number | undefined {
+  if (!alert.location) return undefined;
+  return computeDistanceKm(userLat, userLon, alert.location.lat, alert.location.lon);
+}
+
+/** Read the user's stored location from localStorage. */
+function getUserLocation(): { lat: number; lon: number } | null {
+  try {
+    const raw = localStorage.getItem(USER_LOCATION_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { lat?: number; lon?: number };
+    if (typeof parsed.lat === 'number' && typeof parsed.lon === 'number') {
+      return { lat: parsed.lat, lon: parsed.lon };
+    }
+  } catch { /* ignore */ }
+  return null;
+}
+
+/** Stamp distanceKm on each alert that has a location, given user position. */
+function stampDistances(alerts: UnifiedAlert[]): void {
+  const loc = getUserLocation();
+  if (!loc) return;
+  for (const alert of alerts) {
+    if (alert.location) {
+      alert.distanceKm = computeDistanceKm(loc.lat, loc.lon, alert.location.lat, alert.location.lon);
+    }
+  }
+}
 
 /**
  * In-memory store for unified alerts.
@@ -56,8 +106,9 @@ class UnifiedAlertStore {
     this.loadFromStorage();
   }
 
-  /** Add or update alerts. Deduplicates by id. Dispatches notifications for new alerts. */
+  /** Add or update alerts. Deduplicates by id. Stamps distance, dispatches notifications for new alerts. */
   ingest(incoming: UnifiedAlert[]): void {
+    stampDistances(incoming);
     let changed = false;
     const newAlerts: UnifiedAlert[] = [];
     for (const alert of incoming) {
@@ -182,11 +233,15 @@ class UnifiedAlertStore {
       if (!raw) return;
       const entries = JSON.parse(raw) as UnifiedAlert[];
       const now = Date.now();
+      const loaded: UnifiedAlert[] = [];
       for (const entry of entries) {
         if (entry.pinned || now - entry.timestamp <= PRUNE_AGE_MS) {
           this.alerts.set(entry.id, entry);
+          loaded.push(entry);
         }
       }
+      // Re-compute distances with current user location
+      stampDistances(loaded);
     } catch { /* corrupted — start fresh */ }
   }
 }
