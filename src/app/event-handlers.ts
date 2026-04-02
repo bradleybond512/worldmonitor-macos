@@ -411,6 +411,14 @@ export class EventHandlerManager implements AppModule {
       setTimeout(updateModeBtn, 50);
     });
     document.addEventListener('wm:mode-changed', updateModeBtn);
+
+    // Situation Awareness — map focus binding
+    document.addEventListener('wm:focus-situation', ((e: CustomEvent<{ situationId: string; center: { lat: number; lon: number }; signals: unknown[] }>) => {
+      const { center } = e.detail;
+      if (this.ctx.map && (center.lat !== 0 || center.lon !== 0)) {
+        this.ctx.map.setCenter(center.lat, center.lon, 6);
+      }
+    }) as EventListener);
   }
 
   private showShareToast(message: string): void {
