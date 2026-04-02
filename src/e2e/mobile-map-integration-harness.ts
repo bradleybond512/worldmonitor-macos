@@ -136,6 +136,7 @@ const layers = {
   acledEvents: false,
   militaryFlights: false,
   diseaseIntel: false,
+  forecastOverlay: false,
 };
 
 await initI18n();

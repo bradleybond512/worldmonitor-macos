@@ -26,6 +26,11 @@ import { EvidenceDrawer } from './EvidenceDrawer';
 type SortMode = 'relevance' | 'severity' | 'time' | 'distance';
 type FilterShow = 'unread' | 'all';
 
+const NEAR_ME_RADIUS_KEY = 'wm-near-me-radius';
+const NEAR_ME_ACTIVE_KEY = 'wm-near-me-active';
+const KM_PER_MI = 1.609_34;
+const RADIUS_OPTIONS_MI = [50, 100, 250, 500, 1000] as const;
+
 const SEVERITY_ORDER: Record<AlertSeverity, number> = {
   critical: 5, high: 4, medium: 3, low: 2, info: 1,
 };
@@ -51,6 +56,8 @@ export class UnifiedAlertInboxPanel extends Panel {
   private filterShow: FilterShow = 'unread';
   private filterSources: Set<AlertSource> | null = null; // null = all
   private filterMinSeverity: AlertSeverity = 'info';
+  private nearMeActive: boolean;
+  private nearMeRadiusMi: number;
   private selectedIndex = -1;
   private readonly evidenceDrawer = new EvidenceDrawer();
   private readonly unsubscribe: () => void;
@@ -66,6 +73,10 @@ export class UnifiedAlertInboxPanel extends Panel {
       infoTooltip:
         'Unified view of all alerts sorted by relevance. Combines breaking news, weather, disasters, hazards, and intelligence signals.',
     });
+
+    // Restore Near Me state from localStorage
+    this.nearMeActive = localStorage.getItem(NEAR_ME_ACTIVE_KEY) === 'true';
+    this.nearMeRadiusMi = Number.parseInt(localStorage.getItem(NEAR_ME_RADIUS_KEY) ?? '500', 10) || 500;
 
     // Subscribe to store changes
     this.unsubscribe = unifiedAlertStore.subscribe(() => {
@@ -125,29 +136,40 @@ export class UnifiedAlertInboxPanel extends Panel {
       alerts = alerts.filter(a => SEVERITY_ORDER[a.severity] >= minSev);
     }
 
+    // Filter: Near Me radius
+    if (this.nearMeActive) {
+      const radiusKm = this.nearMeRadiusMi * KM_PER_MI;
+      alerts = alerts.filter(a => a.distanceKm != null && a.distanceKm <= radiusKm);
+    }
+
     // Sort
     switch (this.sortMode) {
-      case 'relevance':
+      case 'relevance': {
         return scoreAndSort(alerts);
-      case 'severity':
+      }
+      case 'severity': {
         return alerts.sort((a, b) => {
           if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
           return SEVERITY_ORDER[b.severity] - SEVERITY_ORDER[a.severity] || b.timestamp - a.timestamp;
         });
-      case 'time':
+      }
+      case 'time': {
         return alerts.sort((a, b) => {
           if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
           return b.timestamp - a.timestamp;
         });
-      case 'distance':
+      }
+      case 'distance': {
         return alerts.sort((a, b) => {
           if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
           const da = a.distanceKm ?? Infinity;
           const db = b.distanceKm ?? Infinity;
           return da - db;
         });
-      default:
+      }
+      default: {
         return scoreAndSort(alerts);
+      }
     }
   }
 
@@ -160,36 +182,38 @@ export class UnifiedAlertInboxPanel extends Panel {
   private handleClick(e: Event): void {
     const target = e.target as HTMLElement;
 
-    // Sort buttons
+    if (this.handleToolbarClick(target)) return;
+    if (this.handleNearMeClick(target)) return;
+    if (this.handleAlertActionClick(e, target)) return;
+  }
+
+  /** Handle sort, filter-show, severity, source filter, clear, ack-all toolbar clicks. */
+  private handleToolbarClick(target: HTMLElement): boolean {
     const sortBtn = target.closest('[data-sort]') as HTMLElement | null;
     if (sortBtn) {
       this.sortMode = sortBtn.dataset.sort as SortMode;
       this.render();
-      return;
+      return true;
     }
 
-    // Filter show toggle
     const showBtn = target.closest('[data-filter-show]') as HTMLElement | null;
     if (showBtn) {
       this.filterShow = showBtn.dataset.filterShow as FilterShow;
       this.render();
-      return;
+      return true;
     }
 
-    // Severity filter
     const sevBtn = target.closest('[data-filter-sev]') as HTMLElement | null;
     if (sevBtn) {
       this.filterMinSeverity = sevBtn.dataset.filterSev as AlertSeverity;
       this.render();
-      return;
+      return true;
     }
 
-    // Source filter toggle
     const srcBtn = target.closest('[data-filter-src]') as HTMLElement | null;
     if (srcBtn) {
       const src = srcBtn.dataset.filterSrc as AlertSource;
       if (!this.filterSources) {
-        // First click: filter to just this source
         this.filterSources = new Set([src]);
       } else if (this.filterSources.has(src)) {
         this.filterSources.delete(src);
@@ -198,54 +222,77 @@ export class UnifiedAlertInboxPanel extends Panel {
         this.filterSources.add(src);
       }
       this.render();
-      return;
+      return true;
     }
 
-    // Clear source filter
     if (target.closest('[data-clear-src]')) {
       this.filterSources = null;
       this.render();
-      return;
+      return true;
     }
 
-    // Acknowledge all
     if (target.closest('[data-ack-all]')) {
       unifiedAlertStore.acknowledgeAll();
-      return;
+      return true;
     }
 
-    // Acknowledge single
+    return false;
+  }
+
+  /** Handle Near Me toggle and radius selector clicks. */
+  private handleNearMeClick(target: HTMLElement): boolean {
+    if (target.closest('[data-near-me-toggle]')) {
+      this.nearMeActive = !this.nearMeActive;
+      localStorage.setItem(NEAR_ME_ACTIVE_KEY, String(this.nearMeActive));
+      if (this.nearMeActive) this.sortMode = 'distance';
+      this.render();
+      return true;
+    }
+
+    const radiusBtn = target.closest('[data-near-me-radius]') as HTMLElement | null;
+    if (radiusBtn) {
+      this.nearMeRadiusMi = Number.parseInt(radiusBtn.dataset.nearMeRadius!, 10);
+      localStorage.setItem(NEAR_ME_RADIUS_KEY, String(this.nearMeRadiusMi));
+      this.render();
+      return true;
+    }
+
+    return false;
+  }
+
+  /** Handle per-alert actions: ack, pin, evidence drawer. */
+  private handleAlertActionClick(e: Event, target: HTMLElement): boolean {
     const ackBtn = target.closest('[data-ack]') as HTMLElement | null;
     if (ackBtn) {
       e.stopPropagation();
       unifiedAlertStore.acknowledge(ackBtn.dataset.ack!);
-      return;
+      return true;
     }
 
-    // Pin toggle
     const pinBtn = target.closest('[data-pin]') as HTMLElement | null;
     if (pinBtn) {
       e.stopPropagation();
       unifiedAlertStore.togglePin(pinBtn.dataset.pin!);
-      return;
+      return true;
     }
 
-    // Evidence "Why?" button
     const whyBtn = target.closest('.uai-why-btn') as HTMLElement | null;
     if (whyBtn) {
       e.stopPropagation();
       const alertId = whyBtn.dataset.alertId;
-      if (!alertId) return;
+      if (!alertId) return true;
       const alerts = unifiedAlertStore.getAll();
       const alert = alerts.find(a => a.id === alertId);
-      if (!alert?.evidence) return;
+      if (!alert?.evidence) return true;
       this.evidenceDrawer.show({
         title: alert.title,
         subtitle: alert.body,
         evidence: alert.evidence,
       });
-      return;
+      return true;
     }
+
+    return false;
   }
 
   private handleKeydown(e: KeyboardEvent): void {
@@ -254,17 +301,19 @@ export class UnifiedAlertInboxPanel extends Panel {
 
     switch (e.key) {
       case 'j':
-      case 'ArrowDown':
+      case 'ArrowDown': {
         e.preventDefault();
         this.selectedIndex = Math.min(this.selectedIndex + 1, alerts.length - 1);
         this.render();
         break;
+      }
       case 'k':
-      case 'ArrowUp':
+      case 'ArrowUp': {
         e.preventDefault();
         this.selectedIndex = Math.max(this.selectedIndex - 1, 0);
         this.render();
         break;
+      }
       case 'a': {
         const ackTarget = alerts[this.selectedIndex];
         if (ackTarget) unifiedAlertStore.acknowledge(ackTarget.id);
@@ -291,7 +340,7 @@ export class UnifiedAlertInboxPanel extends Panel {
       return;
     }
 
-    const toolbar = this.renderToolbar(alerts.length, totalCount);
+    const toolbar = this.renderToolbar();
     const rows = alerts.map((a, i) => this.renderRow(a, i)).join('');
 
     this.setContent(`
@@ -314,18 +363,19 @@ export class UnifiedAlertInboxPanel extends Panel {
           </table>
         </div>
         <div class="fires-footer">
-          <span class="fires-source">Unified Alert Inbox \u00b7 ${alerts.length} of ${totalCount}</span>
-          <span class="fires-updated">Sort: ${this.sortMode} \u00b7 J/K navigate \u00b7 A ack \u00b7 P pin</span>
+          <span class="fires-source">Unified Alert Inbox \u00B7 ${alerts.length} of ${totalCount}</span>
+          <span class="fires-updated">Sort: ${this.sortMode} \u00B7 J/K navigate \u00B7 A ack \u00B7 P pin</span>
         </div>
       </div>
     `);
   }
 
-  private renderToolbar(_shown: number, _total: number): string {
+  private renderToolbar(): string {
+    const sortLabelMap: Record<SortMode, string> = { relevance: 'Rel', severity: 'Sev', time: 'Time', distance: 'Dist' };
     const sortBtns = (['relevance', 'severity', 'time', 'distance'] as const)
       .map(
         s =>
-          `<button class="uai-toolbar-btn${this.sortMode === s ? ' uai-active' : ''}" data-sort="${s}">${s === 'relevance' ? 'Rel' : s === 'severity' ? 'Sev' : s === 'time' ? 'Time' : 'Dist'}</button>`,
+          `<button class="uai-toolbar-btn${this.sortMode === s ? ' uai-active' : ''}" data-sort="${s}">${sortLabelMap[s]}</button>`,
       )
       .join('');
 
@@ -347,6 +397,15 @@ export class UnifiedAlertInboxPanel extends Panel {
       ? `<button class="uai-toolbar-btn uai-clear-btn" data-clear-src>Clear (${this.filterSources.size})</button>`
       : '';
 
+    const nearMeToggle = `<button class="uai-toolbar-btn${this.nearMeActive ? ' uai-active' : ''}" data-near-me-toggle title="Filter alerts near your location">Near Me</button>`;
+
+    const radiusSelector = this.nearMeActive
+      ? RADIUS_OPTIONS_MI.map(
+          r =>
+            `<button class="uai-toolbar-btn${this.nearMeRadiusMi === r ? ' uai-active' : ''}" data-near-me-radius="${r}">${r}mi</button>`,
+        ).join('')
+      : '';
+
     return `
       <div class="uai-toolbar">
         <div class="uai-toolbar-group">
@@ -357,6 +416,9 @@ export class UnifiedAlertInboxPanel extends Panel {
         </div>
         <div class="uai-toolbar-group">
           <span class="uai-toolbar-label">Min:</span>${sevBtns}
+        </div>
+        <div class="uai-toolbar-group">
+          ${nearMeToggle}${radiusSelector}
         </div>
         <div class="uai-toolbar-group">
           ${srcFilter}
@@ -371,9 +433,12 @@ export class UnifiedAlertInboxPanel extends Panel {
     const srcTag = `<span class="uai-src-tag uai-src-${alert.source}" data-filter-src="${alert.source}" title="Filter: ${alert.source}">${SOURCE_LABELS[alert.source] ?? alert.source}</span>`;
 
     const scoreBar = this.renderScoreBar(alert.relevanceScore);
-    const dist = alert.distanceKm != null
-      ? `${alert.distanceKm < 10 ? alert.distanceKm.toFixed(1) : Math.round(alert.distanceKm)} km`
-      : '\u2014';
+    const distMi = alert.distanceKm == null ? undefined : alert.distanceKm / KM_PER_MI;
+    let dist = '\u2014';
+    if (distMi != null) {
+      const formatted = distMi < 10 ? distMi.toFixed(1) : String(Math.round(distMi));
+      dist = `${formatted}mi`;
+    }
     const age = timeAgo(alert.timestamp);
 
     const safeLink = alert.link?.startsWith('https://') ? alert.link : null;
@@ -416,7 +481,9 @@ export class UnifiedAlertInboxPanel extends Panel {
 
   private renderScoreBar(score: number): string {
     const pct = Math.round(score * 100);
-    const hue = score > 0.7 ? 0 : score > 0.4 ? 30 : 120; // red \u2192 orange \u2192 green
+    let hue = 120; // green
+    if (score > 0.7) hue = 0; // red
+    else if (score > 0.4) hue = 30; // orange
     return `<div class="uai-score-bar" title="Relevance: ${pct}%">
       <div class="uai-score-fill" style="width:${pct}%;background:hsl(${hue},70%,50%)"></div>
       <span class="uai-score-label">${pct}</span>

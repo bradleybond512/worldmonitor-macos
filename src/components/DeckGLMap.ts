@@ -36,6 +36,7 @@ import type {
   MilitaryBaseEnriched,
 } from '@/types';
 import { fetchMilitaryBases, type MilitaryBaseCluster as ServerBaseCluster } from '@/services/military-bases';
+import { forecastOverlay, riskToColor, formatRegionLabel, type ForecastRegion } from '@/services/forecast-overlay';
 import type { AirportDelayAlert } from '@/services/aviation';
 import type { ScoredFAACamera } from '@/services/faa-cameras';
 import type { DiseaseIntelData, CovidCountry, EpidemicEvent, WhoDonAlert } from '@/services/disease-intel';
@@ -1457,6 +1458,15 @@ export class DeckGLMap {
       layers.push(this.createRenewableInstallationsLayer());
     }
 
+    // EMA forecast predictive threat overlay
+    if (mapLayers.forecastOverlay) {
+      const forecastRegions = forecastOverlay.getRegions();
+      if (forecastRegions.length > 0) {
+        layers.push(this.createForecastOverlayLayer(forecastRegions));
+        layers.push(this.createForecastOverlayLabelLayer(forecastRegions));
+      }
+    }
+
     // News geo-locations (always shown if data exists)
     if (this.newsLocations.length > 0) {
       layers.push(...this.createNewsLocationsLayer());
@@ -2026,6 +2036,51 @@ export class DeckGLMap {
       stroked: true,
       getLineColor: [255, 255, 255, 160] as [number, number, number, number],
       lineWidthMinPixels: 1,
+    });
+  }
+
+  private createForecastOverlayLayer(regions: ForecastRegion[]): ScatterplotLayer<ForecastRegion> {
+    return new ScatterplotLayer<ForecastRegion>({
+      id: 'forecast-overlay-layer',
+      data: regions,
+      getPosition: (d) => d.center,
+      // Radius in meters: convert km to meters, scale with risk
+      getRadius: (d) => d.radius * 1000,
+      getFillColor: (d) => riskToColor(d.riskScore),
+      opacity: 1, // per-feature alpha is baked into getFillColor
+      radiusMinPixels: 15,
+      radiusMaxPixels: 120,
+      pickable: true,
+      stroked: true,
+      getLineColor: (d) => {
+        const [r, g, b] = riskToColor(d.riskScore);
+        return [r, g, b, 200] as [number, number, number, number];
+      },
+      lineWidthMinPixels: 1,
+      lineWidthMaxPixels: 2,
+    });
+  }
+
+  private createForecastOverlayLabelLayer(regions: ForecastRegion[]): TextLayer<ForecastRegion> {
+    return new TextLayer<ForecastRegion>({
+      id: 'forecast-overlay-labels',
+      data: regions,
+      getPosition: (d) => d.center,
+      getText: (d) => formatRegionLabel(d),
+      getSize: 13,
+      getColor: [255, 255, 255, 220],
+      getAngle: 0,
+      getTextAnchor: 'middle',
+      getAlignmentBaseline: 'center',
+      getPixelOffset: [0, -20],
+      fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif',
+      fontWeight: '600',
+      outlineWidth: 3,
+      outlineColor: [0, 0, 0, 180],
+      pickable: false,
+      billboard: true,
+      sizeMinPixels: 10,
+      sizeMaxPixels: 16,
     });
   }
 
@@ -3289,6 +3344,11 @@ export class DeckGLMap {
       case 'cyber-threats-layer': {
         return { html: `<div class="deckgl-tooltip"><strong>${t('popups.cyberThreat.title')}</strong><br/>${text(obj.severity || t('components.deckgl.tooltip.medium'))} · ${text(obj.country || t('popups.unknown'))}</div>` };
       }
+      case 'forecast-overlay-layer': {
+        const domains = (obj.domains || []).join(', ');
+        const trendLabel = obj.trend === 'rising' ? '\u2191 Rising' : obj.trend === 'falling' ? '\u2193 Falling' : '\u2192 Stable';
+        return { html: `<div class="deckgl-tooltip"><strong>\u26A0 ${text(obj.label || 'Forecast Region')}</strong><br/>Risk: ${obj.riskScore}/100 ${trendLabel}<br/>Domains: ${text(domains)}</div>` };
+      }
       case 'iran-events-layer': {
         return { html: `<div class="deckgl-tooltip"><strong>${t('components.deckgl.layers.iranAttacks')}: ${text(obj.category || '')}</strong><br/>${text((obj.title || '').slice(0, 80))}</div>` };
       }
@@ -3414,8 +3474,8 @@ export class DeckGLMap {
           const leaves = this.protestSC.getLeaves(cluster._clusterId, DeckGLMap.MAX_CLUSTER_LEAVES);
           cluster.items = leaves.map(l => this.protestSuperclusterSource[l.properties.index]).filter((x): x is SocialUnrestEvent => !!x);
           cluster.sampled = cluster.items.length < cluster.count;
-        } catch (e) {
-          console.warn('[DeckGLMap] stale protest cluster', cluster._clusterId, e);
+        } catch (error) {
+          console.warn('[DeckGLMap] stale protest cluster', cluster._clusterId, error);
           return;
         }
       }
@@ -3447,8 +3507,8 @@ export class DeckGLMap {
           const leaves = this.techHQSC.getLeaves(cluster._clusterId, DeckGLMap.MAX_CLUSTER_LEAVES);
           cluster.items = leaves.map(l => TECH_HQS[l.properties.index]).filter(Boolean) as typeof TECH_HQS;
           cluster.sampled = cluster.items.length < cluster.count;
-        } catch (e) {
-          console.warn('[DeckGLMap] stale techHQ cluster', cluster._clusterId, e);
+        } catch (error) {
+          console.warn('[DeckGLMap] stale techHQ cluster', cluster._clusterId, error);
           return;
         }
       }
@@ -3480,8 +3540,8 @@ export class DeckGLMap {
           const leaves = this.techEventSC.getLeaves(cluster._clusterId, DeckGLMap.MAX_CLUSTER_LEAVES);
           cluster.items = leaves.map(l => this.techEvents[l.properties.index]).filter((x): x is TechEventMarker => !!x);
           cluster.sampled = cluster.items.length < cluster.count;
-        } catch (e) {
-          console.warn('[DeckGLMap] stale techEvent cluster', cluster._clusterId, e);
+        } catch (error) {
+          console.warn('[DeckGLMap] stale techEvent cluster', cluster._clusterId, error);
           return;
         }
       }
@@ -3511,8 +3571,8 @@ export class DeckGLMap {
           const leaves = this.datacenterSC.getLeaves(cluster._clusterId, DeckGLMap.MAX_CLUSTER_LEAVES);
           cluster.items = leaves.map(l => this.datacenterSCSource[l.properties.index]).filter((x): x is AIDataCenter => !!x);
           cluster.sampled = cluster.items.length < cluster.count;
-        } catch (e) {
-          console.warn('[DeckGLMap] stale datacenter cluster', cluster._clusterId, e);
+        } catch (error) {
+          console.warn('[DeckGLMap] stale datacenter cluster', cluster._clusterId, error);
           return;
         }
       }
@@ -3781,6 +3841,7 @@ export class DeckGLMap {
         { key: 'economic', label: t('components.deckgl.layers.economicCenters'), icon: '&#128176;' },
         { key: 'minerals', label: t('components.deckgl.layers.criticalMinerals'), icon: '&#128142;' },
         { key: 'gpsJamming', label: t('components.deckgl.layers.gpsJamming'), icon: '&#128225;' },
+        { key: 'forecastOverlay', label: 'Forecast Overlay', icon: '&#9888;' },
         { key: 'dayNight', label: t('components.deckgl.layers.dayNight'), icon: '&#127763;' },
       ];
 

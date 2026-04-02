@@ -19,7 +19,10 @@ import type {
   ActionCard,
   ActionUrgency,
   SituationDomain,
+  SituationSignalSnapshot,
   ScenarioSeverity,
+  VerificationDetails,
+  VerificationVerdict,
 } from '@/services/situation-types';
 
 // ── Constants ────────────────────────────────────────────────────────────────
@@ -66,6 +69,24 @@ const SEVERITY_COLORS: Record<ScenarioSeverity, string> = {
   positive: '#5cb85c',
 };
 
+const DOMAIN_COLORS: Record<SituationDomain, string> = {
+  military: '#d9534f',
+  economic: '#f0ad4e',
+  natural_hazard: '#5cb85c',
+  cyber: '#9b59b6',
+  infrastructure: '#e67e22',
+  health: '#3498db',
+  civil_unrest: '#e74c3c',
+  compound: '#1abc9c',
+};
+
+const VERIFICATION_BADGE: Record<VerificationVerdict, { icon: string; color: string; label: string }> = {
+  verified:     { icon: '\u2713', color: '#5cb85c', label: 'Verified' },       // ✓
+  likely:       { icon: '~',      color: '#f0ad4e', label: 'Likely' },
+  unverified:   { icon: '?',      color: '#888',    label: 'Unverified' },
+  contradicted: { icon: '\u26A0', color: '#d9534f', label: 'Contradicted' },   // ⚠
+};
+
 // ── Panel ────────────────────────────────────────────────────────────────────
 
 export class SituationPanel extends Panel {
@@ -107,11 +128,11 @@ export class SituationPanel extends Panel {
 
     for (const sit of situations) {
       const card = this.renderSituation(sit);
-      frag.appendChild(card);
+      frag.append(card);
     }
 
     el.innerHTML = '';
-    el.appendChild(frag);
+    el.append(frag);
   }
 
   private renderSituation(sit: Situation): HTMLElement {
@@ -129,90 +150,145 @@ export class SituationPanel extends Panel {
       <span class="sit-title">${this.esc(sit.title)}</span>
       <span class="sit-phase-badge" style="background:${PHASE_COLORS[sit.phase]}">${PHASE_LABELS[sit.phase]}</span>
     `;
+
+    // "Show on Map" button
+    if (sit.geo.lat !== 0 || sit.geo.lon !== 0) {
+      const mapBtn = document.createElement('button');
+      mapBtn.className = 'sit-map-btn';
+      mapBtn.title = 'Show on map';
+      mapBtn.textContent = '\u{1F5FA}\uFE0F'; // 🗺️
+      mapBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.focusOnMap(sit);
+      });
+      header.append(mapBtn);
+    }
+
     header.addEventListener('click', () => {
       this._expandedSitId = isExpanded ? null : sit.id;
       this.render();
     });
-    card.appendChild(header);
+    card.append(header);
 
-    // Confidence bar
+    // Confidence bar + verification badge
+    const confRow = document.createElement('div');
+    confRow.className = 'sit-conf-row';
+
     const confBar = document.createElement('div');
     confBar.className = 'sit-conf-bar';
     confBar.innerHTML = `
       <div class="sit-conf-fill" style="width:${Math.round(sit.confidence * 100)}%;background:${PHASE_COLORS[sit.phase]}"></div>
       <span class="sit-conf-label">${Math.round(sit.confidence * 100)}% · ${sit.signals.length} signals · ${sit.domainDiversity} domain${sit.domainDiversity === 1 ? '' : 's'}</span>
     `;
-    card.appendChild(confBar);
+    confRow.append(confBar);
+
+    // Verification badge
+    const vd = sit.verificationDetails;
+    if (vd) {
+      const badge = VERIFICATION_BADGE[vd.overallVerdict];
+      const badgeEl = document.createElement('span');
+      badgeEl.className = `sit-verif-badge sit-verif-${vd.overallVerdict}`;
+      badgeEl.style.color = badge.color;
+      badgeEl.style.borderColor = badge.color;
+      badgeEl.textContent = `${badge.icon} ${badge.label}`;
+      badgeEl.title = this.verificationTooltip(vd);
+      badgeEl.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this._expandedSitId = this._expandedSitId === sit.id ? null : sit.id;
+        this.render();
+      });
+      confRow.append(badgeEl);
+    }
+
+    card.append(confRow);
 
     // Summary
     const summary = document.createElement('div');
     summary.className = 'sit-summary';
     summary.textContent = sit.summary;
-    card.appendChild(summary);
+    card.append(summary);
 
     if (isExpanded) {
-      // Geo
-      if (sit.geo.label) {
-        const geo = document.createElement('div');
-        geo.className = 'sit-geo';
-        geo.textContent = `📍 ${sit.geo.label}${sit.geo.countries.length > 0 ? ` (${sit.geo.countries.join(', ')})` : ''}`;
-        card.appendChild(geo);
-      }
-
-      // Scenarios
-      if (sit.scenarios.length > 0) {
-        const scenSection = document.createElement('div');
-        scenSection.className = 'sit-scenarios';
-        scenSection.innerHTML = '<div class="sit-section-title">Projected Scenarios</div>';
-        for (const sc of sit.scenarios) {
-          scenSection.appendChild(this.renderScenario(sc));
-        }
-        card.appendChild(scenSection);
-      }
-
-      // Action cards
-      if (sit.actions.length > 0) {
-        const actSection = document.createElement('div');
-        actSection.className = 'sit-actions';
-        actSection.innerHTML = '<div class="sit-section-title">Recommended Actions</div>';
-        for (const ac of sit.actions.filter(a => !a.dismissed)) {
-          actSection.appendChild(this.renderAction(ac));
-        }
-        card.appendChild(actSection);
-      }
-
-      // Contributing signals
-      if (sit.signals.length > 0) {
-        const sigSection = document.createElement('div');
-        sigSection.className = 'sit-signals-list';
-        sigSection.innerHTML = '<div class="sit-section-title">Contributing Signals</div>';
-        for (const sig of sit.signals.slice(0, 8)) {
-          const sigEl = document.createElement('div');
-          sigEl.className = 'sit-signal-item';
-          sigEl.innerHTML = `
-            <span class="sit-sig-type">${this.esc(sig.type)}</span>
-            <span class="sit-sig-conf">${Math.round(sig.confidence * 100)}%</span>
-            <span class="sit-sig-time">${this.relTime(sig.timestamp)}</span>
-          `;
-          sigSection.appendChild(sigEl);
-        }
-        card.appendChild(sigSection);
-      }
-
-      // Evidence verdict
-      if (sit.evidence) {
-        const evid = document.createElement('div');
-        evid.className = `sit-evidence sit-ev-${sit.evidence.verdict}`;
-        evid.innerHTML = `
-          <span class="sit-ev-verdict">${sit.evidence.verdict.toUpperCase()}</span>
-          <span class="sit-ev-reason">${this.esc(sit.evidence.confidenceReason)}</span>
-          <span class="sit-ev-action">Action: ${sit.evidence.actionThreshold}</span>
-        `;
-        card.appendChild(evid);
-      }
+      this.renderExpandedDetails(sit, card);
     }
 
     return card;
+  }
+
+  /** Render the expanded detail sections (geo, timeline, scenarios, actions, signals, verification, evidence) */
+  private renderExpandedDetails(sit: Situation, card: HTMLElement): void {
+    if (sit.geo.label) {
+      const geo = document.createElement('div');
+      geo.className = 'sit-geo';
+      const countrySuffix = sit.geo.countries.length > 0 ? ' (' + sit.geo.countries.join(', ') + ')' : '';
+      geo.textContent = '\u{1F4CD} ' + sit.geo.label + countrySuffix;
+      card.append(geo);
+    }
+
+    // Timeline visualization
+    if (sit.signals.length >= 2) {
+      card.append(this.renderTimeline(sit));
+    }
+
+    if (sit.scenarios.length > 0) {
+      const scenSection = document.createElement('div');
+      scenSection.className = 'sit-scenarios';
+      scenSection.innerHTML = '<div class="sit-section-title">Projected Scenarios</div>';
+      for (const sc of sit.scenarios) {
+        scenSection.append(this.renderScenario(sc));
+      }
+      card.append(scenSection);
+    }
+
+    // Action cards
+    if (sit.actions.length > 0) {
+      const actSection = document.createElement('div');
+      actSection.className = 'sit-actions';
+      actSection.innerHTML = '<div class="sit-section-title">Recommended Actions</div>';
+      for (const ac of sit.actions.filter(a => !a.dismissed)) {
+        actSection.append(this.renderAction(ac));
+      }
+      card.append(actSection);
+    }
+
+    // Contributing signals
+    this.renderSignalsList(sit.signals, card);
+
+    // Verification breakdown
+    if (sit.verificationDetails) {
+      card.append(this.renderVerificationBreakdown(sit.verificationDetails));
+    }
+
+    // Evidence verdict
+    if (sit.evidence) {
+      const evid = document.createElement('div');
+      evid.className = 'sit-evidence sit-ev-' + sit.evidence.verdict;
+      evid.innerHTML = [
+        '<span class="sit-ev-verdict">' + sit.evidence.verdict.toUpperCase() + '</span>',
+        '<span class="sit-ev-reason">' + this.esc(sit.evidence.confidenceReason) + '</span>',
+        '<span class="sit-ev-action">Action: ' + sit.evidence.actionThreshold + '</span>',
+      ].join('');
+      card.append(evid);
+    }
+  }
+
+  /** Render the contributing signals list into the card */
+  private renderSignalsList(signals: SituationSignalSnapshot[], card: HTMLElement): void {
+    if (signals.length === 0) return;
+    const sigSection = document.createElement('div');
+    sigSection.className = 'sit-signals-list';
+    sigSection.innerHTML = '<div class="sit-section-title">Contributing Signals</div>';
+    for (const sig of signals.slice(0, 8)) {
+      const sigEl = document.createElement('div');
+      sigEl.className = 'sit-signal-item';
+      sigEl.innerHTML = [
+        '<span class="sit-sig-type">' + this.esc(sig.type) + '</span>',
+        '<span class="sit-sig-conf">' + Math.round(sig.confidence * 100) + '%</span>',
+        '<span class="sit-sig-time">' + this.relTime(sig.timestamp) + '</span>',
+      ].join('');
+      sigSection.append(sigEl);
+    }
+    card.append(sigSection);
   }
 
   private renderScenario(sc: Scenario): HTMLElement {
@@ -253,8 +329,137 @@ export class SituationPanel extends Panel {
       ac.dismissed = true;
       this.render();
     });
-    el.appendChild(dismissBtn);
+    el.append(dismissBtn);
 
+    return el;
+  }
+
+  // ── Timeline + Map ─────────────────────────────────────────────────────
+
+  private renderTimeline(sit: Situation): HTMLElement {
+    const container = document.createElement('div');
+    container.className = 'sit-timeline';
+
+    const signals = [...sit.signals].sort((a, b) => a.timestamp - b.timestamp);
+    const now = Date.now();
+    const oldest = signals[0]!.timestamp;
+    const timeSpan = Math.max(now - oldest, 60_000);
+
+    const svgW = 260;
+    const svgH = 60;
+    const padX = 8;
+    const padY = 6;
+    const plotW = svgW - padX * 2;
+    const plotH = svgH - padY * 2;
+
+    const tx = (ts: number): number => padX + ((ts - oldest) / timeSpan) * plotW;
+    const ty = (conf: number): number => padY + (1 - conf) * plotH;
+
+    let svg = `<svg class="sit-timeline-svg" viewBox="0 0 ${svgW} ${svgH}" preserveAspectRatio="none">`;
+    svg += `<line x1="${padX}" y1="${ty(0.5)}" x2="${svgW - padX}" y2="${ty(0.5)}" stroke="#222" stroke-width="0.5" stroke-dasharray="2,2"/>`;
+
+    if (signals.length >= 2) {
+      const points = signals.map(s => `${tx(s.timestamp)},${ty(s.confidence)}`).join(' ');
+      svg += `<polyline points="${points}" fill="none" stroke="${PHASE_COLORS[sit.phase]}" stroke-width="1.5" stroke-opacity="0.6" stroke-linejoin="round"/>`;
+    }
+
+    const thresholds = [0.35, 0.6];
+    for (let i = 1; i < signals.length; i++) {
+      const prev = signals[i - 1]!.confidence;
+      const curr = signals[i]!.confidence;
+      for (const th of thresholds) {
+        if ((prev < th && curr >= th) || (prev >= th && curr < th)) {
+          const x = tx(signals[i]!.timestamp);
+          svg += `<line x1="${x}" y1="${padY}" x2="${x}" y2="${svgH - padY}" stroke="#555" stroke-width="1" stroke-dasharray="3,2"/>`;
+        }
+      }
+    }
+
+    for (const sig of signals) {
+      const cx = tx(sig.timestamp);
+      const cy = ty(sig.confidence);
+      const color = DOMAIN_COLORS[sig.domain] ?? '#888';
+      svg += `<circle cx="${cx}" cy="${cy}" r="3" fill="${color}" stroke="#000" stroke-width="0.5" opacity="0.9">`;
+      svg += `<title>${this.esc(sig.type)} (${Math.round(sig.confidence * 100)}%) - ${this.relTime(sig.timestamp)}</title>`;
+      svg += `</circle>`;
+    }
+
+    svg += `</svg>`;
+    container.innerHTML = svg;
+
+    const label = document.createElement('div');
+    label.className = 'sit-timeline-label';
+    label.textContent = `${signals.length} signal${signals.length === 1 ? '' : 's'} over ${this.formatDuration(timeSpan)}`;
+    container.append(label);
+
+    return container;
+  }
+
+  private focusOnMap(sit: Situation): void {
+    document.dispatchEvent(new CustomEvent('wm:focus-situation', {
+      detail: {
+        situationId: sit.id,
+        center: { lat: sit.geo.lat, lon: sit.geo.lon },
+        signals: sit.signals.map(s => ({ id: s.id, type: s.type, domain: s.domain })),
+      },
+    }));
+  }
+
+  private formatDuration(ms: number): string {
+    const totalMin = Math.round(ms / 60_000);
+    if (totalMin < 60) return `${totalMin}m`;
+    const h = Math.floor(totalMin / 60);
+    const m = totalMin % 60;
+    if (m === 0) return `${h}h`;
+    return `${h}h ${m}m`;
+  }
+
+  // ── Verification helpers ────────────────────────────────────────────
+
+  private verificationTooltip(vd: VerificationDetails): string {
+    const lines: string[] = [
+      `Sources: ${vd.independentSources} independent`,
+      `Temporal corroboration: ${vd.temporalCorroboration ? 'yes' : 'no'}`,
+      `Cross-domain: ${vd.crossDomainVerified ? 'yes' : 'no'}`,
+      `Contradictions: ${vd.hasContradictions ? 'YES' : 'none'}`,
+      `Freshness: ${Math.round(vd.freshnessScore * 100)}%`,
+    ];
+    return lines.join('\n');
+  }
+
+  private renderVerificationBreakdown(vd: VerificationDetails): HTMLElement {
+    const badge = VERIFICATION_BADGE[vd.overallVerdict];
+    const el = document.createElement('div');
+    el.className = 'sit-verif-breakdown';
+    el.innerHTML = `
+      <div class="sit-section-title">Verification Breakdown</div>
+      <div class="sit-verif-grid">
+        <div class="sit-verif-item">
+          <span class="sit-verif-metric">${vd.independentSources}</span>
+          <span class="sit-verif-desc">Independent sources${vd.independentSources >= 3 ? ' \u2713' : ''}</span>
+        </div>
+        <div class="sit-verif-item">
+          <span class="sit-verif-metric" style="color:${vd.temporalCorroboration ? '#5cb85c' : '#888'}">${vd.temporalCorroboration ? 'Yes' : 'No'}</span>
+          <span class="sit-verif-desc">Temporal corroboration</span>
+        </div>
+        <div class="sit-verif-item">
+          <span class="sit-verif-metric" style="color:${vd.crossDomainVerified ? '#5cb85c' : '#888'}">${vd.crossDomainVerified ? 'Yes' : 'No'}</span>
+          <span class="sit-verif-desc">Cross-domain verified</span>
+        </div>
+        <div class="sit-verif-item">
+          <span class="sit-verif-metric" style="color:${vd.hasContradictions ? '#d9534f' : '#5cb85c'}">${vd.hasContradictions ? 'Yes' : 'None'}</span>
+          <span class="sit-verif-desc">Contradictions</span>
+        </div>
+        <div class="sit-verif-item">
+          <span class="sit-verif-metric">${Math.round(vd.freshnessScore * 100)}%</span>
+          <span class="sit-verif-desc">Freshness</span>
+        </div>
+        <div class="sit-verif-item">
+          <span class="sit-verif-metric" style="color:${badge.color}">${badge.icon} ${badge.label}</span>
+          <span class="sit-verif-desc">Overall verdict</span>
+        </div>
+      </div>
+    `;
     return el;
   }
 
@@ -268,9 +473,9 @@ export class SituationPanel extends Panel {
 
   private relTime(ts: number): string {
     const diff = Date.now() - ts;
-    if (diff < 60000) return 'just now';
-    if (diff < 3600000) return `${Math.round(diff / 60000)}m ago`;
-    if (diff < 86400000) return `${Math.round(diff / 3600000)}h ago`;
-    return `${Math.round(diff / 86400000)}d ago`;
+    if (diff < 60_000) return 'just now';
+    if (diff < 3_600_000) return `${Math.round(diff / 60_000)}m ago`;
+    if (diff < 86_400_000) return `${Math.round(diff / 3_600_000)}h ago`;
+    return `${Math.round(diff / 86_400_000)}d ago`;
   }
 }

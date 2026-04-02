@@ -589,6 +589,8 @@ export interface MapLayers {
   militaryFlights: boolean;
   // Disease Intelligence layer (choropleth + variant dots + outbreak pins)
   diseaseIntel: boolean;
+  // EMA forecast predictive threat overlay
+  forecastOverlay: boolean;
 }
 
 export interface AIDataCenter {

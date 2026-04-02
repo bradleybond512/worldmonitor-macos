@@ -13,6 +13,46 @@ import type { TsunamiAlert } from './tsunami-alerts';
 import type { GDACSEvent } from './gdacs';
 import type { NearbyHazard } from './proximity-alerts';
 
+// ── Country Centroid Lookup (top 50 by population / geopolitical relevance) ──
+
+const COUNTRY_CENTROIDS: Record<string, [number, number]> = {
+  'Afghanistan': [33.9, 67.7], 'Algeria': [28, 1.7], 'Argentina': [-38.4, -63.6],
+  'Australia': [-25.3, 133.8], 'Bangladesh': [23.7, 90.4], 'Brazil': [-14.2, -51.9],
+  'Canada': [56.1, -106.3], 'Chile': [-35.7, -71.5], 'China': [35.9, 104.2],
+  'Colombia': [4.6, -74.1], 'DR Congo': [-4, 21.8], 'Egypt': [26.8, 30.8],
+  'Ethiopia': [9.1, 40.5], 'France': [46.2, 2.2], 'Germany': [51.2, 10.5],
+  'India': [20.6, 78.9], 'Indonesia': [-0.8, 113.9], 'Iran': [32.4, 53.7],
+  'Iraq': [33.2, 43.7], 'Israel': [31, 34.9], 'Italy': [41.9, 12.6],
+  'Japan': [36.2, 138.3], 'Kenya': [-0.02, 37.9], 'Malaysia': [4.2, 101.9],
+  'Mexico': [23.6, -102.6], 'Morocco': [31.8, -7.1], 'Myanmar': [21.9, 95.9],
+  'Nepal': [28.4, 84.1], 'Nigeria': [9.1, 8.7], 'North Korea': [40.3, 127.5],
+  'Pakistan': [30.4, 69.3], 'Peru': [-9.2, -75], 'Philippines': [12.9, 121.8],
+  'Poland': [51.9, 19.1], 'Romania': [45.9, 24.97], 'Russia': [61.5, 105.3],
+  'Saudi Arabia': [23.9, 45.1], 'South Africa': [-30.6, 22.9],
+  'South Korea': [35.9, 127.8], 'Spain': [40.5, -3.7], 'Sudan': [12.9, 30.2],
+  'Syria': [35, 38], 'Taiwan': [23.7, 121], 'Thailand': [15.9, 100.9],
+  'Turkey': [39, 35.2], 'Ukraine': [48.4, 31.2], 'United Kingdom': [55.4, -3.4],
+  'United States': [37.1, -95.7], 'Venezuela': [6.4, -66.6], 'Vietnam': [14.1, 108.3],
+};
+
+/** Best-effort geocode for a country name (case-insensitive substring match). */
+function geocodeCountry(name: string | undefined): { lat: number; lon: number } | undefined {
+  if (!name) return undefined;
+  const lower = name.toLowerCase();
+  for (const [country, [lat, lon]] of Object.entries(COUNTRY_CENTROIDS)) {
+    if (lower.includes(country.toLowerCase()) || country.toLowerCase().includes(lower)) {
+      return { lat, lon };
+    }
+  }
+  return undefined;
+}
+
+/** Region centroids for tsunami ocean basins */
+const TSUNAMI_REGION_CENTROIDS: Record<string, { lat: number; lon: number }> = {
+  Pacific: { lat: 0, lon: -160 },
+  Atlantic: { lat: 25, lon: -45 },
+};
+
 // ── Breaking News ────────────────────────────────────────────────────────
 
 export function normalizeBreakingAlert(alert: BreakingAlert): UnifiedAlert {
@@ -45,6 +85,8 @@ function signalSeverity(confidence: number): AlertSeverity {
 }
 
 export function normalizeCorrelationSignal(signal: CorrelationSignal): UnifiedAlert {
+  // Attempt to geocode from placeSummary (often contains a country name)
+  const geo = geocodeCountry(signal.data.placeSummary);
   return {
     id: `cs-${signal.id}`,
     source: 'correlation',
@@ -52,7 +94,7 @@ export function normalizeCorrelationSignal(signal: CorrelationSignal): UnifiedAl
     title: signal.title,
     body: signal.description,
     timestamp: signal.timestamp.getTime(),
-    location: undefined, // signals are typically not geo-located
+    location: geo ? { lat: geo.lat, lon: geo.lon, label: signal.data.placeSummary } : undefined,
     relevanceScore: 0,
     acknowledged: false,
     pinned: false,
@@ -113,7 +155,9 @@ export function normalizeGDACSEvent(event: GDACSEvent): UnifiedAlert {
     source: 'gdacs',
     severity: GDACS_SEVERITY_MAP[event.alertLevel] ?? 'info',
     title: `${typeLabel}: ${event.name}`,
-    body: `${event.description} · ${event.country}${event.severity ? ` · ${event.severity}` : ''}`,
+    body: event.severity
+      ? `${event.description} · ${event.country} · ${event.severity}`
+      : `${event.description} · ${event.country}`,
     timestamp: event.fromDate.getTime(),
     location: event.coordinates
       ? { lat: event.coordinates[1], lon: event.coordinates[0], label: event.country }
@@ -137,6 +181,7 @@ const TSUNAMI_SEVERITY_MAP: Record<TsunamiAlert['severity'], AlertSeverity> = {
 };
 
 export function normalizeTsunamiAlert(alert: TsunamiAlert): UnifiedAlert {
+  const regionCentroid = TSUNAMI_REGION_CENTROIDS[alert.region];
   return {
     id: `tsu-${alert.id}`,
     source: 'tsunami',
@@ -144,7 +189,9 @@ export function normalizeTsunamiAlert(alert: TsunamiAlert): UnifiedAlert {
     title: alert.title,
     body: `${alert.region} · ${alert.description.slice(0, 200)}`,
     timestamp: alert.pubDate.getTime(),
-    location: undefined, // tsunami alerts cover wide regions, no single point
+    location: regionCentroid
+      ? { lat: regionCentroid.lat, lon: regionCentroid.lon, label: `${alert.region} Basin` }
+      : undefined,
     relevanceScore: 0,
     acknowledged: false,
     pinned: false,
@@ -171,7 +218,7 @@ export function normalizeNearbyHazard(hazard: NearbyHazard): UnifiedAlert {
     title: `${typeLabel}: ${hazard.title}`,
     body: `${hazard.location} · ${hazard.distanceMiles.toFixed(1)} mi${hazard.evacuationOrder ? ' · EVACUATION ORDER' : ''}`,
     timestamp: hazard.reportedAt.getTime(),
-    distanceKm: hazard.distanceMiles * 1.60934,
+    distanceKm: hazard.distanceMiles * 1.609_34,
     relevanceScore: 0,
     acknowledged: false,
     pinned: false,

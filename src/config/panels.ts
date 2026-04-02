@@ -10,9 +10,11 @@ const FULL_PANELS: Record<string, PanelConfig> = {
   map: { name: 'Global Map', enabled: true, priority: 1 },
   watchlist: { name: 'Watchlist & Playbooks', enabled: true, priority: 1 },
   'saved-places': { name: 'Saved Places', enabled: true, priority: 1 },
+  'watchlist-locations': { name: 'Watched Locations', enabled: true, priority: 1 },
   'local-logistics': { name: 'Local Logistics', enabled: true, priority: 1 },
   'comms-plan': { name: 'Tactical Comms', enabled: true, priority: 1 },
   'unified-alert-inbox': { name: 'Alert Inbox', enabled: true, priority: 1 },
+  'alert-rules': { name: 'Alert Rules', enabled: true, priority: 1 },
   'situation-awareness': { name: 'Situation Awareness', enabled: true, priority: 1 },
   'alert-center': { name: 'Alert Center', enabled: true, priority: 1 },
   'strategic-risk': { name: 'Strategic Risk Overview', enabled: true, priority: 1 },
@@ -202,6 +204,7 @@ const FULL_MAP_LAYERS: MapLayers = {
   acledEvents: false,
   militaryFlights: false,
   diseaseIntel: false,
+  forecastOverlay: true,
 };
 
 const FULL_MOBILE_MAP_LAYERS: MapLayers = {
@@ -260,6 +263,7 @@ const FULL_MOBILE_MAP_LAYERS: MapLayers = {
   acledEvents: false,
   militaryFlights: false,
   diseaseIntel: false,
+  forecastOverlay: false,
 };
 
 // ============================================
@@ -359,6 +363,7 @@ const TECH_MAP_LAYERS: MapLayers = {
   acledEvents: false,
   militaryFlights: false,
   diseaseIntel: false,
+  forecastOverlay: false,
 };
 
 const TECH_MOBILE_MAP_LAYERS: MapLayers = {
@@ -417,6 +422,7 @@ const TECH_MOBILE_MAP_LAYERS: MapLayers = {
   acledEvents: false,
   militaryFlights: false,
   diseaseIntel: false,
+  forecastOverlay: false,
 };
 
 // ============================================
@@ -512,6 +518,7 @@ const FINANCE_MAP_LAYERS: MapLayers = {
   acledEvents: false,
   militaryFlights: false,
   diseaseIntel: false,
+  forecastOverlay: false,
 };
 
 const FINANCE_MOBILE_MAP_LAYERS: MapLayers = {
@@ -570,6 +577,7 @@ const FINANCE_MOBILE_MAP_LAYERS: MapLayers = {
   acledEvents: false,
   militaryFlights: false,
   diseaseIntel: false,
+  forecastOverlay: false,
 };
 
 // ============================================
@@ -644,6 +652,7 @@ const HAPPY_MAP_LAYERS: MapLayers = {
   acledEvents: false,
   militaryFlights: false,
   diseaseIntel: false,
+  forecastOverlay: false,
 };
 
 const HAPPY_MOBILE_MAP_LAYERS: MapLayers = {
@@ -702,6 +711,7 @@ const HAPPY_MOBILE_MAP_LAYERS: MapLayers = {
   acledEvents: false,
   militaryFlights: false,
   diseaseIntel: false,
+  forecastOverlay: false,
 };
 
 // ============================================
@@ -746,7 +756,7 @@ export const PANEL_CATEGORY_MAP: Record<string, { labelKey: string; panelKeys: s
   // Full (geopolitical) variant
   intelligence: {
     labelKey: 'header.panelCatIntelligence',
-    panelKeys: ['watchlist', 'saved-places', 'local-logistics', 'comms-plan', 'unified-alert-inbox', 'situation-awareness', 'alert-center', 'strategic-risk', 'cii', 'geo-hubs', 'intel', 'gdelt-intel', 'cascade', 'telegram-intel'],
+    panelKeys: ['watchlist', 'saved-places', 'watchlist-locations', 'local-logistics', 'comms-plan', 'unified-alert-inbox', 'alert-rules', 'situation-awareness', 'alert-center', 'strategic-risk', 'cii', 'geo-hubs', 'intel', 'gdelt-intel', 'cascade', 'telegram-intel'],
     variants: ['full'],
   },
   regionalNews: {
