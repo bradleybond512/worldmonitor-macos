@@ -136,7 +136,7 @@ function effectiveBurnRate(item: ResourceItem): number {
  * Returns array of 7 numbers (index 0 = 6 days ago, index 6 = today).
  */
 function dailyBuckets(log: ConsumptionEvent[] | undefined): number[] {
-  const buckets = Array.from({length: 7}).fill(0);
+  const buckets: number[] = Array.from({length: 7}, () => 0);
   if (!log) return buckets;
   const now = Date.now();
   for (const e of log) {
