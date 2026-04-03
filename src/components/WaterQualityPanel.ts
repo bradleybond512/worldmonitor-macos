@@ -1,6 +1,7 @@
 import { Panel } from './Panel';
 import type { WaterQualityData, WaterAlert, WaterAlertType, WaterSystem, WaterAlertSeverity } from '@/services/water-quality';
 import { escapeHtml } from '@/utils/sanitize';
+import { formatTime } from '@/utils';
 import { locationBannerHtml, wireLocationBanner } from '@/components/location-gate';
 
 export class WaterQualityPanel extends Panel {
@@ -75,7 +76,7 @@ export class WaterQualityPanel extends Panel {
       </div>
     `;
 
-    const updatedStr = this.lastUpdated ? timeAgo(this.lastUpdated) : 'never';
+    const updatedStr = this.lastUpdated ? formatTime(this.lastUpdated) : 'never';
 
     this.setContent(`
       <div class="wq-panel-content">
@@ -153,11 +154,3 @@ function severityClass(severity: WaterAlertSeverity): string {
   return 'wq-alert-info';
 }
 
-function timeAgo(d: Date): string {
-  const secs = Math.floor((Date.now() - d.getTime()) / 1000);
-  if (secs < 60) return 'just now';
-  const mins = Math.floor(secs / 60);
-  if (mins < 60) return `${mins}m ago`;
-  const hrs = Math.floor(mins / 60);
-  return `${hrs}h ago`;
-}

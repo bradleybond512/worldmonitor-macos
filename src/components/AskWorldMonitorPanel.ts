@@ -11,14 +11,7 @@ import {
   getHistory,
   QUICK_ASK_PRESETS,
 } from '@/services/world-monitor-chat';
-
-function esc(v: string): string {
-  return v
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
+import { escapeHtml as esc } from '@/utils/sanitize';
 
 const BUBBLE_BASE = 'max-width:85%;padding:0.45rem 0.65rem;border-radius:10px;font-size:0.73rem;line-height:1.45;white-space:pre-wrap;word-break:break-word;';
 const BUBBLE_USER = `${BUBBLE_BASE}background:rgba(59,130,246,0.25);color:rgba(200,220,255,0.95);border-bottom-right-radius:3px;`;
@@ -252,5 +245,11 @@ export class AskWorldMonitorPanel extends Panel {
   /** No-op: chat panel is interactive, not data-driven. */
   update(_data: unknown): void {
     // Conversation state is managed internally.
+  }
+
+  override destroy(): void {
+    this.abortChat?.abort();
+    this.abortChat = null;
+    super.destroy();
   }
 }

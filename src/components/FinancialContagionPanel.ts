@@ -13,6 +13,10 @@ export class FinancialContagionPanel extends Panel {
   constructor() {
     super({ id: 'financial-contagion', title: 'Financial Contagion' });
     this.showLoading('Modelling contagion channels...');
+  }
+
+  /** Call after panel is mounted to begin data fetch. */
+  public init(): void {
     void this.load();
   }
 

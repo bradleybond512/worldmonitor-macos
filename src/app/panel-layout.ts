@@ -1068,13 +1068,18 @@ export class PanelLayoutManager implements AppModule {
       this.ctx.panels['dark-web'] = new DarkWebPanel();
       this.ctx.panels['intelligence-briefing'] = new IntelligenceBriefingPanel();
       this.ctx.panels['ask-world-monitor'] = new AskWorldMonitorPanel();
-      this.ctx.panels['survival-advisor'] = new SurvivalAdvisorPanel();
+      const survivalAdvisor = new SurvivalAdvisorPanel();
+      this.ctx.panels['survival-advisor'] = survivalAdvisor;
       this.ctx.panels['threat-synthesis'] = new ThreatSynthesisPanel();
       this.ctx.panels['scenario-simulator'] = new ScenarioSimulatorPanel();
       this.ctx.panels['escalation-forecast'] = new EscalationForecastPanel();
       this.ctx.panels['anomaly-detection'] = new AnomalyDetectionPanel();
-      this.ctx.panels['financial-contagion'] = new FinancialContagionPanel();
-      this.ctx.panels['supply-chain-impact'] = new SupplyChainImpactPanel();
+      const financialContagion = new FinancialContagionPanel();
+      this.ctx.panels['financial-contagion'] = financialContagion;
+      const supplyChainImpact = new SupplyChainImpactPanel();
+      this.ctx.panels['supply-chain-impact'] = supplyChainImpact;
+      // Defer heavy init (AI/network calls) until after layout completes
+      queueMicrotask(() => { survivalAdvisor.init(); financialContagion.init(); supplyChainImpact.init(); });
       this.ctx.panels['water-quality'] = new WaterQualityPanel();
       this.ctx.panels['nuclear-monitor'] = new NuclearMonitorPanel();
       this.ctx.panels['notification-digest'] = new NotificationDigestPanel();

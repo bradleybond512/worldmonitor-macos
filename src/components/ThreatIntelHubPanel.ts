@@ -17,7 +17,7 @@ function sectionError(_label: string, keyName: string): string {
     <div style="display:flex;gap:4px;align-items:center;">
       <input id="${inputId}" type="password" placeholder="Paste ${escapeHtml(keyName)}" autocomplete="off" spellcheck="false"
         style="flex:1;background:var(--bg-secondary);color:var(--text-primary);border:1px solid var(--border-color);border-radius:4px;padding:4px 6px;font-size:11px;" />
-      <button onclick="this.disabled=true;this.textContent='Saving…'" data-key="${escapeHtml(keyName)}" data-input="${inputId}"
+      <button data-key="${escapeHtml(keyName)}" data-input="${inputId}"
         style="background:var(--accent-color);color:#fff;border:none;border-radius:4px;padding:4px 10px;font-size:11px;cursor:pointer;">Save</button>
     </div>
   </div>`;
@@ -50,12 +50,18 @@ export class ThreatIntelHubPanel extends Panel {
     // Wire up inline key-save buttons
     this.getContentElement().querySelectorAll('button[data-key]').forEach(btn => {
       btn.addEventListener('click', () => {
-        const keyName = (btn as HTMLElement).dataset.key as RuntimeSecretKey;
-        const inputId = (btn as HTMLElement).dataset.input ?? '';
+        const button = btn as HTMLButtonElement;
+        const keyName = button.dataset.key as RuntimeSecretKey;
+        const inputId = button.dataset.input ?? '';
         const input = document.getElementById(inputId) as HTMLInputElement | null;
         const value = input?.value.trim();
         if (!value) return;
-        void setSecretValue(keyName, value).then(() => { window.location.reload(); });
+        button.disabled = true;
+        button.textContent = 'Saving\u2026';
+        void setSecretValue(keyName, value).then(() => { window.location.reload(); }).catch(() => {
+          button.disabled = false;
+          button.textContent = 'Save';
+        });
       });
     });
   }

@@ -7,6 +7,7 @@
  */
 
 import { Panel } from './Panel';
+import { escapeHtml } from '@/utils/sanitize';
 import {
   getRecentDigests,
   subscribeDigest,
@@ -51,6 +52,7 @@ const FREQUENCY_LABELS: Record<DigestFrequency, string> = {
 export class NotificationDigestPanel extends Panel {
   private unsubscribe: (() => void) | null = null;
   private initialized = false;
+  private pendingTimer: ReturnType<typeof setInterval> | null = null;
 
   constructor() {
     super({ id: 'notification-digest', title: 'Notification Digest' });
@@ -105,7 +107,7 @@ export class NotificationDigestPanel extends Panel {
 
     this.renderDigests();
     this.updatePendingCount();
-    setInterval(() => this.updatePendingCount(), 10_000);
+    this.pendingTimer = setInterval(() => this.updatePendingCount(), 10_000);
   }
 
   private updatePendingCount(): void {
@@ -145,7 +147,7 @@ export class NotificationDigestPanel extends Panel {
     return `
       <div class="digest-card" style="background:var(--bg-secondary);border-radius:8px;padding:10px 12px;margin-bottom:8px;border:1px solid var(--border-color);">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-          <span style="font-weight:600;font-size:12px;color:var(--text-primary);">${this.escapeHtml(digest.headline)}</span>
+          <span style="font-weight:600;font-size:12px;color:var(--text-primary);">${this.esc(digest.headline)}</span>
           <span style="font-size:10px;color:var(--text-tertiary);white-space:nowrap;margin-left:8px;">${dateStr} ${timeStr}</span>
         </div>
         <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px;">
@@ -165,21 +167,23 @@ export class NotificationDigestPanel extends Panel {
       <div style="padding:4px 0;border-top:1px solid var(--border-color);">
         <div style="display:flex;align-items:center;gap:4px;">
           <span>${icon}</span>
-          <span style="font-size:11px;font-weight:500;color:${color};">${this.escapeHtml(group.category)}</span>
+          <span style="font-size:11px;font-weight:500;color:${color};">${this.esc(group.category)}</span>
           <span style="font-size:10px;color:var(--text-tertiary);">(${group.count})</span>
         </div>
-        <div style="font-size:11px;color:var(--text-secondary);margin-top:2px;padding-left:20px;">${this.escapeHtml(group.summary)}</div>
+        <div style="font-size:11px;color:var(--text-secondary);margin-top:2px;padding-left:20px;">${this.esc(group.summary)}</div>
       </div>
     `;
   }
 
-  private escapeHtml(str: string): string {
-    const div = document.createElement('div');
-    div.textContent = str;
-    return div.innerHTML;
+  private esc(str: string): string {
+    return escapeHtml(str);
   }
 
   override destroy(): void {
+    if (this.pendingTimer) {
+      clearInterval(this.pendingTimer);
+      this.pendingTimer = null;
+    }
     if (this.unsubscribe) {
       this.unsubscribe();
       this.unsubscribe = null;

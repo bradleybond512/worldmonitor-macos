@@ -51,6 +51,7 @@ function formatAnomalyMetric(anomaly: Anomaly): string {
 export class AnomalyDetectionPanel extends Panel {
   private unsubscribe: (() => void) | null = null;
   private refreshTimer: ReturnType<typeof setInterval> | null = null;
+  private lastActiveCount = -1;
 
   constructor() {
     super({
@@ -72,8 +73,12 @@ export class AnomalyDetectionPanel extends Panel {
 
     // Periodic refresh (every 30s) for silence checks and time-ago updates
     this.refreshTimer = setInterval(() => {
+      const prevCount = anomalyEngine.getActiveAnomalies().length;
       anomalyEngine.checkSilence();
-      this.render();
+      const newCount = anomalyEngine.getActiveAnomalies().length;
+      if (newCount !== prevCount || newCount !== this.lastActiveCount) {
+        this.render();
+      }
     }, 30_000);
 
     // Initial render
@@ -85,6 +90,7 @@ export class AnomalyDetectionPanel extends Panel {
     const recent = anomalyEngine.getRecentAnomalies();
     const sourceCount = anomalyEngine.getSourceCount();
 
+    this.lastActiveCount = active.length;
     this.setCount(active.length);
 
     if (sourceCount === 0) {

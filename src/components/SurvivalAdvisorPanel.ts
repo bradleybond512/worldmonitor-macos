@@ -55,9 +55,7 @@ const STATUS_COLORS: Record<string, string> = {
   'IN DANGER': '#ef4444',
 };
 
-function esc(s: string): string {
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-}
+import { escapeHtml as esc } from '@/utils/sanitize';
 
 // ── Panel ────────────────────────────────────────────────────────────────────
 
@@ -77,7 +75,7 @@ export class SurvivalAdvisorPanel extends Panel {
     if (this._advice) {
       this._render();
     } else {
-      this._refresh();
+      this.showLoading('Generating survival guidance...');
     }
 
     this._unsubscribe = subscribeSurvivalAdvice((advice) => {
@@ -85,6 +83,11 @@ export class SurvivalAdvisorPanel extends Panel {
       this._loading = false;
       this._render();
     });
+  }
+
+  /** Call after panel is mounted to begin initial fetch if no cache. */
+  public init(): void {
+    if (!this._advice) this._refresh();
   }
 
   private _refresh(): void {
@@ -248,11 +251,11 @@ export class SurvivalAdvisorPanel extends Panel {
     });
   }
 
-  /** Clean up subscription when panel is destroyed. */
-  public destroy(): void {
+  public override destroy(): void {
     if (this._unsubscribe) {
       this._unsubscribe();
       this._unsubscribe = null;
     }
+    super.destroy();
   }
 }

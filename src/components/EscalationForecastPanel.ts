@@ -21,6 +21,57 @@ import {
   type ScorePoint,
 } from '@/services/escalation-forecast';
 
+function ensureEscStyles(): void {
+  if (document.getElementById('esc-panel-styles')) return;
+  const style = document.createElement('style');
+  style.id = 'esc-panel-styles';
+  style.textContent = `
+    .esc-panel { display:flex; flex-direction:column; gap:8px; padding:4px 0; }
+    .esc-global-index { border:1px solid; border-radius:6px; padding:8px 12px; margin-bottom:4px; }
+    .esc-gti-header { display:flex; align-items:center; gap:8px; }
+    .esc-gti-label { font-size:0.75rem; text-transform:uppercase; letter-spacing:0.05em; opacity:0.7; }
+    .esc-gti-value { font-size:1.4rem; font-weight:700; font-variant-numeric:tabular-nums; }
+    .esc-gti-level { font-size:0.7rem; font-weight:600; text-transform:uppercase; }
+    .esc-gti-bar { height:4px; background:var(--bg-tertiary,#333); border-radius:2px; margin-top:4px; }
+    .esc-gti-fill { height:100%; border-radius:2px; transition:width 0.5s; }
+    .esc-gti-counts { display:flex; gap:8px; margin-top:4px; font-size:0.7rem; }
+    .esc-gti-badge { font-weight:600; }
+    .esc-grid { display:flex; flex-direction:column; gap:6px; }
+    .esc-card { border-radius:6px; padding:8px 10px; cursor:pointer;
+      background:var(--bg-secondary,#1a1a2e); transition:background 0.15s; }
+    .esc-card:hover { background:var(--bg-tertiary,#252540); }
+    .esc-card-expanded { background:var(--bg-tertiary,#252540); }
+    .esc-card-header { display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap; }
+    .esc-card-title { display:flex; flex-direction:column; }
+    .esc-theater-name { font-weight:600; font-size:0.85rem; }
+    .esc-region-tag { font-size:0.65rem; opacity:0.5; text-transform:uppercase; letter-spacing:0.04em; }
+    .esc-card-metrics { display:flex; align-items:center; gap:6px; }
+    .esc-gauge { display:flex; align-items:center; gap:4px; }
+    .esc-gauge-bar { width:60px; height:6px; background:var(--bg-tertiary,#333); border-radius:3px; overflow:hidden; }
+    .esc-gauge-fill { height:100%; border-radius:3px; transition:width 0.5s; }
+    .esc-gauge-value { font-size:0.85rem; font-weight:700; font-variant-numeric:tabular-nums; min-width:24px; text-align:right; }
+    .esc-days { font-size:0.75rem; font-weight:600; font-variant-numeric:tabular-nums; }
+    .esc-days-stable { color:#9ca3af; }
+    .esc-card-summary { display:flex; align-items:center; gap:8px; margin-top:4px; }
+    .esc-level-badge { font-size:0.6rem; font-weight:700; padding:1px 6px; border-radius:3px; text-transform:uppercase; letter-spacing:0.03em; }
+    .esc-top-factor { font-size:0.7rem; opacity:0.6; }
+    .esc-expanded { margin-top:8px; padding-top:8px; border-top:1px solid var(--border-color,#333); }
+    .esc-section-title { font-size:0.7rem; font-weight:600; text-transform:uppercase; letter-spacing:0.04em; opacity:0.6; margin:6px 0 4px; }
+    .esc-factor-row { margin-bottom:6px; }
+    .esc-factor-header { display:flex; align-items:center; gap:6px; font-size:0.75rem; }
+    .esc-factor-name { flex:1; }
+    .esc-factor-weight { opacity:0.5; font-size:0.65rem; }
+    .esc-factor-score { font-weight:600; font-variant-numeric:tabular-nums; min-width:20px; text-align:right; }
+    .esc-factor-bar-bg { height:3px; background:var(--bg-tertiary,#333); border-radius:2px; margin:2px 0; }
+    .esc-factor-bar { height:100%; border-radius:2px; }
+    .esc-factor-detail { font-size:0.65rem; opacity:0.5; }
+    .esc-sparkline { width:100%; height:40px; display:block; }
+    .esc-sparkline-empty { font-size:0.7rem; opacity:0.4; padding:8px 0; }
+    .esc-empty { text-align:center; opacity:0.5; padding:24px 0; font-size:0.85rem; }
+  `;
+  document.head.append(style);
+}
+
 export class EscalationForecastPanel extends Panel {
   private expandedTheaterId: string | null = null;
   private unsubscribe: (() => void) | null = null;
@@ -237,6 +288,8 @@ export class EscalationForecastPanel extends Panel {
 
     const cardsHtml = forecasts.map(f => this.renderCard(f)).join('');
 
+    ensureEscStyles();
+
     this.setContent(`
       <div class="esc-panel">
         ${this.renderGlobalIndex(forecasts)}
@@ -244,50 +297,6 @@ export class EscalationForecastPanel extends Panel {
           ${cardsHtml}
         </div>
       </div>
-      <style>
-        .esc-panel { display:flex; flex-direction:column; gap:8px; padding:4px 0; }
-        .esc-global-index { border:1px solid; border-radius:6px; padding:8px 12px; margin-bottom:4px; }
-        .esc-gti-header { display:flex; align-items:center; gap:8px; }
-        .esc-gti-label { font-size:0.75rem; text-transform:uppercase; letter-spacing:0.05em; opacity:0.7; }
-        .esc-gti-value { font-size:1.4rem; font-weight:700; font-variant-numeric:tabular-nums; }
-        .esc-gti-level { font-size:0.7rem; font-weight:600; text-transform:uppercase; }
-        .esc-gti-bar { height:4px; background:var(--bg-tertiary,#333); border-radius:2px; margin-top:4px; }
-        .esc-gti-fill { height:100%; border-radius:2px; transition:width 0.5s; }
-        .esc-gti-counts { display:flex; gap:8px; margin-top:4px; font-size:0.7rem; }
-        .esc-gti-badge { font-weight:600; }
-        .esc-grid { display:flex; flex-direction:column; gap:6px; }
-        .esc-card { border-radius:6px; padding:8px 10px; cursor:pointer;
-          background:var(--bg-secondary,#1a1a2e); transition:background 0.15s; }
-        .esc-card:hover { background:var(--bg-tertiary,#252540); }
-        .esc-card-expanded { background:var(--bg-tertiary,#252540); }
-        .esc-card-header { display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap; }
-        .esc-card-title { display:flex; flex-direction:column; }
-        .esc-theater-name { font-weight:600; font-size:0.85rem; }
-        .esc-region-tag { font-size:0.65rem; opacity:0.5; text-transform:uppercase; letter-spacing:0.04em; }
-        .esc-card-metrics { display:flex; align-items:center; gap:6px; }
-        .esc-gauge { display:flex; align-items:center; gap:4px; }
-        .esc-gauge-bar { width:60px; height:6px; background:var(--bg-tertiary,#333); border-radius:3px; overflow:hidden; }
-        .esc-gauge-fill { height:100%; border-radius:3px; transition:width 0.5s; }
-        .esc-gauge-value { font-size:0.85rem; font-weight:700; font-variant-numeric:tabular-nums; min-width:24px; text-align:right; }
-        .esc-days { font-size:0.75rem; font-weight:600; font-variant-numeric:tabular-nums; }
-        .esc-days-stable { color:#9ca3af; }
-        .esc-card-summary { display:flex; align-items:center; gap:8px; margin-top:4px; }
-        .esc-level-badge { font-size:0.6rem; font-weight:700; padding:1px 6px; border-radius:3px; text-transform:uppercase; letter-spacing:0.03em; }
-        .esc-top-factor { font-size:0.7rem; opacity:0.6; }
-        .esc-expanded { margin-top:8px; padding-top:8px; border-top:1px solid var(--border-color,#333); }
-        .esc-section-title { font-size:0.7rem; font-weight:600; text-transform:uppercase; letter-spacing:0.04em; opacity:0.6; margin:6px 0 4px; }
-        .esc-factor-row { margin-bottom:6px; }
-        .esc-factor-header { display:flex; align-items:center; gap:6px; font-size:0.75rem; }
-        .esc-factor-name { flex:1; }
-        .esc-factor-weight { opacity:0.5; font-size:0.65rem; }
-        .esc-factor-score { font-weight:600; font-variant-numeric:tabular-nums; min-width:20px; text-align:right; }
-        .esc-factor-bar-bg { height:3px; background:var(--bg-tertiary,#333); border-radius:2px; margin:2px 0; }
-        .esc-factor-bar { height:100%; border-radius:2px; }
-        .esc-factor-detail { font-size:0.65rem; opacity:0.5; }
-        .esc-sparkline { width:100%; height:40px; display:block; }
-        .esc-sparkline-empty { font-size:0.7rem; opacity:0.4; padding:8px 0; }
-        .esc-empty { text-align:center; opacity:0.5; padding:24px 0; font-size:0.85rem; }
-      </style>
     `);
 
     this.attachCardListeners();

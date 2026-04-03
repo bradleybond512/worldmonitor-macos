@@ -69,6 +69,8 @@ let digestTimer: ReturnType<typeof setInterval> | null = null;
 let pendingAlerts: UnifiedAlert[] = [];
 let lastDigestTime = Date.now();
 const subscribers: Array<(digest: NotificationDigest) => void> = [];
+let alertStoreUnsub: (() => void) | null = null;
+let initialized = false;
 
 // ── Storage ───────────────────────────────────────────────────────────────────
 
@@ -253,12 +255,15 @@ function stopDigestTimer(): void {
 }
 
 export function initNotificationDigest(): void {
+  if (initialized) return;
+  initialized = true;
+
   const saved = localStorage.getItem('worldmonitor-digest-frequency') as DigestFrequency | null;
   if (saved && saved in FREQUENCY_MS) {
     currentFrequency = saved;
   }
 
-  unifiedAlertStore.subscribe(() => {
+  alertStoreUnsub = unifiedAlertStore.subscribe(() => {
     const alerts = unifiedAlertStore.getAll();
     const newAlerts = alerts.filter(a => a.timestamp > lastDigestTime);
     for (const alert of newAlerts) {
@@ -273,6 +278,8 @@ export function initNotificationDigest(): void {
 
 export function destroyNotificationDigest(): void {
   stopDigestTimer();
+  if (alertStoreUnsub) { alertStoreUnsub(); alertStoreUnsub = null; }
   subscribers.length = 0;
   pendingAlerts = [];
+  initialized = false;
 }

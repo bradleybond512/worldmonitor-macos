@@ -10,6 +10,7 @@
  */
 
 import { Panel } from './Panel';
+import { escapeHtml } from '@/utils/sanitize';
 import {
   generateBriefing,
   getCachedBriefing,
@@ -382,9 +383,7 @@ export class IntelligenceBriefingPanel extends Panel {
   }
 
   private esc(s: string): string {
-    const el = document.createElement('span');
-    el.textContent = s;
-    return el.innerHTML;
+    return escapeHtml(s);
   }
 
   private formatTimestamp(ts: number): string {

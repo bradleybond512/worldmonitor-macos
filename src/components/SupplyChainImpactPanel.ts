@@ -38,6 +38,10 @@ export class SupplyChainImpactPanel extends Panel {
         void this.loadData(true);
       }
     });
+  }
+
+  /** Call after panel is mounted to begin data fetch. */
+  public init(): void {
     void this.loadData(false);
   }
 
