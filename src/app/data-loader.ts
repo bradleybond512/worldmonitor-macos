@@ -2517,7 +2517,7 @@ export class DataLoaderManager implements AppModule {
 
       if (data.length === 0) {
         if (!isFeatureAvailable('economicFred')) {
-          economicPanel?.setErrorState(true, 'FRED_API_KEY not configured — add in Settings');
+          if (economicPanel) showApiKeyGate(economicPanel, 'FRED_API_KEY', () => { void this.loadFredData(); });
           this.ctx.statusPanel?.updateApi('FRED', { status: 'error' });
           return;
         }

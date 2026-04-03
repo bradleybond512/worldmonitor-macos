@@ -7,6 +7,7 @@ import type {
 import { t } from '@/services/i18n';
 import { escapeHtml } from '@/utils/sanitize';
 import { isFeatureAvailable } from '@/services/runtime-config';
+import { showApiKeyGate } from '@/components/api-key-gate';
 import { isDesktopRuntime } from '@/services/runtime';
 
 type TabId = 'chokepoints' | 'shipping' | 'minerals';
@@ -115,7 +116,8 @@ export class SupplyChainPanel extends Panel {
 
   private renderShipping(): string {
     if (isDesktopRuntime() && !isFeatureAvailable('supplyChain')) {
-      return `<div class="economic-empty">${t('components.supplyChain.fredKeyMissing')}</div>`;
+      showApiKeyGate(this, 'FRED_API_KEY', () => { window.location.reload(); });
+      return '';
     }
 
     if (!this.shippingData || this.shippingData.indices.length === 0) {

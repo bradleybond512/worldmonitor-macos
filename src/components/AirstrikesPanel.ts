@@ -1,6 +1,7 @@
 import { Panel } from './Panel';
 import type { AirstrikeEvent } from '@/services/airstrikes';
 import { isFeatureAvailable } from '@/services/runtime-config';
+import { showApiKeyGate } from '@/components/api-key-gate';
 import { t } from '@/services/i18n';
 import { escapeHtml } from '@/utils/sanitize';
 
@@ -67,13 +68,7 @@ export class AirstrikesPanel extends Panel {
 
   private render(): void {
     if (!isFeatureAvailable('acledAirstrikes') && this.events.length === 0) {
-      this.setContent(`
-        <div class="panel-empty" style="padding:16px;text-align:center">
-          <div style="font-size:28px;margin-bottom:8px">🚀</div>
-          <div style="font-weight:600;margin-bottom:4px">Air Strikes & Drones</div>
-          <div style="font-size:11px;color:var(--text-dim)">Configure ACLED API key and registered email in <strong>API Keys</strong> settings to enable this panel.</div>
-        </div>
-      `);
+      showApiKeyGate(this, 'ACLED_ACCESS_TOKEN', () => { window.location.reload(); });
       return;
     }
 

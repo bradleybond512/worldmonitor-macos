@@ -8,6 +8,7 @@ import type {
 import { t } from '@/services/i18n';
 import { escapeHtml, sanitizeUrl } from '@/utils/sanitize';
 import { isFeatureAvailable } from '@/services/runtime-config';
+import { showApiKeyGate } from '@/components/api-key-gate';
 import { isDesktopRuntime } from '@/services/runtime';
 
 type TabId = 'restrictions' | 'tariffs' | 'flows' | 'barriers';
@@ -55,7 +56,7 @@ export class TradePolicyPanel extends Panel {
   private render(): void {
     // Check for API key
     if (isDesktopRuntime() && !isFeatureAvailable('wtoTrade')) {
-      this.setContent(`<div class="economic-empty">${t('components.tradePolicy.apiKeyMissing')}</div>`);
+      showApiKeyGate(this, 'WTO_API_KEY', () => { window.location.reload(); });
       return;
     }
 

@@ -1,6 +1,7 @@
 import { Panel } from './Panel';
 import type { WaterQualityData, WaterAlert, WaterAlertType, WaterSystem, WaterAlertSeverity } from '@/services/water-quality';
 import { escapeHtml } from '@/utils/sanitize';
+import { locationBannerHtml, wireLocationBanner } from '@/components/location-gate';
 
 export class WaterQualityPanel extends Panel {
   private data: WaterQualityData | null = null;
@@ -31,6 +32,7 @@ export class WaterQualityPanel extends Panel {
     }
 
     const { alerts, systems, summary } = this.data;
+    const locBanner = locationBannerHtml();
 
     // Summary bar
     const summaryHtml = `
@@ -77,6 +79,7 @@ export class WaterQualityPanel extends Panel {
 
     this.setContent(`
       <div class="wq-panel-content">
+        ${locBanner}
         ${summaryHtml}
         ${alertsHtml}
         ${systemsHtml}
@@ -86,6 +89,7 @@ export class WaterQualityPanel extends Panel {
         </div>
       </div>
     `);
+    wireLocationBanner(this.getContentElement(), () => { this.render(); });
   }
 }
 

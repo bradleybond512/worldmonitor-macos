@@ -87,6 +87,7 @@ export * from './HazardAlertsPanel';
 export * from './InfrastructurePanel';
 export { FAAWeatherCamsPanel } from './FAAWeatherCamsPanel';
 export { showApiKeyGate } from './api-key-gate';
+export { showLocationGate, getHomeLocationLabel } from './location-gate';
 export { ThreatIntelHubPanel } from './ThreatIntelHubPanel';
 export { GeoIntelPanel } from './GeoIntelPanel';
 export { DarkWebPanel } from './DarkWebPanel';

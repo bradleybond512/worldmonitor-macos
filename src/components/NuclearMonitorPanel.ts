@@ -8,6 +8,7 @@ import type {
   FacilityStatus,
 } from '@/services/nuclear-monitor';
 import { escapeHtml } from '@/utils/sanitize';
+import { locationBannerHtml, wireLocationBanner } from '@/components/location-gate';
 
 export class NuclearMonitorPanel extends Panel {
   private data: NuclearMonitorData | null = null;
@@ -41,6 +42,7 @@ export class NuclearMonitorPanel extends Panel {
     }
 
     const { stations, facilities, seismicAnomalies, summary } = this.data;
+    const locBanner = locationBannerHtml();
 
     // Summary bar
     const summaryHtml = `
@@ -116,6 +118,7 @@ export class NuclearMonitorPanel extends Panel {
 
     this.setContent(`
       <div class="nm-panel-content">
+        ${locBanner}
         ${summaryHtml}
         ${anomalyHtml}
         ${stationsHtml}
@@ -126,6 +129,7 @@ export class NuclearMonitorPanel extends Panel {
         </div>
       </div>
     `);
+    wireLocationBanner(this.getContentElement(), () => { this.render(); });
   }
 }
 

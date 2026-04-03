@@ -2,6 +2,7 @@ import { Panel } from './Panel';
 import type { NearbyHazard } from '@/services/proximity-alerts';
 import { proximityAlertService } from '@/services/proximity-alerts';
 import { loadProximityConfig } from '@/services/proximity-filter';
+import { showLocationGate } from '@/components/location-gate';
 import { escapeHtml, sanitizeUrl } from '@/utils/sanitize';
 
 const TYPE_LABEL: Record<NearbyHazard['type'], string> = {
@@ -35,7 +36,7 @@ export class HazardAlertsPanel extends Panel {
   }
 
   private _renderNoLocation(): void {
-    this.setContent('<div class="panel-empty">Set your home location in Settings → General to see nearby hazards.</div>');
+    showLocationGate(this, () => { this._render(); });
   }
 
   private _render(): void {
