@@ -90,4 +90,16 @@ export { showApiKeyGate } from './api-key-gate';
 export { ThreatIntelHubPanel } from './ThreatIntelHubPanel';
 export { GeoIntelPanel } from './GeoIntelPanel';
 export { DarkWebPanel } from './DarkWebPanel';
+export { IntelligenceBriefingPanel } from './IntelligenceBriefingPanel';
+export { AskWorldMonitorPanel } from './AskWorldMonitorPanel';
+export { SurvivalAdvisorPanel } from './SurvivalAdvisorPanel';
+export { ThreatSynthesisPanel } from './ThreatSynthesisPanel';
+export { ScenarioSimulatorPanel } from './ScenarioSimulatorPanel';
+export { EscalationForecastPanel } from './EscalationForecastPanel';
+export { AnomalyDetectionPanel } from './AnomalyDetectionPanel';
+export { FinancialContagionPanel } from './FinancialContagionPanel';
+export { SupplyChainImpactPanel } from './SupplyChainImpactPanel';
+export { WaterQualityPanel } from './WaterQualityPanel';
+export { NuclearMonitorPanel } from './NuclearMonitorPanel';
+export { NotificationDigestPanel } from './NotificationDigestPanel';
 

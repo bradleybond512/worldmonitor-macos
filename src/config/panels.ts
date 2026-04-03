@@ -150,6 +150,18 @@ const FULL_PANELS: Record<string, PanelConfig> = {
   'threat-intel-hub': { name: 'Threat Intel Hub', enabled: true, priority: 2 },
   'geo-intel': { name: 'Geo Intel', enabled: true, priority: 2 },
   'dark-web': { name: 'Dark Web', enabled: true, priority: 2 },
+  'intelligence-briefing': { name: 'Intelligence Briefing', enabled: true, priority: 1 },
+  'ask-world-monitor': { name: 'Ask World Monitor', enabled: true, priority: 1 },
+  'survival-advisor': { name: 'Survival Advisor', enabled: true, priority: 1 },
+  'threat-synthesis': { name: 'Threat Synthesis', enabled: true, priority: 1 },
+  'scenario-simulator': { name: 'Scenario Simulator', enabled: true, priority: 2 },
+  'escalation-forecast': { name: 'Escalation Watch', enabled: true, priority: 1 },
+  'anomaly-detection': { name: 'Anomaly Detection', enabled: true, priority: 2 },
+  'financial-contagion': { name: 'Financial Contagion', enabled: true, priority: 2 },
+  'supply-chain-impact': { name: 'Supply Chain Impact', enabled: true, priority: 2 },
+  'water-quality': { name: 'Water Quality', enabled: true, priority: 2 },
+  'nuclear-monitor': { name: 'Nuclear Monitor', enabled: true, priority: 2 },
+  'notification-digest': { name: 'Notification Digest', enabled: true, priority: 1 },
 };
 
 const FULL_MAP_LAYERS: MapLayers = {
@@ -760,7 +772,7 @@ export const PANEL_CATEGORY_MAP: Record<string, { labelKey: string; panelKeys: s
   // Full (geopolitical) variant
   intelligence: {
     labelKey: 'header.panelCatIntelligence',
-    panelKeys: ['watchlist', 'saved-places', 'watchlist-locations', 'local-logistics', 'comms-plan', 'unified-alert-inbox', 'alert-rules', 'situation-awareness', 'alert-center', 'strategic-risk', 'cii', 'geo-hubs', 'intel', 'gdelt-intel', 'cascade', 'telegram-intel'],
+    panelKeys: ['watchlist', 'saved-places', 'watchlist-locations', 'local-logistics', 'comms-plan', 'unified-alert-inbox', 'alert-rules', 'situation-awareness', 'alert-center', 'strategic-risk', 'cii', 'geo-hubs', 'intel', 'gdelt-intel', 'cascade', 'telegram-intel', 'intelligence-briefing', 'ask-world-monitor', 'survival-advisor', 'threat-synthesis', 'scenario-simulator', 'escalation-forecast', 'notification-digest'],
     variants: ['full'],
   },
   regionalNews: {
@@ -780,7 +792,7 @@ export const PANEL_CATEGORY_MAP: Record<string, { labelKey: string; panelKeys: s
   },
   dataTracking: {
     labelKey: 'header.panelCatDataTracking',
-    panelKeys: ['monitors', 'cyber-threats', 'local-ids', 'comms-health', 'power-grid', 'ucdp-events', 'nuclear-risk', 'airstrikes', 'displacement', 'security-advisories', 'oref-sirens', 'space-weather', 'spaceflight-news', 'space-launches', 'population-exposure', 'internet-disruptions', 'air-traffic', 'threat-intel-hub', 'geo-intel', 'dark-web'],
+    panelKeys: ['monitors', 'cyber-threats', 'local-ids', 'comms-health', 'power-grid', 'ucdp-events', 'nuclear-risk', 'airstrikes', 'displacement', 'security-advisories', 'oref-sirens', 'space-weather', 'spaceflight-news', 'space-launches', 'population-exposure', 'internet-disruptions', 'air-traffic', 'threat-intel-hub', 'geo-intel', 'dark-web', 'anomaly-detection', 'financial-contagion', 'supply-chain-impact', 'nuclear-monitor'],
     variants: ['full'],
   },
   hazards: {
@@ -791,7 +803,7 @@ export const PANEL_CATEGORY_MAP: Record<string, { labelKey: string; panelKeys: s
   },
   healthEnv: {
     labelKey: 'header.panelCatHealthEnv',
-    panelKeys: ['hazard-alerts', 'infrastructure', 'giving', 'daily-wisdom', 'stoic-reflections', 'biblical-encouragement', 'alan-watts-reflections', 'mckenna-visions', 'disease-outbreaks', 'disease-intel', 'humanitarian-crisis', 'air-quality', 'food-insecurity', 'offline-maps', 'evacuation', 'family-tracker', 'radiation-decay', 'resource-inventory'],
+    panelKeys: ['hazard-alerts', 'infrastructure', 'giving', 'daily-wisdom', 'stoic-reflections', 'biblical-encouragement', 'alan-watts-reflections', 'mckenna-visions', 'disease-outbreaks', 'disease-intel', 'humanitarian-crisis', 'air-quality', 'food-insecurity', 'offline-maps', 'evacuation', 'family-tracker', 'radiation-decay', 'resource-inventory', 'water-quality'],
     variants: ['full'],
   },
 
