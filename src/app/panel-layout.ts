@@ -32,6 +32,9 @@ import {
   TsunamiAlertsPanel,
   TropicalCyclonesPanel,
   FoodInsecurityPanel,
+  OfflineMapPanel,
+  EvacuationPanel,
+  FamilyTrackerPanel,
   InvestmentsPanel,
   TradePolicyPanel,
   SupplyChainPanel,
@@ -101,6 +104,7 @@ import { ForeignMilNewsPanel } from '@/components/ForeignMilNewsPanel';
 import { SpcMesoscalePanel } from '@/components/SpcMesoscalePanel';
 import { FAAWeatherCamsPanel } from '@/components/FAAWeatherCamsPanel';
 import { CommsHealthPanel } from '@/components/CommsHealthPanel';
+import { PowerGridPanel } from '@/components/PowerGridPanel';
 import { FearGreedPanel } from '@/components/FearGreedPanel';
 import { InternetDisruptionsPanel } from '@/components/InternetDisruptionsPanel';
 import { NationalDebtPanel } from '@/components/NationalDebtPanel';
@@ -130,6 +134,7 @@ import { RegulationPanel } from '@/components/RegulationPanel';
 import { GivingPanel } from '@/components';
 import { UnifiedAlertInboxPanel } from '@/components/UnifiedAlertInboxPanel';
 import { AlertRulesPanel } from '@/components/AlertRulesPanel';
+import { StalenessBanner } from '@/components/StalenessBanner';
 import { focusInvestmentOnMap } from '@/services/investments-focus';
 import { debounce, saveToStorage } from '@/utils';
 import { escapeHtml } from '@/utils/sanitize';
@@ -209,9 +214,12 @@ export class PanelLayoutManager implements AppModule {
     }, 120);
   }
 
+  private stalenessBanner: StalenessBanner | null = null;
+
   init(): void {
     this.renderLayout();
     document.addEventListener('wm:update-state', this._onUpdateState);
+    this.stalenessBanner = StalenessBanner.mount();
   }
 
   destroy(): void {
@@ -221,6 +229,10 @@ export class PanelLayoutManager implements AppModule {
     if (this.criticalBannerEl) {
       this.criticalBannerEl.remove();
       this.criticalBannerEl = null;
+    }
+    if (this.stalenessBanner) {
+      this.stalenessBanner.destroy();
+      this.stalenessBanner = null;
     }
     // Clean up happy variant panels
     this.ctx.tvMode?.destroy();
@@ -1027,7 +1039,11 @@ export class PanelLayoutManager implements AppModule {
       this.ctx.panels['tsunami-alerts'] = new TsunamiAlertsPanel();
       this.ctx.panels['tropical-cyclones'] = new TropicalCyclonesPanel();
       this.ctx.panels['food-insecurity'] = new FoodInsecurityPanel();
+      this.ctx.panels['offline-maps'] = new OfflineMapPanel();
+      this.ctx.panels['evacuation'] = new EvacuationPanel();
+      this.ctx.panels['family-tracker'] = new FamilyTrackerPanel();
       this.ctx.panels['comms-health'] = new CommsHealthPanel();
+      this.ctx.panels['power-grid'] = new PowerGridPanel();
       this.ctx.panels['economic-stress'] = new EconomicStressPanel();
       this.ctx.panels['federal-register'] = new FederalRegisterPanel();
       this.ctx.panels['fear-greed'] = new FearGreedPanel();

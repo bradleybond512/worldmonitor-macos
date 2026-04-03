@@ -569,6 +569,7 @@ export class App {
         { name: 'federalRegister', fn: () => this.dataLoader.loadFederalRegister(), intervalMs: 60 * 60 * 1000, condition: () => SITE_VARIANT === 'full' },
         { name: 'airQuality', fn: () => this.dataLoader.loadAirQuality(), intervalMs: 30 * 60 * 1000, condition: () => SITE_VARIANT === 'full' },
         { name: 'commsHealth', fn: () => this.dataLoader.loadCommsHealth(), intervalMs: 2 * 60 * 1000, condition: () => SITE_VARIANT === 'full' },
+        { name: 'powerGrid', fn: () => this.dataLoader.loadPowerGrid(), intervalMs: 5 * 60 * 1000, condition: () => SITE_VARIANT === 'full' },
         { name: 'economicStress', fn: () => this.dataLoader.loadEconomicStress(), intervalMs: 15 * 60 * 1000, condition: () => SITE_VARIANT === 'full' },
         { name: 'tsunamiAlerts', fn: () => this.dataLoader.loadTsunamiAlerts(), intervalMs: 5 * 60 * 1000, condition: () => SITE_VARIANT === 'full' },
         { name: 'tropicalCyclones', fn: () => this.dataLoader.loadTropicalCyclones(), intervalMs: 30 * 60 * 1000, condition: () => SITE_VARIANT === 'full' },

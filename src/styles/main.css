@@ -14734,6 +14734,141 @@ body.has-critical-banner .panels-grid {
   padding-top: 50px;
 }
 
+/* ============ Data Staleness Banner ============ */
+
+.staleness-banner {
+  position: fixed;
+  top: 50px;
+  left: 0;
+  right: 0;
+  z-index: 998;
+  padding: 6px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  cursor: pointer;
+  animation: banner-slide-in 0.3s ease-out;
+  user-select: none;
+}
+
+.staleness-banner-hidden {
+  display: none;
+}
+
+.staleness-banner-warn {
+  background: linear-gradient(90deg, #b8860b, #d4a017);
+  color: #1a1a00;
+  border-bottom: 1px solid #d4a017;
+}
+
+.staleness-banner-critical {
+  background: linear-gradient(90deg, #8B0000, #b91c1c);
+  color: #fff;
+  border-bottom: 1px solid var(--semantic-critical);
+}
+
+.staleness-banner-offline {
+  background: #1e1e1e;
+  color: #ccc;
+  border-bottom: 1px solid #444;
+}
+
+.staleness-message {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.staleness-dismiss {
+  background: rgba(255, 255, 255, 0.15);
+  border: none;
+  color: inherit;
+  padding: 2px 8px;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.staleness-dismiss:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.staleness-pulse-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #888;
+  animation: staleness-pulse 1.5s ease-in-out infinite;
+  flex-shrink: 0;
+}
+
+@keyframes staleness-pulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
+}
+
+.staleness-details {
+  position: fixed;
+  top: 82px;
+  left: 0;
+  right: 0;
+  z-index: 997;
+  max-height: 300px;
+  overflow-y: auto;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  box-shadow: 0 4px 12px var(--shadow-color);
+}
+
+.staleness-details-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.staleness-details-table th {
+  position: sticky;
+  top: 0;
+  background: var(--bg-secondary);
+  color: var(--text-dim);
+  text-align: left;
+  padding: 4px 12px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-size: 10px;
+}
+
+.staleness-details-table td {
+  padding: 3px 12px;
+  color: var(--text-secondary);
+  border-top: 1px solid var(--border-subtle);
+}
+
+.staleness-details-table tr:hover td {
+  background: var(--surface-hover);
+}
+
+body.has-staleness-banner .panels-grid {
+  padding-top: 50px;
+}
+
+body.has-staleness-banner.has-critical-banner .panels-grid {
+  padding-top: 100px;
+}
+
 /* ============ Breaking News Alert Banner ============ */
 
 .breaking-news-container {
@@ -17698,6 +17833,20 @@ body.has-breaking-alert .panels-grid {
 .ri-edit-btn, .ri-del-btn { background: none; border: none; cursor: pointer; padding: 2px 5px; font-size: 12px; opacity: 0.6; transition: opacity 0.12s; }
 .ri-edit-btn:hover, .ri-del-btn:hover { opacity: 1; }
 .ri-empty { text-align: center; color: var(--text-dim, #888); font-size: 12px; padding: 20px 0; }
+.ri-use-btn, .ri-resupply-btn { background: none; border: 1px solid var(--border, #333); border-radius: 4px; cursor: pointer; padding: 1px 6px; font-size: 10px; font-weight: 600; transition: background 0.12s, opacity 0.12s; opacity: 0.7; }
+.ri-use-btn { color: #facc15; border-color: rgba(250,204,21,0.35); }
+.ri-use-btn:hover { background: rgba(250,204,21,0.1); opacity: 1; }
+.ri-resupply-btn { color: #4ade80; border-color: rgba(74,222,128,0.35); }
+.ri-resupply-btn:hover { background: rgba(74,222,128,0.1); opacity: 1; }
+.ri-depletion-ok   { }
+.ri-depletion-warn { }
+.ri-depletion-crit { animation: ri-pulse-crit 1.5s ease-in-out infinite; }
+.ri-depletion-dead { color: #666 !important; font-style: italic; }
+@keyframes ri-pulse-crit { 0%,100% { opacity: 1; } 50% { opacity: 0.6; } }
+.ri-sparkline { vertical-align: middle; }
+.ri-actual-rate { font-size: 10px; }
+.ri-est-rate { color: var(--text-dim, #888); font-size: 9px; }
+.ri-actions { white-space: nowrap; }
 
 /* ══════════════════════════════════════════════════════════
    WORLD CLOCK PANEL

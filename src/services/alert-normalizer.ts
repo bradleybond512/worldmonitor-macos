@@ -226,3 +226,37 @@ export function normalizeNearbyHazard(hazard: NearbyHazard): UnifiedAlert {
     raw: hazard,
   };
 }
+
+// ── Resource Depletion ──────────────────────────────────────────────────
+
+export interface ResourceAlertDetail {
+  itemId: string;
+  name: string;
+  daysLeft: number;
+  quantity: number;
+  unit: string;
+  threshold: 'depleted' | '1-day' | '3-day' | '7-day';
+}
+
+export function normalizeResourceAlert(detail: ResourceAlertDetail): UnifiedAlert {
+  const severityMap: Record<string, AlertSeverity> = {
+    'depleted': 'critical',
+    '1-day': 'critical',
+    '3-day': 'high',
+    '7-day': 'medium',
+  };
+  return {
+    id: `resource-${detail.itemId}-${detail.threshold}`,
+    source: 'resource',
+    severity: severityMap[detail.threshold] ?? 'medium',
+    title: `Resource ${detail.threshold === 'depleted' ? 'depleted' : 'low'}: ${detail.name}`,
+    body: detail.threshold === 'depleted'
+      ? `${detail.name} is depleted (0 ${detail.unit} remaining)`
+      : `${detail.daysLeft.toFixed(1)} days remaining (${detail.quantity} ${detail.unit})`,
+    timestamp: Date.now(),
+    relevanceScore: 0,
+    acknowledged: false,
+    pinned: false,
+    raw: detail,
+  };
+}

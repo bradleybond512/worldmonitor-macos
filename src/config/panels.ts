@@ -57,6 +57,7 @@ const FULL_PANELS: Record<string, PanelConfig> = {
   'cyber-threats': { name: 'Cyber Threats', enabled: true, priority: 2 },
   'local-ids': { name: 'Local IDS', enabled: false, priority: 2 },
   'comms-health': { name: 'Communications Health', enabled: true, priority: 2 },
+  'power-grid': { name: 'Power Grid', enabled: true, priority: 2 },
   'macro-signals': { name: 'Market Radar', enabled: true, priority: 2 },
   'etf-flows': { name: 'BTC ETF Tracker', enabled: true, priority: 2 },
   stablecoins: { name: 'Stablecoins', enabled: true, priority: 2 },
@@ -95,6 +96,9 @@ const FULL_PANELS: Record<string, PanelConfig> = {
   'tsunami-alerts': { name: 'Tsunami Alerts', enabled: true, priority: 2 },
   'tropical-cyclones': { name: 'Tropical Cyclones', enabled: true, priority: 2 },
   'food-insecurity': { name: 'Food Insecurity', enabled: true, priority: 2 },
+  'offline-maps': { name: 'Offline Maps', enabled: true, priority: 2 },
+  'evacuation': { name: 'Evacuation Routes', enabled: true, priority: 2 },
+  'family-tracker': { name: 'Family Tracker', enabled: true, priority: 2 },
   'radiation-decay': { name: 'Radiation Decay Calculator', enabled: true, priority: 3 },
   'resource-inventory': { name: 'Resource Inventory', enabled: true, priority: 3 },
   'fear-greed': { name: 'Fear & Greed Index', enabled: true, priority: 2 },
@@ -776,7 +780,7 @@ export const PANEL_CATEGORY_MAP: Record<string, { labelKey: string; panelKeys: s
   },
   dataTracking: {
     labelKey: 'header.panelCatDataTracking',
-    panelKeys: ['monitors', 'cyber-threats', 'local-ids', 'comms-health', 'ucdp-events', 'nuclear-risk', 'airstrikes', 'displacement', 'security-advisories', 'oref-sirens', 'space-weather', 'spaceflight-news', 'space-launches', 'population-exposure', 'internet-disruptions', 'air-traffic', 'threat-intel-hub', 'geo-intel', 'dark-web'],
+    panelKeys: ['monitors', 'cyber-threats', 'local-ids', 'comms-health', 'power-grid', 'ucdp-events', 'nuclear-risk', 'airstrikes', 'displacement', 'security-advisories', 'oref-sirens', 'space-weather', 'spaceflight-news', 'space-launches', 'population-exposure', 'internet-disruptions', 'air-traffic', 'threat-intel-hub', 'geo-intel', 'dark-web'],
     variants: ['full'],
   },
   hazards: {
@@ -787,7 +791,7 @@ export const PANEL_CATEGORY_MAP: Record<string, { labelKey: string; panelKeys: s
   },
   healthEnv: {
     labelKey: 'header.panelCatHealthEnv',
-    panelKeys: ['hazard-alerts', 'infrastructure', 'giving', 'daily-wisdom', 'stoic-reflections', 'biblical-encouragement', 'alan-watts-reflections', 'mckenna-visions', 'disease-outbreaks', 'disease-intel', 'humanitarian-crisis', 'air-quality', 'food-insecurity', 'radiation-decay', 'resource-inventory'],
+    panelKeys: ['hazard-alerts', 'infrastructure', 'giving', 'daily-wisdom', 'stoic-reflections', 'biblical-encouragement', 'alan-watts-reflections', 'mckenna-visions', 'disease-outbreaks', 'disease-intel', 'humanitarian-crisis', 'air-quality', 'food-insecurity', 'offline-maps', 'evacuation', 'family-tracker', 'radiation-decay', 'resource-inventory'],
     variants: ['full'],
   },
 
