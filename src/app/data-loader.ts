@@ -178,6 +178,7 @@ import { fetchAdsbSnapshot } from '@/services/adsb';
 import type { AirTrafficPanel } from '@/components/AirTrafficPanel';
 import type { ModeChangedDetail } from '@/services/mode-manager';
 import { fetchCommsHealth } from '@/services/comms-health';
+import { fetchGridStatus } from '@/services/power-grid';
 import { fetchEconomicStress } from '@/services/economic-stress';
 import { fetchWsbSentiment } from '@/services/wsb-sentiment';
 import { fetchFederalRegister } from '@/services/federal-register';
@@ -187,6 +188,7 @@ import { GDACSAlertsPanel } from '@/components/GDACSAlertsPanel';
 import { VolcanoAlertsPanel } from '@/components/VolcanoAlertsPanel';
 import { NWSAlertsPanel } from '@/components/NWSAlertsPanel';
 import { CommsHealthPanel } from '@/components/CommsHealthPanel';
+import { PowerGridPanel } from '@/components/PowerGridPanel';
 import { EconomicStressPanel } from '@/components/EconomicStressPanel';
 import { GivingPanel } from '@/components';
 import { GeoHubsPanel } from '@/components/GeoHubsPanel';
@@ -202,6 +204,7 @@ import { fetchAllPositiveTopicIntelligence } from '@/services/gdelt-intel';
 import { fetchPositiveGeoEvents, geocodePositiveNewsItems } from '@/services/positive-events-geo';
 import { fetchKindnessData } from '@/services/kindness-data';
 import { getPersistentCache, setPersistentCache } from '@/services/persistent-cache';
+import { withOfflineCache, registerCriticalSources } from '@/services/offline-alert-cache';
 import { fetchNewsApiHeadlines } from '@/services/newsapi';
 import { fetchNewsDataFeed } from '@/services/newsdata';
 import type { ThreatLevel as ClientThreatLevel } from '@/services/threat-classifier';
@@ -265,7 +268,9 @@ import {
   normalizeNWSAlert,
   normalizeGDACSEvent,
   normalizeTsunamiAlert,
+  normalizeResourceAlert,
 } from '@/services/alert-normalizer';
+import type { ResourceAlertDetail } from '@/services/alert-normalizer';
 import type { BreakingAlert } from '@/services/breaking-news-alerts';
 import { fetchFloodGauges } from '@/services/flood-gauges';
 import { fetchDamSafetyAlerts } from '@/services/dam-safety';
@@ -331,22 +336,31 @@ export class DataLoaderManager implements AppModule {
   }
 
   init(): void {
+    // Pre-register critical data sources for offline cache status tracking
+    registerCriticalSources();
+
     // Bridge breaking-news events into the unified alert store
     document.addEventListener('wm:breaking-news', (e: Event) => {
       const alert = (e as CustomEvent<BreakingAlert>).detail;
       if (alert) unifiedAlertStore.ingest([normalizeBreakingAlert(alert)]);
     });
 
+    // Bridge resource depletion alerts into the unified alert store
+    document.addEventListener('wm:resource-alert', (e: Event) => {
+      const detail = (e as CustomEvent<ResourceAlertDetail>).detail;
+      if (detail) unifiedAlertStore.ingest([normalizeResourceAlert(detail)]);
+    });
+
     document.addEventListener('wm:mode-changed', ((e: CustomEvent<ModeChangedDetail>) => {
       const { mode, prev } = e.detail;
       if (mode === 'disaster') {
         void (async () => {
-          const [raw, nws, gdacs] = await Promise.all([
+          const [raw, nwsResult, gdacsResult] = await Promise.all([
             fetchFAACameras(),
-            fetchNWSAlerts(),
-            fetchGDACSEvents(),
+            withOfflineCache('nws-alerts', () => fetchNWSAlerts(), 1 * 60 * 60 * 1000),
+            withOfflineCache('gdacs-events', () => fetchGDACSEvents(), 1 * 60 * 60 * 1000),
           ]);
-          const proximate = getDisasterProximateCameras(raw, nws, gdacs);
+          const proximate = getDisasterProximateCameras(raw, nwsResult.data, gdacsResult.data);
           this.ctx.map?.setFAACameras(proximate);
           (this.ctx.panels['faa-weather-cams'] as FAAWeatherCamsPanel | undefined)?.setDisasterMode(true, proximate);
         })();
@@ -864,13 +878,13 @@ export class DataLoaderManager implements AppModule {
         }
       };
 
-      const items = await fetchCategoryFeeds(enabledFeeds, {
+      const { data: items } = await withOfflineCache(`news-rss:${category}`, () => fetchCategoryFeeds(enabledFeeds, {
         onBatch: (partialItems) => {
           scheduleRender(partialItems);
           this.flashMapForNews(partialItems);
           checkBatchForBreakingAlerts(partialItems);
         },
-      });
+      }), 2 * 60 * 60 * 1000);
 
       this.renderNewsForCategory(category, items);
       if (panel) {
@@ -1081,12 +1095,12 @@ export class DataLoaderManager implements AppModule {
 
   async loadMarkets(): Promise<void> {
     try {
-      const stocksResult = await fetchMultipleStocks(MARKET_SYMBOLS, {
+      const { data: stocksResult } = await withOfflineCache('market-data', () => fetchMultipleStocks(MARKET_SYMBOLS, {
         onBatch: (partialStocks) => {
           this.ctx.latestMarkets = partialStocks;
           (this.ctx.panels.markets as MarketPanel).renderMarkets(partialStocks);
         },
-      });
+      }), 4 * 60 * 60 * 1000);
 
       this.ctx.latestMarkets = stocksResult.data;
       (this.ctx.panels.markets as MarketPanel).renderMarkets(stocksResult.data, stocksResult.rateLimited);
@@ -1198,7 +1212,7 @@ export class DataLoaderManager implements AppModule {
 
   async loadNatural(): Promise<void> {
     const [earthquakeResult, eonetResult] = await Promise.allSettled([
-      fetchEarthquakes(),
+      withOfflineCache('earthquake-data', () => fetchEarthquakes(), 1 * 60 * 60 * 1000).then(r => r.data),
       fetchNaturalEvents(30),
     ]);
 
@@ -1242,7 +1256,7 @@ export class DataLoaderManager implements AppModule {
       reportElevatedPanel('earthquakes', 'Earthquakes');
     }
 
-    fetchGDACSEvents().then(gdacs => {
+    withOfflineCache('gdacs-events', () => fetchGDACSEvents(), 1 * 60 * 60 * 1000).then(({ data: gdacs }) => {
       evaluateDisasterTrigger(gdacs, earthquakes);
       if (gdacs.some(e => e.alertLevel === 'Red')) {
         reportElevatedPanel('gdacs-alerts', 'GDACS Disaster Alerts');
@@ -1303,7 +1317,7 @@ export class DataLoaderManager implements AppModule {
 
   async loadWeatherAlerts(): Promise<void> {
     try {
-      const alerts = await fetchWeatherAlerts();
+      const { data: alerts } = await withOfflineCache('weather-alerts', () => fetchWeatherAlerts(), 1 * 60 * 60 * 1000);
       this.ctx.map?.setWeatherAlerts(alerts);
       this.ctx.map?.setLayerReady('weather', alerts.length > 0);
       this.ctx.statusPanel?.updateFeed('Weather', { status: 'ok', itemCount: alerts.length });
@@ -1374,7 +1388,7 @@ export class DataLoaderManager implements AppModule {
 
     tasks.push((async () => {
       try {
-        const conflictData = await fetchConflictEvents();
+        const { data: conflictData } = await withOfflineCache('conflict-events', () => fetchConflictEvents(), 1 * 60 * 60 * 1000);
         ingestConflictsForCII(conflictData.events);
         if (conflictData.count > 0) dataFreshness.recordUpdate('acled_conflict', conflictData.count);
       } catch (error) {
@@ -1410,10 +1424,12 @@ export class DataLoaderManager implements AppModule {
         if (isMilitaryVesselTrackingConfigured()) {
           initMilitaryVesselStream();
         }
-        const [flightData, vesselData] = await Promise.all([
-          fetchMilitaryFlights(),
-          fetchMilitaryVessels(),
+        const [flightResult, vesselResult] = await Promise.all([
+          withOfflineCache('military-signals', () => fetchMilitaryFlights(), 1 * 60 * 60 * 1000),
+          withOfflineCache('military-vessels', () => fetchMilitaryVessels(), 1 * 60 * 60 * 1000),
         ]);
+        const flightData = flightResult.data;
+        const vesselData = vesselResult.data;
         this.ctx.intelligenceCache.military = {
           flights: flightData.flights,
           flightClusters: flightData.clusters,
@@ -1957,7 +1973,7 @@ export class DataLoaderManager implements AppModule {
 
   async loadGDACSAlerts(): Promise<void> {
     try {
-      const events = await fetchGDACSEvents();
+      const { data: events } = await withOfflineCache('gdacs-events', () => fetchGDACSEvents(), 1 * 60 * 60 * 1000);
       this.ctx.intelligenceCache.gdacsAlerts = events;
       (this.ctx.panels['gdacs-alerts'] as GDACSAlertsPanel)?.update(events);
       unifiedAlertStore.ingest(events.map(normalizeGDACSEvent));
@@ -1992,7 +2008,7 @@ export class DataLoaderManager implements AppModule {
     try {
       const stormContext = getStormPreparednessContext();
       const [alertsResult, spcResult, marineResult, rainfallResult, winterResult] = await Promise.allSettled([
-        fetchNWSAlerts(),
+        withOfflineCache('nws-alerts', () => fetchNWSAlerts(), 1 * 60 * 60 * 1000).then(r => r.data),
         fetchSpcSummary(),
         fetchMarineHazards(),
         fetchExcessiveRainfallOutlooks(),
@@ -2048,6 +2064,16 @@ export class DataLoaderManager implements AppModule {
     } catch (error) {
       console.warn('[comms-health] fetch failed', error);
       (this.ctx.panels['comms-health'] as CommsHealthPanel)?.update(null);
+    }
+  }
+
+  async loadPowerGrid(): Promise<void> {
+    try {
+      const data = await fetchGridStatus();
+      (this.ctx.panels['power-grid'] as PowerGridPanel)?.update(data);
+    } catch (error) {
+      console.warn('[power-grid] fetch failed', error);
+      (this.ctx.panels['power-grid'] as PowerGridPanel)?.update(null);
     }
   }
 
@@ -2375,10 +2401,12 @@ export class DataLoaderManager implements AppModule {
       if (isMilitaryVesselTrackingConfigured()) {
         initMilitaryVesselStream();
       }
-      const [flightData, vesselData] = await Promise.all([
-        fetchMilitaryFlights(),
-        fetchMilitaryVessels(),
+      const [flightResult, vesselResult] = await Promise.all([
+        withOfflineCache('military-signals', () => fetchMilitaryFlights(), 1 * 60 * 60 * 1000),
+        withOfflineCache('military-vessels', () => fetchMilitaryVessels(), 1 * 60 * 60 * 1000),
       ]);
+      const flightData = flightResult.data;
+      const vesselData = vesselResult.data;
       this.ctx.intelligenceCache.military = {
         flights: flightData.flights,
         flightClusters: flightData.clusters,
@@ -2478,7 +2506,7 @@ export class DataLoaderManager implements AppModule {
 
     try {
       economicPanel?.setLoading(true);
-      const data = await fetchFredData();
+      const { data } = await withOfflineCache('economic-data', () => fetchFredData(), 4 * 60 * 60 * 1000);
 
       const postInfo = getCircuitBreakerCooldownInfo('FRED Economic');
       if (postInfo.onCooldown) {
@@ -2983,7 +3011,7 @@ export class DataLoaderManager implements AppModule {
   async loadTsunamiAlerts(): Promise<void> {
     try {
       const { fetchTsunamiAlerts } = await import('@/services/tsunami-alerts');
-      const data = await fetchTsunamiAlerts();
+      const { data } = await withOfflineCache('tsunami-alerts', () => fetchTsunamiAlerts(), 1 * 60 * 60 * 1000);
       (this.ctx.panels['tsunami-alerts'] as TsunamiAlertsPanel | undefined)?.update(data);
       unifiedAlertStore.ingest(data.map(normalizeTsunamiAlert));
     } catch (error) {
@@ -3042,12 +3070,12 @@ export class DataLoaderManager implements AppModule {
 
   async loadFAACameras(): Promise<void> {
     try {
-      const [raw, nws, gdacs] = await Promise.all([
+      const [raw, nwsResult, gdacsResult] = await Promise.all([
         fetchFAACameras(),
-        fetchNWSAlerts(),
-        fetchGDACSEvents(),
+        withOfflineCache('nws-alerts', () => fetchNWSAlerts(), 1 * 60 * 60 * 1000),
+        withOfflineCache('gdacs-events', () => fetchGDACSEvents(), 1 * 60 * 60 * 1000),
       ]);
-      const scored = scoreCamerasAgainstAlerts(raw, nws, gdacs);
+      const scored = scoreCamerasAgainstAlerts(raw, nwsResult.data, gdacsResult.data);
       this.ctx.map?.setFAACameras(scored);
       (this.ctx.panels['faa-weather-cams'] as FAAWeatherCamsPanel | undefined)?.refresh();
       const alertCams = scored.filter(c => c.alertProximityMi !== null);

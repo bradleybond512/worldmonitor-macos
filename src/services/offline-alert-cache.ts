@@ -185,6 +185,45 @@ export function getOfflineCacheStatus(serviceIds: string[]): OfflineCacheStatus[
   });
 }
 
+/**
+ * Critical data source keys that should be pre-registered for offline caching.
+ * These are the data sources most important during emergencies.
+ */
+export const CRITICAL_SOURCE_KEYS = [
+  'gdacs-events',
+  'nws-alerts',
+  'tsunami-alerts',
+  'weather-alerts',
+  'news-rss:breaking',
+  'news-rss:world',
+  'news-rss:intel',
+  'conflict-events',
+  'military-signals',
+  'military-vessels',
+  'market-data',
+  'economic-data',
+  'earthquake-data',
+] as const;
+
+export type CriticalSourceKey = typeof CRITICAL_SOURCE_KEYS[number];
+
+/**
+ * Pre-register all critical data source keys so the cache status UI
+ * knows about them even before first fetch. Call once at app startup.
+ */
+export function registerCriticalSources(): void {
+  // Touch each key in getOfflineCacheStatus — no data is written,
+  // but callers can now enumerate all expected sources.
+  // The actual cache entries are populated on first successful fetch.
+  for (const key of CRITICAL_SOURCE_KEYS) {
+    if (!registeredServices.find(s => s.id === key)) {
+      // Register with a no-op fetch — real fetch functions are wired
+      // through withOfflineCache at the call site in data-loader.ts
+      registeredServices.push({ id: key, fetch: () => Promise.resolve(null), staleMs: 4 * 3_600_000 });
+    }
+  }
+}
+
 export function clearOfflineCache(serviceId?: string): void {
   if (serviceId) {
     clearEntry(serviceId);

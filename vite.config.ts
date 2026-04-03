@@ -771,8 +771,14 @@ export default defineConfig({
           {
             urlPattern: ({ url, sameOrigin }: { url: URL; sameOrigin: boolean }) =>
               sameOrigin && /^\/api\//.test(url.pathname),
-            handler: 'NetworkOnly',
+            handler: 'NetworkFirst',
             method: 'GET',
+            options: {
+              cacheName: 'api-responses',
+              networkTimeoutSeconds: 5,
+              expiration: { maxEntries: 200, maxAgeSeconds: 4 * 60 * 60 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
           },
           {
             urlPattern: ({ url, sameOrigin }: { url: URL; sameOrigin: boolean }) =>

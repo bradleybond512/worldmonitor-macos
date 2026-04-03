@@ -70,7 +70,7 @@ function aisIsLikelyMilitary(meta) {
   const name = (meta?.ShipName || '').trim();
   if (name && AIS_NAVAL_PREFIX_RE.test(name)) return true;
   const mmsi = String(meta?.MMSI || '');
-  if (mmsi.length >= 9 && (mmsi.substring(3).startsWith('00') || mmsi.substring(3).startsWith('99'))) return true;
+  if (mmsi.length >= 9 && (mmsi.slice(3).startsWith('00') || mmsi.slice(3).startsWith('99'))) return true;
   return false;
 }
 
@@ -1504,8 +1504,8 @@ async function dispatch(requestUrl, req, routes, context) {
         .slice(0, count);
 
       return json({ videoIds, channelId }, 200, { 'cache-control': 'public, max-age=900, stale-while-revalidate=300' });
-    } catch (err) {
-      context.logger.warn(`[local-api] youtube-recent-videos failed for ${handle}: ${err?.message}`);
+    } catch (error) {
+      context.logger.warn(`[local-api] youtube-recent-videos failed for ${handle}: ${error?.message}`);
       return json({ videoIds: [], error: 'Failed to fetch recent videos' }, 200);
     }
   }
@@ -1600,8 +1600,8 @@ async function dispatch(requestUrl, req, routes, context) {
       );
       const data = await resp.json();
       return json({ apiKey: data.apiKey ?? null, status: data.status, message: data.message });
-    } catch (e) {
-      return json({ error: String(e) }, 500);
+    } catch (error) {
+      return json({ error: String(error) }, 500);
     }
   }
 
@@ -1621,8 +1621,8 @@ async function dispatch(requestUrl, req, routes, context) {
       );
       const data = await resp.json().catch(() => ({}));
       return json({ apiKey: data.apikey ?? data.api_key ?? null, message: data.message ?? '' });
-    } catch (e) {
-      return json({ error: String(e) }, 500);
+    } catch (error) {
+      return json({ error: String(error) }, 500);
     }
   }
 
@@ -1649,8 +1649,8 @@ async function dispatch(requestUrl, req, routes, context) {
         15_000,
       );
       return json({ submitted: resp.ok, message: resp.ok ? 'Check your email for the API key' : 'Registration failed', status: resp.status });
-    } catch (e) {
-      return json({ error: String(e) }, 500);
+    } catch (error) {
+      return json({ error: String(error) }, 500);
     }
   }
 
@@ -1673,8 +1673,8 @@ async function dispatch(requestUrl, req, routes, context) {
       const data = await resp.json();
       if (!data.access_token) return json({ error: data.error_description ?? 'No access token returned' }, 401);
       return json({ accessToken: data.access_token, refreshToken: data.refresh_token ?? null, email });
-    } catch (e) {
-      return json({ error: String(e) }, 500);
+    } catch (error) {
+      return json({ error: String(error) }, 500);
     }
   }
 
@@ -1697,8 +1697,8 @@ async function dispatch(requestUrl, req, routes, context) {
       const data = await resp.json();
       if (!data.access_token) return json({ error: 'No access token in refresh response' }, 401);
       return json({ accessToken: data.access_token, refreshToken: data.refresh_token ?? refreshToken });
-    } catch (e) {
-      return json({ error: String(e) }, 500);
+    } catch (error) {
+      return json({ error: String(error) }, 500);
     }
   }
 
@@ -1981,7 +1981,7 @@ async function dispatch(requestUrl, req, routes, context) {
       if (whoResp?.ok) {
         const whoData = await whoResp.json().catch(() => ({ value: [] }));
         const items = Array.isArray(whoData?.value) ? whoData.value : [];
-        items.slice(0, 5).forEach(item => {
+        for (const item of items.slice(0, 5)) {
           signals.push({
             source: 'WHO',
             disease: item.Title ?? item.PageTitle ?? 'Disease Outbreak',
@@ -1992,14 +1992,14 @@ async function dispatch(requestUrl, req, routes, context) {
             region: item.CountryName ?? 'Global',
             url: item.Url ?? 'https://www.who.int/emergencies/disease-outbreak-news',
           });
-        });
+        }
       }
 
       const result = { signals, fetchedAt: new Date().toISOString() };
       setCached('cdc-surveillance', result, 60 * 60 * 1000); // 1 hour cache
       return json(result);
-    } catch (e) {
-      return json({ signals: [], error: String(e) });
+    } catch (error) {
+      return json({ signals: [], error: String(error) });
     }
   }
 
@@ -2061,8 +2061,8 @@ async function dispatch(requestUrl, req, routes, context) {
       }));
       setCached('opensanctions-recent', items);
       return json(items);
-    } catch (e) {
-      return json({ error: `opensanctions-recent error: ${e.message ?? e}` }, 502);
+    } catch (error) {
+      return json({ error: `opensanctions-recent error: ${error.message ?? error}` }, 502);
     }
   }
 
@@ -2088,8 +2088,8 @@ async function dispatch(requestUrl, req, routes, context) {
         score: e.score ?? null,
       }));
       return json({ query: q, results, total: data.total ?? results.length });
-    } catch (e) {
-      return json({ error: `opensanctions-search error: ${e.message ?? e}` }, 502);
+    } catch (error) {
+      return json({ error: `opensanctions-search error: ${error.message ?? error}` }, 502);
     }
   }
 
@@ -2145,7 +2145,7 @@ async function dispatch(requestUrl, req, routes, context) {
         }
       }
       return json(rawThreats);
-    } catch (e) {
+    } catch {
       return json([], 200);
     }
   }
@@ -2181,8 +2181,8 @@ async function dispatch(requestUrl, req, routes, context) {
         reputation: data?.data?.attributes?.reputation ?? 0,
         lastAnalysisDate: data?.data?.attributes?.last_analysis_date ?? null,
       });
-    } catch (e) {
-      return json({ error: String(e.message ?? e) }, 502);
+    } catch (error) {
+      return json({ error: String(error.message ?? error) }, 502);
     }
   }
 
@@ -2212,8 +2212,8 @@ async function dispatch(requestUrl, req, routes, context) {
         lastSeen: d.last_seen ?? null,
         message: d.message ?? null,
       });
-    } catch (e) {
-      return json({ error: `greynoise-lookup error: ${e.message ?? e}` }, 502);
+    } catch (error) {
+      return json({ error: `greynoise-lookup error: ${error.message ?? error}` }, 502);
     }
   }
 
@@ -2242,8 +2242,8 @@ async function dispatch(requestUrl, req, routes, context) {
         ipv4Prefixes: Array.isArray(prefixData?.data?.ipv4_prefixes) ? prefixData.data.ipv4_prefixes.length : 0,
         ipv6Prefixes: Array.isArray(prefixData?.data?.ipv6_prefixes) ? prefixData.data.ipv6_prefixes.length : 0,
       });
-    } catch (e) {
-      return json({ error: String(e.message ?? e) }, 502);
+    } catch (error) {
+      return json({ error: String(error.message ?? error) }, 502);
     }
   }
 
@@ -2273,7 +2273,7 @@ async function dispatch(requestUrl, req, routes, context) {
         imageUrl: a.urlToImage ?? undefined,
       }));
       return json(items);
-    } catch (e) {
+    } catch {
       return json([], 200);
     }
   }
@@ -2303,7 +2303,7 @@ async function dispatch(requestUrl, req, routes, context) {
         imageUrl: a.image_url ?? undefined,
       }));
       return json(items);
-    } catch (e) {
+    } catch {
       return json([], 200);
     }
   }
@@ -2403,7 +2403,7 @@ async function dispatch(requestUrl, req, routes, context) {
       })).filter(c => c.id && c.lat !== 0 && c.lon !== 0);
       setCached(CACHE_KEY, cameras);
       return json(cameras);
-    } catch (e) {
+    } catch {
       return json(getCachedStale(CACHE_KEY) ?? [], 200);
     }
   }
@@ -2428,8 +2428,8 @@ async function dispatch(requestUrl, req, routes, context) {
       if (!imgResp.ok) return json({ error: 'Could not fetch camera image' }, 502);
       const buf = await imgResp.arrayBuffer();
       imageB64 = Buffer.from(buf).toString('base64');
-    } catch (e) {
-      return json({ error: `Image fetch failed: ${String(e?.message ?? e)}` }, 502);
+    } catch (error) {
+      return json({ error: `Image fetch failed: ${String(error?.message ?? error)}` }, 502);
     }
 
     const ctxLabel = alertLabel ? ` Context: camera is near an active ${alertLabel}.` : '';
@@ -2990,8 +2990,8 @@ async function dispatch(requestUrl, req, routes, context) {
       const items = results.filter(r => r.status === 'fulfilled' && r.value !== null).map(r => r.value);
       setCached('owm-current', items);
       return json(items);
-    } catch (e) {
-      return json({ error: `owm-current error: ${e.message ?? e}` }, 502);
+    } catch (error) {
+      return json({ error: `owm-current error: ${error.message ?? error}` }, 502);
     }
   }
 
@@ -3355,8 +3355,8 @@ async function dispatch(requestUrl, req, routes, context) {
       });
       setCached('edgar-filings', items);
       return json(items);
-    } catch (e) {
-      return json({ error: `edgar-filings error: ${e.message ?? e}` }, 502);
+    } catch (error) {
+      return json({ error: `edgar-filings error: ${error.message ?? error}` }, 502);
     }
   }
 
@@ -3393,8 +3393,8 @@ async function dispatch(requestUrl, req, routes, context) {
           };
         }),
       });
-    } catch (e) {
-      return json({ error: `edgar-search error: ${e.message ?? e}` }, 502);
+    } catch (error) {
+      return json({ error: `edgar-search error: ${error.message ?? error}` }, 502);
     }
   }
 
@@ -3428,8 +3428,8 @@ async function dispatch(requestUrl, req, routes, context) {
       }));
       setCached('urlscan-feed', results);
       return json(results);
-    } catch (e) {
-      return json({ error: `urlscan error: ${e.message ?? e}` }, 502);
+    } catch (error) {
+      return json({ error: `urlscan error: ${error.message ?? error}` }, 502);
     }
   }
 
@@ -3463,8 +3463,8 @@ async function dispatch(requestUrl, req, routes, context) {
       }));
       setCached('bitcoinabuse-feed', reports, 60 * 60 * 1000);
       return json(reports);
-    } catch (e) {
-      return json({ error: `bitcoinabuse error: ${e.message ?? e}` }, 502);
+    } catch (error) {
+      return json({ error: `bitcoinabuse error: ${error.message ?? error}` }, 502);
     }
   }
 
@@ -3501,8 +3501,8 @@ async function dispatch(requestUrl, req, routes, context) {
       });
       setCached('nvd-cve', cves, 2 * 60 * 60 * 1000);
       return json(cves);
-    } catch (e) {
-      return json({ error: `nvd-cve error: ${e.message ?? e}` }, 502);
+    } catch (error) {
+      return json({ error: `nvd-cve error: ${error.message ?? error}` }, 502);
     }
   }
 
@@ -3536,8 +3536,8 @@ async function dispatch(requestUrl, req, routes, context) {
       }));
       setCached(`vulners-${q}`, results, 2 * 60 * 60 * 1000);
       return json(results);
-    } catch (e) {
-      return json({ error: `vulners error: ${e.message ?? e}` }, 502);
+    } catch (error) {
+      return json({ error: `vulners error: ${error.message ?? error}` }, 502);
     }
   }
 
@@ -3575,8 +3575,8 @@ async function dispatch(requestUrl, req, routes, context) {
       }));
       setCached('mediastack-news', articles, 15 * 60 * 1000);
       return json(articles);
-    } catch (e) {
-      return json({ error: `mediastack error: ${e.message ?? e}` }, 502);
+    } catch (error) {
+      return json({ error: `mediastack error: ${error.message ?? error}` }, 502);
     }
   }
 
@@ -3607,8 +3607,8 @@ async function dispatch(requestUrl, req, routes, context) {
       }));
       setCached('pulsedive-feed', indicators, 30 * 60 * 1000);
       return json(indicators);
-    } catch (e) {
-      return json({ error: `pulsedive error: ${e.message ?? e}` }, 502);
+    } catch (error) {
+      return json({ error: `pulsedive error: ${error.message ?? error}` }, 502);
     }
   }
 
@@ -3644,8 +3644,8 @@ async function dispatch(requestUrl, req, routes, context) {
       })) : data;
       setCached(cacheKey, breaches, 4 * 60 * 60 * 1000);
       return json(breaches);
-    } catch (e) {
-      return json({ error: `hibp error: ${e.message ?? e}` }, 502);
+    } catch (error) {
+      return json({ error: `hibp error: ${error.message ?? error}` }, 502);
     }
   }
 
@@ -3680,8 +3680,8 @@ async function dispatch(requestUrl, req, routes, context) {
       });
       setCached(cacheKey, posts, 10 * 60 * 1000);
       return json(posts);
-    } catch (e) {
-      return json({ error: `reddit error: ${e.message ?? e}` }, 502);
+    } catch (error) {
+      return json({ error: `reddit error: ${error.message ?? error}` }, 502);
     }
   }
 
@@ -3721,8 +3721,8 @@ async function dispatch(requestUrl, req, routes, context) {
       }));
       setCached('openaq-readings', readings, 30 * 60 * 1000);
       return json(readings);
-    } catch (e) {
-      return json({ error: `openaq error: ${e.message ?? e}` }, 502);
+    } catch (error) {
+      return json({ error: `openaq error: ${error.message ?? error}` }, 502);
     }
   }
 
@@ -3759,8 +3759,8 @@ async function dispatch(requestUrl, req, routes, context) {
       }));
       setCached(cacheKey, places, 24 * 60 * 60 * 1000);
       return json(places);
-    } catch (e) {
-      return json({ error: `geonames error: ${e.message ?? e}` }, 502);
+    } catch (error) {
+      return json({ error: `geonames error: ${error.message ?? error}` }, 502);
     }
   }
 
@@ -3773,11 +3773,7 @@ async function dispatch(requestUrl, req, routes, context) {
     if (cached) return json(cached);
     try {
       let endpoint;
-      if (asn) {
-        endpoint = `https://stat.ripe.net/data/as-overview/data.json?resource=AS${asn}`;
-      } else {
-        endpoint = 'https://stat.ripe.net/data/routing-status/data.json?resource=8.8.8.8';
-      }
+      endpoint = asn ? `https://stat.ripe.net/data/as-overview/data.json?resource=AS${asn}` : 'https://stat.ripe.net/data/routing-status/data.json?resource=8.8.8.8';
       const r = await fetchWithTimeout(
         endpoint,
         { headers: { Accept: 'application/json' } },
@@ -3787,8 +3783,8 @@ async function dispatch(requestUrl, req, routes, context) {
       const data = await r.json();
       setCached(cacheKey, data.data ?? data, 60 * 60 * 1000);
       return json(data.data ?? data);
-    } catch (e) {
-      return json({ error: `ripe-ncc error: ${e.message ?? e}` }, 502);
+    } catch (error) {
+      return json({ error: `ripe-ncc error: ${error.message ?? error}` }, 502);
     }
   }
 
@@ -3824,8 +3820,8 @@ async function dispatch(requestUrl, req, routes, context) {
       };
       setCached(cacheKey, result, 6 * 60 * 60 * 1000);
       return json(result);
-    } catch (e) {
-      return json({ error: `ipinfo error: ${e.message ?? e}` }, 502);
+    } catch (error) {
+      return json({ error: `ipinfo error: ${error.message ?? error}` }, 502);
     }
   }
 
@@ -3842,9 +3838,9 @@ async function dispatch(requestUrl, req, routes, context) {
       if (!r.ok) throw new Error(`ISW RSS ${r.status}`);
       const xml = await r.text();
       function parseRssField(block, tag) {
-        const cdataMatch = block.match(new RegExp(`<${tag}><\\!\\[CDATA\\[([\\s\\S]*?)\\]\\]><\\/${tag}>`));
+        const cdataMatch = block.match(new RegExp(String.raw`<${tag}><\!\[CDATA\[([\s\S]*?)\]\]><\/${tag}>`));
         if (cdataMatch) return cdataMatch[1].trim();
-        const plainMatch = block.match(new RegExp(`<${tag}>([\\s\\S]*?)<\\/${tag}>`));
+        const plainMatch = block.match(new RegExp(String.raw`<${tag}>([\s\S]*?)<\/${tag}>`));
         return plainMatch?.[1]?.trim() ?? null;
       }
       const items = [];
@@ -3860,8 +3856,8 @@ async function dispatch(requestUrl, req, routes, context) {
       }
       setCached('isw-reports', items, 30 * 60 * 1000);
       return json(items);
-    } catch (e) {
-      return json({ error: `isw-reports error: ${e.message ?? e}` }, 502);
+    } catch (error) {
+      return json({ error: `isw-reports error: ${error.message ?? error}` }, 502);
     }
   }
 
@@ -3905,8 +3901,8 @@ async function dispatch(requestUrl, req, routes, context) {
       });
       setCached('reliefweb-crises', reports, 2 * 60 * 60 * 1000);
       return json(reports);
-    } catch (e) {
-      return json({ error: `reliefweb error: ${e.message ?? e}` }, 502);
+    } catch (error) {
+      return json({ error: `reliefweb error: ${error.message ?? error}` }, 502);
     }
   }
 
@@ -3923,9 +3919,9 @@ async function dispatch(requestUrl, req, routes, context) {
       if (!r.ok) throw new Error(`Bellingcat ${r.status}`);
       const xml = await r.text();
       function parseBcField(block, tag) {
-        const cdataMatch = block.match(new RegExp(`<${tag}><\\!\\[CDATA\\[([\\s\\S]*?)\\]\\]><\\/${tag}>`));
+        const cdataMatch = block.match(new RegExp(String.raw`<${tag}><\!\[CDATA\[([\s\S]*?)\]\]><\/${tag}>`));
         if (cdataMatch) return cdataMatch[1].trim();
-        return block.match(new RegExp(`<${tag}>([\\s\\S]*?)<\\/${tag}>`))?.[1]?.trim() ?? null;
+        return block.match(new RegExp(String.raw`<${tag}>([\s\S]*?)<\/${tag}>`))?.[1]?.trim() ?? null;
       }
       const items = [];
       for (const m of xml.matchAll(/<item>([\s\S]*?)<\/item>/g)) {
@@ -3940,8 +3936,8 @@ async function dispatch(requestUrl, req, routes, context) {
       }
       setCached('bellingcat', items, 30 * 60 * 1000);
       return json(items);
-    } catch (e) {
-      return json({ error: `bellingcat error: ${e.message ?? e}` }, 502);
+    } catch (error) {
+      return json({ error: `bellingcat error: ${error.message ?? error}` }, 502);
     }
   }
 
@@ -3993,8 +3989,8 @@ async function dispatch(requestUrl, req, routes, context) {
       });
       setCached('emsc-seismic', events, 10 * 60 * 1000);
       return json(events);
-    } catch (e) {
-      return json({ error: `emsc-seismic error: ${e.message ?? e}` }, 502);
+    } catch (error) {
+      return json({ error: `emsc-seismic error: ${error.message ?? error}` }, 502);
     }
   }
 
@@ -4028,8 +4024,8 @@ async function dispatch(requestUrl, req, routes, context) {
       const items = parseTravelWarnings(await r.text(), 'FCDO');
       setCached('fcdo-warnings', items, 60 * 60 * 1000);
       return json(items);
-    } catch (e) {
-      return json({ error: `fcdo-warnings error: ${e.message ?? e}` }, 502);
+    } catch (error) {
+      return json({ error: `fcdo-warnings error: ${error.message ?? error}` }, 502);
     }
   }
 
@@ -4043,8 +4039,8 @@ async function dispatch(requestUrl, req, routes, context) {
       const items = parseTravelWarnings(await r.text(), 'DFAT');
       setCached('dfat-warnings', items, 60 * 60 * 1000);
       return json(items);
-    } catch (e) {
-      return json({ error: `dfat-warnings error: ${e.message ?? e}` }, 502);
+    } catch (error) {
+      return json({ error: `dfat-warnings error: ${error.message ?? error}` }, 502);
     }
   }
 
@@ -4058,8 +4054,8 @@ async function dispatch(requestUrl, req, routes, context) {
       const items = parseTravelWarnings(await r.text(), 'GAC');
       setCached('gac-warnings', items, 60 * 60 * 1000);
       return json(items);
-    } catch (e) {
-      return json({ error: `gac-warnings error: ${e.message ?? e}` }, 502);
+    } catch (error) {
+      return json({ error: `gac-warnings error: ${error.message ?? error}` }, 502);
     }
   }
 
@@ -4107,8 +4103,8 @@ async function dispatch(requestUrl, req, routes, context) {
         .sort((a, b) => b.recentCount - a.recentCount);
       setCached('gov-convergence', convergence, 30 * 60 * 1000);
       return json(convergence);
-    } catch (e) {
-      return json({ error: `gov-convergence error: ${e.message ?? e}` }, 502);
+    } catch (error) {
+      return json({ error: `gov-convergence error: ${error.message ?? error}` }, 502);
     }
   }
 
@@ -4133,8 +4129,8 @@ async function dispatch(requestUrl, req, routes, context) {
       }
       setCached('dod-news', items, 30 * 60 * 1000);
       return json(items);
-    } catch (e) {
-      return json({ error: `dod-news error: ${e.message ?? e}` }, 502);
+    } catch (error) {
+      return json({ error: `dod-news error: ${error.message ?? error}` }, 502);
     }
   }
 
@@ -4159,8 +4155,8 @@ async function dispatch(requestUrl, req, routes, context) {
       }
       setCached('nato-news', items, 30 * 60 * 1000);
       return json(items);
-    } catch (e) {
-      return json({ error: `nato-news error: ${e.message ?? e}` }, 502);
+    } catch (error) {
+      return json({ error: `nato-news error: ${error.message ?? error}` }, 502);
     }
   }
 
@@ -4191,8 +4187,8 @@ async function dispatch(requestUrl, req, routes, context) {
       const sorted = crises.sort((a, b) => (b.severityScore ?? 0) - (a.severityScore ?? 0));
       setCached('acaps-crises', sorted, 4 * 60 * 60 * 1000);
       return json(sorted);
-    } catch (e) {
-      return json({ error: `acaps-crises error: ${e.message ?? e}` }, 502);
+    } catch (error) {
+      return json({ error: `acaps-crises error: ${error.message ?? error}` }, 502);
     }
   }
 
@@ -4219,8 +4215,8 @@ async function dispatch(requestUrl, req, routes, context) {
       }
       setCached('liveuamap', items, 10 * 60 * 1000);
       return json(items);
-    } catch (e) {
-      return json({ error: `liveuamap error: ${e.message ?? e}` }, 502);
+    } catch (error) {
+      return json({ error: `liveuamap error: ${error.message ?? error}` }, 502);
     }
   }
 
@@ -4906,7 +4902,7 @@ async function dispatch(requestUrl, req, routes, context) {
         12_000
       );
       if (res.status === 429) {
-        return new Response(JSON.stringify({ states: null, time: Math.floor(Date.now() / 1000), rateLimited: true }), {
+        return Response.json({ states: null, time: Math.floor(Date.now() / 1000), rateLimited: true }, {
           status: 429, headers: { 'Content-Type': 'application/json' },
         });
       }
@@ -4975,8 +4971,8 @@ async function dispatch(requestUrl, req, routes, context) {
       };
       setCached('fear-greed', result);
       return json(result);
-    } catch (e) {
-      return json({ score: 50, classification: 'Neutral', history: [], updatedAt: Math.floor(Date.now() / 1000), error: e?.message ?? 'unknown' });
+    } catch (error) {
+      return json({ score: 50, classification: 'Neutral', history: [], updatedAt: Math.floor(Date.now() / 1000), error: error?.message ?? 'unknown' });
     }
   }
 
@@ -5004,8 +5000,8 @@ async function dispatch(requestUrl, req, routes, context) {
       const result = { countries, updatedAt: Math.floor(Date.now() / 1000) };
       setCached('national-debt', result);
       return json(result);
-    } catch (e) {
-      return json({ countries: [], updatedAt: Math.floor(Date.now() / 1000), error: e?.message ?? 'unknown' });
+    } catch (error) {
+      return json({ countries: [], updatedAt: Math.floor(Date.now() / 1000), error: error?.message ?? 'unknown' });
     }
   }
 
@@ -5058,8 +5054,8 @@ async function dispatch(requestUrl, req, routes, context) {
       const result = { regions, keyMissing: false, updatedAt: Math.floor(Date.now() / 1000) };
       setCached('fuel-prices', result);
       return json(result);
-    } catch (e) {
-      return json({ regions: [], keyMissing: false, updatedAt: Math.floor(Date.now() / 1000), error: e?.message ?? 'unknown' });
+    } catch (error) {
+      return json({ regions: [], keyMissing: false, updatedAt: Math.floor(Date.now() / 1000), error: error?.message ?? 'unknown' });
     }
   }
 
@@ -5131,7 +5127,7 @@ async function dispatch(requestUrl, req, routes, context) {
         const lines = _tailFile(p, 131072);
         const fields = _zeekFields(lines);
         if (!fields) continue;
-        if (fields.indexOf('ts') === -1) continue;
+        if (!fields.includes('ts')) continue;
         const [tsI, noteI, msgI, srcI, dstI] = ['ts', 'note', 'msg', 'src', 'dst'].map(f => fields.indexOf(f));
         for (const line of lines) {
           if (line.startsWith('#')) continue;
@@ -5167,7 +5163,7 @@ async function dispatch(requestUrl, req, routes, context) {
         const lines = _tailFile(p, 131072);
         const fields = _zeekFields(lines);
         if (!fields) continue;
-        if (fields.indexOf('ts') === -1) continue;
+        if (!fields.includes('ts')) continue;
         const [tsI, origI, origPI, respI, respPI, protoI, stateI, bytesI] =
           ['ts', 'id.orig_h', 'id.orig_p', 'id.resp_h', 'id.resp_p', 'proto', 'conn_state', 'orig_bytes']
             .map(f => fields.indexOf(f));
@@ -5340,8 +5336,8 @@ async function dispatch(requestUrl, req, routes, context) {
       const result = { assets, fetchedAt: new Date().toISOString() };
       setCached(`hifld-${lat.toFixed(2)}-${lon.toFixed(2)}`, result);
       return json(result);
-    } catch (e) {
-      return json({ assets: [], error: String(e) });
+    } catch (error) {
+      return json({ assets: [], error: String(error) });
     }
   }
 
@@ -5379,8 +5375,8 @@ async function dispatch(requestUrl, req, routes, context) {
       }
       setCached('greynoise-scanners', results);
       return json(results);
-    } catch (e) {
-      return json({ error: `greynoise-scanners error: ${e.message ?? e}` }, 502);
+    } catch (error) {
+      return json({ error: `greynoise-scanners error: ${error.message ?? error}` }, 502);
     }
   }
 
@@ -5410,8 +5406,8 @@ async function dispatch(requestUrl, req, routes, context) {
       }));
       setCached('otx-pulses', pulses);
       return json(pulses);
-    } catch (e) {
-      return json({ error: `otx-pulses error: ${e.message ?? e}` }, 502);
+    } catch (error) {
+      return json({ error: `otx-pulses error: ${error.message ?? error}` }, 502);
     }
   }
 
@@ -5440,8 +5436,8 @@ async function dispatch(requestUrl, req, routes, context) {
       }));
       setCached('abuseipdb-reports', entries);
       return json(entries);
-    } catch (e) {
-      return json({ error: `abuseipdb-reports error: ${e.message ?? e}` }, 502);
+    } catch (error) {
+      return json({ error: `abuseipdb-reports error: ${error.message ?? error}` }, 502);
     }
   }
 
@@ -5480,8 +5476,8 @@ async function dispatch(requestUrl, req, routes, context) {
       }));
       setCached('adsb-military', military);
       return json(military);
-    } catch (e) {
-      return json({ error: `adsb-military error: ${e.message ?? e}` }, 502);
+    } catch (error) {
+      return json({ error: `adsb-military error: ${error.message ?? error}` }, 502);
     }
   }
 
@@ -5511,8 +5507,94 @@ async function dispatch(requestUrl, req, routes, context) {
       const result = { totalRelays, exitNodes, byCountry };
       setCached('tor-metrics', result);
       return json(result);
-    } catch (e) {
-      return json({ error: `tor-metrics error: ${e.message ?? e}` }, 502);
+    } catch (error) {
+      return json({ error: `tor-metrics error: ${error.message ?? error}` }, 502);
+    }
+  }
+
+  // ── Power Grid (EIA electricity RTO demand/capacity) ──────────────
+  if (requestUrl.pathname === '/api/power-grid') {
+    const cached = getCached('power-grid', 15 * 60 * 1000);
+    if (cached) return json(cached);
+    try {
+      // EIA Open Data API — Real-Time Operating grid demand by region
+      const eiaUrl = 'https://api.eia.gov/v2/electricity/rto/region-data/data/?frequency=hourly&data[0]=value&facets[type][]=D&facets[type][]=NG&length=200&sort[0][column]=period&sort[0][direction]=desc';
+      const r = await fetchWithTimeout(eiaUrl, { headers: { 'User-Agent': CHROME_UA } }, 15000);
+      if (!r.ok) throw new Error(`EIA HTTP ${r.status}`);
+      const raw = await r.json();
+      const rows = raw?.response?.data ?? [];
+
+      // Group by respondent (region), separate demand (D) and net generation (NG)
+      const regionMap = {};
+      for (const row of rows) {
+        const id = row.respondent ?? 'UNKNOWN';
+        const name = row['respondent-name'] ?? id;
+        if (!regionMap[id]) regionMap[id] = { region: name, demand: 0, capacity: 0 };
+        const val = Number(row.value) || 0;
+        if (row.type === 'D' && val > regionMap[id].demand) {
+          regionMap[id].demand = val;
+        }
+        if (row.type === 'NG' && val > regionMap[id].capacity) {
+          regionMap[id].capacity = val;
+        }
+      }
+
+      // Use net generation as a capacity proxy; if missing, estimate at demand * 1.15
+      const regions = Object.values(regionMap).map(r => ({
+        region: r.region,
+        demand: Math.round(r.demand),
+        capacity: r.capacity > 0 ? Math.round(r.capacity) : Math.round(r.demand * 1.15),
+      })).filter(r => r.demand > 0)
+        .sort((a, b) => b.demand - a.demand);
+
+      const result = { regions, source: 'eia.gov', updatedAt: new Date().toISOString() };
+      setCached('power-grid', result);
+      return json(result);
+    } catch (error) {
+      return json({ regions: [], error: `power-grid error: ${error.message ?? error}` }, 502);
+    }
+  }
+
+  // ── Grid Alerts (NERC public alerts RSS) ────────────────────────
+  if (requestUrl.pathname === '/api/grid-alerts') {
+    const cached = getCached('grid-alerts', 15 * 60 * 1000);
+    if (cached) return json(cached);
+    try {
+      const rssUrl = 'https://www.nerc.com/pa/rrm/bpsa/Pages/Alerts.aspx';
+      // NERC does not have a clean RSS; fall back to EIA system alerts or return empty
+      // Try EIA grid emergency data as a proxy
+      const eiaAlertUrl = 'https://api.eia.gov/v2/electricity/rto/region-data/data/?frequency=hourly&data[0]=value&facets[type][]=D&length=50&sort[0][column]=period&sort[0][direction]=desc';
+      const r = await fetchWithTimeout(eiaAlertUrl, { headers: { 'User-Agent': CHROME_UA } }, 12000);
+      if (!r.ok) throw new Error(`EIA alerts HTTP ${r.status}`);
+      const raw = await r.json();
+      const rows = raw?.response?.data ?? [];
+
+      // Generate alerts for regions where demand exceeds capacity thresholds
+      const alerts = [];
+      const seen = new Set();
+      for (const row of rows) {
+        const id = row.respondent ?? 'UNKNOWN';
+        if (seen.has(id)) continue;
+        seen.add(id);
+        const val = Number(row.value) || 0;
+        const name = row['respondent-name'] ?? id;
+        // Generate synthetic alerts for high-demand periods (>50 GW for large regions)
+        if (val > 50000) {
+          alerts.push({
+            id: `eia-${id}-${row.period}`,
+            severity: val > 70000 ? 'warning' : 'info',
+            title: `High demand: ${Math.round(val).toLocaleString()} MW`,
+            description: `${name} reporting elevated electricity demand`,
+            region: name,
+            timestamp: new Date(row.period).getTime() || Date.now(),
+          });
+        }
+      }
+      const result = { alerts, source: 'eia.gov', updatedAt: new Date().toISOString() };
+      setCached('grid-alerts', result);
+      return json(result);
+    } catch (error) {
+      return json({ alerts: [], error: `grid-alerts error: ${error.message ?? error}` }, 502);
     }
   }
 

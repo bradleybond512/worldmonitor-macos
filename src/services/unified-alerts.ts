@@ -19,7 +19,8 @@ export type AlertSource =
   | 'oref'
   | 'hazard'
   | 'correlation'
-  | 'cyber';
+  | 'cyber'
+  | 'resource';
 
 export type AlertSeverity = 'critical' | 'high' | 'medium' | 'low' | 'info';
 
