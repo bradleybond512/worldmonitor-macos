@@ -111,6 +111,7 @@ import { isLowPowerMode } from '@/services/low-power';
 import type { AirstrikeEvent } from '@/services/airstrikes';
 import type { S2UndergroundEvent } from '@/services/s2-underground';
 import type { TechHubActivity } from '@/services/tech-activity';
+import { getSigintPoints, getSigintClusters, type SigintEvent, type SigintConvergenceCluster } from '@/services/sigint-convergence';
 
 export type TimeRange = '1h' | '6h' | '24h' | '48h' | '7d' | 'all';
 export type DeckMapView = 'global' | 'america' | 'mena' | 'eu' | 'asia' | 'latam' | 'africa' | 'oceania';
@@ -1508,6 +1509,26 @@ export class DeckGLMap {
       if (forecastRegions.length > 0) {
         layers.push(this.createForecastOverlayLayer(forecastRegions));
         layers.push(this.createForecastOverlayLabelLayer(forecastRegions));
+      }
+    }
+
+    // Threat Heatmap — aggregate all geo-tagged events into a density heatmap
+    if (mapLayers.threatHeatmap) {
+      const heatPoints = this.collectThreatHeatmapPoints();
+      if (heatPoints.length > 0) {
+        layers.push(this.createThreatHeatmapLayer(heatPoints));
+      }
+    }
+
+    // SIGINT Convergence — unified GPS jamming + BGP anomaly + cable outage layer
+    if (mapLayers.sigintConvergence) {
+      const sigintPts = getSigintPoints();
+      if (sigintPts.length > 0) {
+        layers.push(this.createSigintPointsLayer(sigintPts));
+      }
+      const sigintClusters = getSigintClusters();
+      if (sigintClusters.length > 0) {
+        layers.push(this.createSigintClusterLayer(sigintClusters));
       }
     }
 
@@ -3889,6 +3910,8 @@ export class DeckGLMap {
         { key: 'dayNight', label: t('components.deckgl.layers.dayNight'), icon: '&#127763;' },
         { key: 'theaterPolygons', label: 'Theater Polygons', icon: '&#127758;' },
         { key: 'convergenceRings', label: 'Convergence Rings', icon: '&#9881;' },
+        { key: 'threatHeatmap', label: 'Threat Heatmap', icon: '&#128293;' },
+        { key: 'sigintConvergence', label: 'SIGINT Layer', icon: '&#128225;' },
         { key: 'displacement', label: 'Displacement Flows', icon: '&#128202;' },
         { key: 'tradeRoutes', label: 'Trade Routes', icon: '&#9875;' },
       ];
@@ -5488,5 +5511,120 @@ export class DeckGLMap {
     });
 
     return [outer, inner];
+  }
+
+  // ── Threat Heatmap ───────────────────────────────────────────────────────
+
+  private collectThreatHeatmapPoints(): { lat: number; lon: number; weight: number }[] {
+    const pts: { lat: number; lon: number; weight: number }[] = [];
+
+    // Earthquakes (location is a GeoCoordinates object)
+    for (const eq of this.earthquakes) {
+      const loc = eq.location;
+      if (loc) pts.push({ lat: loc.latitude, lon: loc.longitude, weight: Math.max(1, eq.magnitude / 2) });
+    }
+    // Conflicts/UCDP events
+    for (const ev of this.ucdpEvents) {
+      if (ev.latitude != null && ev.longitude != null) {
+        pts.push({ lat: ev.latitude, lon: ev.longitude, weight: 2 });
+      }
+    }
+    // Airstrikes
+    for (const a of this.airstrikesData) {
+      if (a.lat != null && a.lon != null) {
+        pts.push({ lat: a.lat, lon: a.lon, weight: 3 });
+      }
+    }
+    // Weather alerts (centroid is [lon, lat])
+    for (const w of this.weatherAlerts) {
+      if (w.centroid?.length === 2) {
+        pts.push({ lat: w.centroid[1], lon: w.centroid[0], weight: 1.5 });
+      }
+    }
+    // Cyber threats
+    for (const ct of this.cyberThreats) {
+      if (ct.lat != null && ct.lon != null) {
+        pts.push({ lat: ct.lat, lon: ct.lon, weight: 2 });
+      }
+    }
+    // Natural events
+    for (const ne of this.naturalEvents) {
+      if (ne.lat != null && ne.lon != null) {
+        pts.push({ lat: ne.lat, lon: ne.lon, weight: 2 });
+      }
+    }
+    // Internet outages
+    for (const o of this.outages) {
+      if (o.lat != null && o.lon != null) {
+        pts.push({ lat: o.lat, lon: o.lon, weight: 1 });
+      }
+    }
+    return pts;
+  }
+
+  private createThreatHeatmapLayer(points: { lat: number; lon: number; weight: number }[]): HeatmapLayer {
+    return new HeatmapLayer({
+      id: 'threat-heatmap-layer',
+      data: points,
+      getPosition: (d: { lat: number; lon: number }) => [d.lon, d.lat],
+      getWeight: (d: { weight: number }) => d.weight,
+      radiusPixels: 50,
+      intensity: 0.8,
+      threshold: 0.1,
+      opacity: 0.5,
+      colorRange: [
+        [30, 80, 200],   // low — blue
+        [60, 180, 120],  // med — green-teal
+        [230, 200, 40],  // elevated — amber
+        [240, 120, 20],  // high — orange
+        [220, 40, 40],   // critical — red
+        [180, 0, 60],    // extreme — deep red
+      ],
+      pickable: false,
+    });
+  }
+
+  // ── SIGINT Layers ────────────────────────────────────────────────────────
+
+  private createSigintPointsLayer(points: SigintEvent[]): ScatterplotLayer<SigintEvent> {
+    const SIGINT_COLORS: Record<string, [number, number, number, number]> = {
+      gps_jamming: [200, 40, 255, 180],   // violet
+      bgp_anomaly: [40, 180, 255, 180],   // cyan
+      cable_outage: [255, 140, 30, 180],   // amber
+    };
+
+    return new ScatterplotLayer<SigintEvent>({
+      id: 'sigint-points-layer',
+      data: points,
+      getPosition: (d) => [d.lon, d.lat],
+      getRadius: 25_000,
+      getFillColor: (d) => SIGINT_COLORS[d.type] ?? [150, 150, 150, 150],
+      radiusUnits: 'meters' as const,
+      radiusMinPixels: 3,
+      radiusMaxPixels: 12,
+      pickable: true,
+      autoHighlight: true,
+    });
+  }
+
+  private createSigintClusterLayer(clusters: SigintConvergenceCluster[]): ScatterplotLayer<SigintConvergenceCluster> {
+    return new ScatterplotLayer<SigintConvergenceCluster>({
+      id: 'sigint-cluster-layer',
+      data: clusters,
+      getPosition: (d) => [d.lon, d.lat],
+      getRadius: (d) => 60_000 + d.score * 1500,
+      getFillColor: (d) => d.color,
+      getLineColor: (d) => {
+        const [r, g, b] = d.color;
+        return [r, g, b, 220] as [number, number, number, number];
+      },
+      stroked: true,
+      filled: true,
+      lineWidthMinPixels: 2,
+      lineWidthMaxPixels: 4,
+      radiusUnits: 'meters' as const,
+      pickable: true,
+      autoHighlight: true,
+    });
   }
 }

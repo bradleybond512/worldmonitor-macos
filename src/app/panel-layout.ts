@@ -125,6 +125,10 @@ import { SupplyChainImpactPanel } from '@/components/SupplyChainImpactPanel';
 import { WaterQualityPanel } from '@/components/WaterQualityPanel';
 import { NuclearMonitorPanel } from '@/components/NuclearMonitorPanel';
 import { NotificationDigestPanel } from '@/components/NotificationDigestPanel';
+import { PatternOfLifePanel } from '@/components/PatternOfLifePanel';
+import { SigintPanel } from '@/components/SigintPanel';
+import { DarkVesselPanel } from '@/components/DarkVesselPanel';
+import { CourseOfActionPanel } from '@/components/CourseOfActionPanel';
 import { EconomicStressPanel } from '@/components/EconomicStressPanel';
 import { FederalRegisterPanel } from '@/components/FederalRegisterPanel';
 import { NuclearRiskPanel } from '@/components/NuclearRiskPanel';
@@ -1083,6 +1087,11 @@ export class PanelLayoutManager implements AppModule {
       this.ctx.panels['water-quality'] = new WaterQualityPanel();
       this.ctx.panels['nuclear-monitor'] = new NuclearMonitorPanel();
       this.ctx.panels['notification-digest'] = new NotificationDigestPanel();
+      // Worldview / Palantir / Dragos-inspired panels
+      this.ctx.panels['pattern-of-life'] = new PatternOfLifePanel();
+      this.ctx.panels['sigint-panel'] = new SigintPanel();
+      this.ctx.panels['dark-vessel'] = new DarkVesselPanel();
+      this.ctx.panels['course-of-action'] = new CourseOfActionPanel();
       this.ctx.panels['stoic-reflections'] = new StoicQuotePanel();
       this.ctx.panels['biblical-encouragement'] = new BiblicalQuotePanel();
       this.ctx.panels['alan-watts-reflections'] = new AlanWattsQuotePanel();

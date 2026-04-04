@@ -162,6 +162,11 @@ const FULL_PANELS: Record<string, PanelConfig> = {
   'water-quality': { name: 'Water Quality', enabled: true, priority: 2 },
   'nuclear-monitor': { name: 'Nuclear Monitor', enabled: true, priority: 2 },
   'notification-digest': { name: 'Notification Digest', enabled: true, priority: 1 },
+  // Worldview / Palantir / Dragos-inspired panels
+  'pattern-of-life': { name: 'Pattern of Life', enabled: true, priority: 2 },
+  'sigint-panel': { name: 'SIGINT Monitor', enabled: true, priority: 2 },
+  'dark-vessel': { name: 'Dark Vessel Watch', enabled: true, priority: 2 },
+  'course-of-action': { name: 'Course of Action', enabled: true, priority: 1 },
 };
 
 const FULL_MAP_LAYERS: MapLayers = {
@@ -223,6 +228,8 @@ const FULL_MAP_LAYERS: MapLayers = {
   forecastOverlay: true,
   theaterPolygons: true,
   convergenceRings: true,
+  threatHeatmap: false,
+  sigintConvergence: true,
 };
 
 const FULL_MOBILE_MAP_LAYERS: MapLayers = {
@@ -284,6 +291,8 @@ const FULL_MOBILE_MAP_LAYERS: MapLayers = {
   forecastOverlay: false,
   theaterPolygons: false,
   convergenceRings: false,
+  threatHeatmap: false,
+  sigintConvergence: false,
 };
 
 // ============================================
@@ -386,6 +395,8 @@ const TECH_MAP_LAYERS: MapLayers = {
   forecastOverlay: false,
   theaterPolygons: false,
   convergenceRings: false,
+  threatHeatmap: false,
+  sigintConvergence: false,
 };
 
 const TECH_MOBILE_MAP_LAYERS: MapLayers = {
@@ -447,6 +458,8 @@ const TECH_MOBILE_MAP_LAYERS: MapLayers = {
   forecastOverlay: false,
   theaterPolygons: false,
   convergenceRings: false,
+  threatHeatmap: false,
+  sigintConvergence: false,
 };
 
 // ============================================
@@ -545,6 +558,8 @@ const FINANCE_MAP_LAYERS: MapLayers = {
   forecastOverlay: false,
   theaterPolygons: false,
   convergenceRings: false,
+  threatHeatmap: false,
+  sigintConvergence: false,
 };
 
 const FINANCE_MOBILE_MAP_LAYERS: MapLayers = {
@@ -606,6 +621,8 @@ const FINANCE_MOBILE_MAP_LAYERS: MapLayers = {
   forecastOverlay: false,
   theaterPolygons: false,
   convergenceRings: false,
+  threatHeatmap: false,
+  sigintConvergence: false,
 };
 
 // ============================================
@@ -683,6 +700,8 @@ const HAPPY_MAP_LAYERS: MapLayers = {
   forecastOverlay: false,
   theaterPolygons: false,
   convergenceRings: false,
+  threatHeatmap: false,
+  sigintConvergence: false,
 };
 
 const HAPPY_MOBILE_MAP_LAYERS: MapLayers = {
@@ -744,6 +763,8 @@ const HAPPY_MOBILE_MAP_LAYERS: MapLayers = {
   forecastOverlay: false,
   theaterPolygons: false,
   convergenceRings: false,
+  threatHeatmap: false,
+  sigintConvergence: false,
 };
 
 // ============================================
@@ -788,7 +809,7 @@ export const PANEL_CATEGORY_MAP: Record<string, { labelKey: string; panelKeys: s
   // Full (geopolitical) variant
   intelligence: {
     labelKey: 'header.panelCatIntelligence',
-    panelKeys: ['watchlist', 'saved-places', 'watchlist-locations', 'local-logistics', 'comms-plan', 'unified-alert-inbox', 'alert-rules', 'situation-awareness', 'alert-center', 'strategic-risk', 'cii', 'geo-hubs', 'intel', 'gdelt-intel', 'cascade', 'telegram-intel', 'intelligence-briefing', 'ask-world-monitor', 'survival-advisor', 'threat-synthesis', 'scenario-simulator', 'escalation-forecast', 'notification-digest'],
+    panelKeys: ['watchlist', 'saved-places', 'watchlist-locations', 'local-logistics', 'comms-plan', 'unified-alert-inbox', 'alert-rules', 'situation-awareness', 'alert-center', 'strategic-risk', 'cii', 'geo-hubs', 'intel', 'gdelt-intel', 'cascade', 'telegram-intel', 'intelligence-briefing', 'ask-world-monitor', 'survival-advisor', 'threat-synthesis', 'scenario-simulator', 'escalation-forecast', 'notification-digest', 'pattern-of-life', 'course-of-action'],
     variants: ['full'],
   },
   regionalNews: {
@@ -808,7 +829,7 @@ export const PANEL_CATEGORY_MAP: Record<string, { labelKey: string; panelKeys: s
   },
   dataTracking: {
     labelKey: 'header.panelCatDataTracking',
-    panelKeys: ['monitors', 'cyber-threats', 'local-ids', 'comms-health', 'power-grid', 'ucdp-events', 'nuclear-risk', 'airstrikes', 'displacement', 'security-advisories', 'oref-sirens', 'space-weather', 'spaceflight-news', 'space-launches', 'population-exposure', 'internet-disruptions', 'air-traffic', 'threat-intel-hub', 'geo-intel', 'dark-web', 'anomaly-detection', 'financial-contagion', 'supply-chain-impact', 'nuclear-monitor'],
+    panelKeys: ['monitors', 'cyber-threats', 'local-ids', 'comms-health', 'power-grid', 'ucdp-events', 'nuclear-risk', 'airstrikes', 'displacement', 'security-advisories', 'oref-sirens', 'space-weather', 'spaceflight-news', 'space-launches', 'population-exposure', 'internet-disruptions', 'air-traffic', 'threat-intel-hub', 'geo-intel', 'dark-web', 'anomaly-detection', 'financial-contagion', 'supply-chain-impact', 'nuclear-monitor', 'sigint-panel', 'dark-vessel'],
     variants: ['full'],
   },
   hazards: {
