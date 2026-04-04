@@ -1479,10 +1479,11 @@
       "regionAsia": "Asia",
       "regionMiddleEast": "Middle East",
       "regionAfrica": "Africa",
+      "regionWeather": "Severe Weather & Disasters",
+      "regionGeopolitics": "Geopolitics & OSINT",
       "invalidHandle": "Enter a valid YouTube handle (e.g. @ChannelName)",
       "channelNotFound": "YouTube channel not found",
-      "verifying": "Verifying…",
-      "regionOsint": "Intelligence & OSINT"
+      "verifying": "Verifying…"
     }
   },
   "popups": {
