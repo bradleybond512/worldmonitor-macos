@@ -591,6 +591,10 @@ export interface MapLayers {
   diseaseIntel: boolean;
   // EMA forecast predictive threat overlay
   forecastOverlay: boolean;
+  // Worldview-style active conflict theater polygons (colored by escalation score)
+  theaterPolygons: boolean;
+  // Multi-domain threat convergence rings (cross-source signal clustering)
+  convergenceRings: boolean;
 }
 
 export interface AIDataCenter {

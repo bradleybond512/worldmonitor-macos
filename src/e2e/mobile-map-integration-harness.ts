@@ -137,6 +137,8 @@ const layers = {
   militaryFlights: false,
   diseaseIntel: false,
   forecastOverlay: false,
+  theaterPolygons: false,
+  convergenceRings: false,
 };
 
 await initI18n();
