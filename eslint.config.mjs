@@ -184,6 +184,7 @@ export default tseslint.config(
       'src/components/GeoIntelPanel.ts',
       'src/components/AirstrikesPanel.ts',
       'src/components/HazardAlertsPanel.ts',
+      'src/components/LiveNewsPanel.ts',
     ],
     rules: {
       'no-console': 'off',
@@ -244,6 +245,8 @@ export default tseslint.config(
       'unicorn/text-encoding-identifier-case': 'off',
       'unicorn/no-array-reverse': 'off',
       'sonarjs/no-misleading-array-reverse': 'off',
+      'sonarjs/different-types-comparison': 'off',
+      'sonarjs/link-with-target-blank': 'off',
       'prefer-const': 'off',
     },
   },

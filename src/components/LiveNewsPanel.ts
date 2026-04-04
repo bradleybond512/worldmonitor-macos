@@ -58,17 +58,24 @@ export interface LiveChannel {
 }
 
 
-// Full variant: World news channels (24/7 live streams)
+// Full variant: World news + situational awareness channels
 const FULL_LIVE_CHANNELS: LiveChannel[] = [
+  // ── OSINT / Situational Awareness ────────────────────────────────────────
   { id: 's2underground', name: 'S2 Underground', handle: '@S2Underground', fallbackVideoId: 'lGyn-vcD7EU', autoPlaylist: true },
-  { id: 'sky', name: 'SkyNews', handle: '@SkyNews', fallbackVideoId: 'uvviIF4725I' },
+  // ── Severe Weather ────────────────────────────────────────────────────────
+  { id: 'ryan-hall', name: 'Ryan Hall Y\'all', handle: '@RyanHallYall', fallbackVideoId: 'PqSaX7sLJY0', autoPlaylist: true },
+  { id: 'weather-nation', name: 'Weather Nation', handle: '@WeatherNation', fallbackVideoId: 'qSxX_hKBGHY' },
+  // ── Global News ───────────────────────────────────────────────────────────
+  { id: 'sky', name: 'Sky News', handle: '@SkyNews', fallbackVideoId: 'uvviIF4725I' },
+  { id: 'aljazeera', name: 'Al Jazeera', handle: '@AlJazeeraEnglish', fallbackVideoId: 'gCNeDWCI0vo', useFallbackOnly: true },
+  { id: 'france24', name: 'France 24', handle: '@France24_en', fallbackVideoId: 'Ap-UM1O9RBU' },
+  { id: 'dw', name: 'DW News', handle: '@DWNews', fallbackVideoId: 'LuKwFajn37U' },
+  { id: 'nhk-world', name: 'NHK World Japan', handle: '@NHKWORLDJAPAN', fallbackVideoId: 'coYw-eVU0Ks' },
   { id: 'euronews', name: 'Euronews', handle: '@euronews', fallbackVideoId: 'pykpO5kQJ98' },
-  { id: 'dw', name: 'DW', handle: '@DWNews', fallbackVideoId: 'LuKwFajn37U' },
-  { id: 'cnbc', name: 'CNBC', handle: '@CNBC', fallbackVideoId: '9NyxcX3rhQs' },
-  { id: 'france24', name: 'France24', handle: '@France24_en', fallbackVideoId: 'Ap-UM1O9RBU' },
-  { id: 'alarabiya', name: 'AlArabiya', handle: '@AlArabiya', fallbackVideoId: 'n7eQejkXbnM', useFallbackOnly: true },
-  { id: 'aljazeera', name: 'AlJazeera', handle: '@AlJazeeraEnglish', fallbackVideoId: 'gCNeDWCI0vo', useFallbackOnly: true },
+  { id: 'alarabiya', name: 'Al Arabiya', handle: '@AlArabiya', fallbackVideoId: 'n7eQejkXbnM', useFallbackOnly: true },
+  // ── Finance / Markets ─────────────────────────────────────────────────────
   { id: 'bloomberg', name: 'Bloomberg', handle: '@markets', fallbackVideoId: 'iEpJwprxDdk' },
+  { id: 'cnbc', name: 'CNBC', handle: '@CNBC', fallbackVideoId: '9NyxcX3rhQs' },
 ];
 
 // Tech variant: Tech & business channels
@@ -81,6 +88,20 @@ const TECH_LIVE_CHANNELS: LiveChannel[] = [
 
 // Optional channels users can add from the "Available Channels" tab UI
 export const OPTIONAL_LIVE_CHANNELS: LiveChannel[] = [
+  // ── Severe Weather / Natural Disasters ───────────────────────────────────
+  { id: 'dutchsinse', name: 'Dutchsinse', handle: '@dutchsinse', autoPlaylist: true },
+  { id: 'tropical-tidbits', name: 'Tropical Tidbits', handle: '@TropicalTidbits', autoPlaylist: true },
+  { id: 'mrmbb333', name: 'MrMBB333', handle: '@MrMBB333', autoPlaylist: true },
+  { id: 'max-velocity', name: 'Max Velocity Weather', handle: '@prior2themax', autoPlaylist: true },
+  { id: 'reed-timmer', name: 'Reed Timmer', handle: '@ReedTimmerAccuWeather', autoPlaylist: true },
+  { id: 'force-thirteen', name: 'Force Thirteen', handle: '@ForceThirteen', autoPlaylist: true },
+  { id: 'storm-chasing', name: 'StormChasingVideo', handle: '@StormChasingVideo', autoPlaylist: true },
+  { id: 'weather-channel', name: 'The Weather Channel', handle: '@weatherchannel', fallbackVideoId: 'oRPVh0FGGro' },
+  // ── Geopolitics / OSINT ──────────────────────────────────────────────────
+  { id: 'caspian-report', name: 'CaspianReport', handle: '@CaspianReport', autoPlaylist: true },
+  { id: 'covert-cabal', name: 'Covert Cabal', handle: '@CovertCabal', autoPlaylist: true },
+  { id: 'peter-zeihan', name: 'Peter Zeihan', handle: '@PeterZeihan', autoPlaylist: true },
+  { id: 'operations-room', name: 'The Operations Room', handle: '@TheOperationsRoom', autoPlaylist: true },
   // North America
   { id: 'livenow-fox', name: 'LiveNOW from FOX', handle: '@LiveNOWfromFOX', fallbackVideoId: 'QaftgYkG-ek' },
   { id: 'fox-news', name: 'Fox News', handle: '@FoxNews', fallbackVideoId: 'QaftgYkG-ek', useFallbackOnly: true },
@@ -139,13 +160,14 @@ export const OPTIONAL_LIVE_CHANNELS: LiveChannel[] = [
 ];
 
 export const OPTIONAL_CHANNEL_REGIONS: { key: string; labelKey: string; channelIds: string[] }[] = [
+  { key: 'weather', labelKey: 'components.liveNews.regionWeather', channelIds: ['dutchsinse', 'tropical-tidbits', 'mrmbb333', 'max-velocity', 'reed-timmer', 'force-thirteen', 'storm-chasing', 'weather-channel'] },
+  { key: 'geopolitics', labelKey: 'components.liveNews.regionGeopolitics', channelIds: ['caspian-report', 'covert-cabal', 'peter-zeihan', 'operations-room', 'recoilmag', 'warzone', 'militarysummary'] },
   { key: 'na', labelKey: 'components.liveNews.regionNorthAmerica', channelIds: ['livenow-fox', 'fox-news', 'newsmax', 'abc-news', 'cbs-news', 'nbc-news', 'cbc-news'] },
   { key: 'eu', labelKey: 'components.liveNews.regionEurope', channelIds: ['bbc-news', 'france24-en', 'welt', 'rtve', 'trt-haber', 'ntv-turkey', 'cnn-turk', 'tv-rain', 'rt', 'tvp-info', 'telewizja-republika'] },
   { key: 'latam', labelKey: 'components.liveNews.regionLatinAmerica', channelIds: ['cnn-brasil', 'jovem-pan', 'record-news', 'band-jornalismo', 'tn-argentina', 'c5n', 'milenio', 'noticias-caracol', 'ntn24', 't13'] },
-  { key: 'asia', labelKey: 'components.liveNews.regionAsia', channelIds: ['tbs-news', 'ann-news', 'ntv-news', 'cti-news', 'wion', 'cna-asia', 'nhk-world'] },
+  { key: 'asia', labelKey: 'components.liveNews.regionAsia', channelIds: ['tbs-news', 'ann-news', 'ntv-news', 'cti-news', 'wion', 'cna-asia'] },
   { key: 'me', labelKey: 'components.liveNews.regionMiddleEast', channelIds: ['al-hadath', 'sky-news-arabia', 'trt-world', 'iran-intl', 'cgtn-arabic'] },
   { key: 'africa', labelKey: 'components.liveNews.regionAfrica', channelIds: ['africanews', 'channels-tv', 'ktn-news', 'enca', 'sabc-news'] },
-  { key: 'osint', labelKey: 'components.liveNews.regionOsint', channelIds: ['recoilmag', 'warzone', 'militarysummary'] },
 ];
 
 const DEFAULT_LIVE_CHANNELS = SITE_VARIANT === 'tech' ? TECH_LIVE_CHANNELS : (SITE_VARIANT === 'happy' ? [] : FULL_LIVE_CHANNELS);
@@ -407,16 +429,14 @@ export class LiveNewsPanel extends Panel {
           this.isMuted = muted;
           this.updateMuteIcon();
         }
-      } else if (msg.type === 'yt-state' && msg.state === 0) {
-        // Video ended — advance to next in playlist (loops back to newest when exhausted)
-        if (this.activeChannel.autoPlaylist && this.playlistVideoIds.length > 0 && !this.activeChannel.isLive) {
+      } else if (msg.type === 'yt-state' && msg.state === 0 && // Video ended — advance to next in playlist (loops back to newest when exhausted)
+        this.activeChannel.autoPlaylist && this.playlistVideoIds.length > 0 && !this.activeChannel.isLive) {
           this.playlistIndex = (this.playlistIndex + 1) % this.playlistVideoIds.length;
           const nextId = this.playlistVideoIds[this.playlistIndex]!;
           this.activeChannel.videoId = nextId;
           this.currentVideoId = null;
           this.postToEmbed({ type: 'loadVideo', videoId: nextId });
         }
-      }
     };
     window.addEventListener('message', this.boundMessageHandler);
   }
@@ -781,8 +801,8 @@ export class LiveNewsPanel extends Panel {
         channel.hlsUrl = undefined;
         return;
       }
-    } catch (err) {
-      console.warn('[LiveNews] Failed to fetch playlist for', channel.handle, err);
+    } catch (error) {
+      console.warn('[LiveNews] Failed to fetch playlist for', channel.handle, error);
     }
     // Fallback: use the static fallback video ID
     this.playlistVideoIds = channel.fallbackVideoId ? [channel.fallbackVideoId] : [];
