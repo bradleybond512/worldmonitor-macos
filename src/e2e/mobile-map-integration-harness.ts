@@ -139,6 +139,8 @@ const layers = {
   forecastOverlay: false,
   theaterPolygons: false,
   convergenceRings: false,
+  threatHeatmap: false,
+  sigintConvergence: false,
 };
 
 await initI18n();
