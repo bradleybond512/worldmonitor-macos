@@ -89,7 +89,8 @@ import {
   setGeoAlertGetter,
 } from '@/services/hotspot-escalation';
 import { getCountryScore } from '@/services/country-instability';
-import { getAlertsNearLocation } from '@/services/geo-convergence';
+import { getAlertsNearLocation, detectGeoConvergence, type GeoConvergenceAlert } from '@/services/geo-convergence';
+import { getTheaterPolygons, getTheaterBorderColor, subscribeTheaterPolygons, type TheaterPolygon } from '@/services/theater-polygons';
 import type { PositiveGeoEvent } from '@/services/positive-events-geo';
 import type { KindnessPoint } from '@/services/kindness-data';
 import type { HappinessData } from '@/services/happiness-data';
@@ -486,6 +487,9 @@ export class DeckGLMap {
   private cablePulsePhase = 0;
   private cachedNightPolygon: [number, number][] | null = null;
   private readonly startupTime = Date.now();
+  private theaterPolygons: TheaterPolygon[] = [];
+  private theaterUnsubscribe: (() => void) | null = null;
+  private convergenceSeenAlerts = new Set<string>();
   private lastCableHighlightSignature = '';
   private lastCableHealthSignature = '';
   private lastPipelineHighlightSignature = '';
@@ -554,6 +558,11 @@ export class DeckGLMap {
     if (this.state.layers.dayNight) {
       this.startDayNightTimer();
     }
+
+    // Subscribe to theater polygon updates (driven by escalation forecast)
+    if (this.state.layers.theaterPolygons) {
+      this.startTheaterPolygons();
+    }
   }
 
   private startDayNightTimer(): void {
@@ -571,6 +580,23 @@ export class DeckGLMap {
       this.dayNightIntervalId = null;
     }
     this.cachedNightPolygon = null;
+  }
+
+  private startTheaterPolygons(): void {
+    if (this.theaterUnsubscribe) return;
+    this.theaterUnsubscribe = subscribeTheaterPolygons(() => {
+      this.theaterPolygons = getTheaterPolygons();
+      this.render();
+    });
+    this.theaterPolygons = getTheaterPolygons();
+  }
+
+  private stopTheaterPolygons(): void {
+    if (this.theaterUnsubscribe) {
+      this.theaterUnsubscribe();
+      this.theaterUnsubscribe = null;
+    }
+    this.theaterPolygons = [];
   }
 
   private setupDOM(): void {
@@ -1155,6 +1181,16 @@ export class DeckGLMap {
       this.layerCache.delete('day-night-layer');
     }
 
+    // Theater polygon overlays — Worldview-style active conflict theaters colored by escalation score
+    if (mapLayers.theaterPolygons) {
+      if (!this.theaterUnsubscribe) this.startTheaterPolygons();
+      if (this.theaterPolygons.length > 0) {
+        layers.push(...this.createTheaterPolygonsLayers());
+      }
+    } else {
+      this.stopTheaterPolygons();
+    }
+
     // Undersea cables layer
     if (mapLayers.cables) {
       layers.push(this.createCablesLayer());
@@ -1456,6 +1492,14 @@ export class DeckGLMap {
     // Phase 8: Renewable energy installations
     if (mapLayers.renewableInstallations && this.renewableInstallations.length > 0) {
       layers.push(this.createRenewableInstallationsLayer());
+    }
+
+    // Multi-domain threat convergence rings
+    if (mapLayers.convergenceRings) {
+      const convergenceAlerts = detectGeoConvergence(this.convergenceSeenAlerts);
+      if (convergenceAlerts.length > 0) {
+        layers.push(...this.createConvergenceRingsLayers(convergenceAlerts));
+      }
     }
 
     // EMA forecast predictive threat overlay
@@ -3843,6 +3887,10 @@ export class DeckGLMap {
         { key: 'gpsJamming', label: t('components.deckgl.layers.gpsJamming'), icon: '&#128225;' },
         { key: 'forecastOverlay', label: 'Forecast Overlay', icon: '&#9888;' },
         { key: 'dayNight', label: t('components.deckgl.layers.dayNight'), icon: '&#127763;' },
+        { key: 'theaterPolygons', label: 'Theater Polygons', icon: '&#127758;' },
+        { key: 'convergenceRings', label: 'Convergence Rings', icon: '&#9881;' },
+        { key: 'displacement', label: 'Displacement Flows', icon: '&#128202;' },
+        { key: 'tradeRoutes', label: 'Trade Routes', icon: '&#9875;' },
       ];
 
     const bm = this.activeBaseMap;
@@ -4166,6 +4214,7 @@ export class DeckGLMap {
     this.syncPulseAnimation();
     if (this.state.layers.dayNight) this.startDayNightTimer();
     if (this.state.layers.cables) this.startCablePulse();
+    if (this.state.layers.theaterPolygons) this.startTheaterPolygons();
     if (!paused && this.renderPending) {
       this.renderPending = false;
       this.render();
@@ -5338,6 +5387,7 @@ export class DeckGLMap {
     this.stopPulseAnimation();
     this.stopCablePulse();
     this.stopDayNightTimer();
+    this.stopTheaterPolygons();
 
     if (this.resizeObserver) {
       this.resizeObserver.disconnect();
@@ -5352,5 +5402,91 @@ export class DeckGLMap {
     this.maplibreMap = null;
 
     this.container.innerHTML = '';
+  }
+
+  // ── Worldview-style layer creators ────────────────────────────────────────
+
+  private createTheaterPolygonsLayers(): (PolygonLayer | TextLayer<TheaterPolygon>)[] {
+    const isLight = getCurrentTheme() === 'light';
+    const fill = new PolygonLayer<TheaterPolygon>({
+      id: 'theater-polygons-fill',
+      data: this.theaterPolygons,
+      getPolygon: (d) => d.polygon,
+      getFillColor: (d) => d.color,
+      getLineColor: (d) => getTheaterBorderColor(d),
+      filled: true,
+      stroked: true,
+      getLineWidth: 2,
+      lineWidthUnits: 'pixels' as const,
+      pickable: true,
+      autoHighlight: true,
+      highlightColor: isLight ? [255, 200, 50, 60] : [255, 200, 80, 50],
+    });
+
+    const labels = new TextLayer<TheaterPolygon>({
+      id: 'theater-polygons-labels',
+      data: this.theaterPolygons.filter(t => t.score >= 40),
+      getPosition: (d) => {
+        // Centroid of polygon bounding box
+        const lons = d.polygon.map(p => p[0]);
+        const lats = d.polygon.map(p => p[1]);
+        const cLon = (Math.min(...lons) + Math.max(...lons)) / 2;
+        const cLat = (Math.min(...lats) + Math.max(...lats)) / 2;
+        return [cLon, cLat];
+      },
+      getText: (d) => `${d.name}\n${d.score}`,
+      getSize: 11,
+      getColor: isLight ? [30, 30, 30, 200] : [240, 240, 240, 200],
+      fontWeight: 'bold',
+      background: true,
+      getBackgroundColor: isLight ? [255, 255, 255, 140] : [20, 20, 30, 160],
+      backgroundPadding: [4, 2, 4, 2],
+      pickable: false,
+    });
+
+    return [fill, labels];
+  }
+
+  private createConvergenceRingsLayers(alerts: GeoConvergenceAlert[]): ScatterplotLayer<GeoConvergenceAlert>[] {
+    // Outer glow ring
+    const outer = new ScatterplotLayer<GeoConvergenceAlert>({
+      id: 'convergence-rings-outer',
+      data: alerts,
+      getPosition: (d) => [d.lon, d.lat],
+      getRadius: (d) => 80_000 + d.score * 1200,
+      getFillColor: (d) => {
+        const intensity = Math.round((d.score / 100) * 180);
+        return [220, intensity > 100 ? 50 : 120, 40, 35];
+      },
+      getLineColor: (d) => {
+        if (d.score >= 80) return [255, 50, 50, 200];
+        if (d.score >= 60) return [255, 140, 40, 180];
+        return [220, 180, 40, 150];
+      },
+      stroked: true,
+      filled: true,
+      lineWidthMinPixels: 2,
+      getLineWidth: 3000,
+      radiusUnits: 'meters' as const,
+      pickable: false,
+    });
+
+    // Inner core dot
+    const inner = new ScatterplotLayer<GeoConvergenceAlert>({
+      id: 'convergence-rings-inner',
+      data: alerts,
+      getPosition: (d) => [d.lon, d.lat],
+      getRadius: 18_000,
+      getFillColor: (d) => {
+        if (d.score >= 80) return [255, 60, 60, 220];
+        if (d.score >= 60) return [255, 140, 40, 200];
+        return [220, 200, 50, 180];
+      },
+      radiusUnits: 'meters' as const,
+      pickable: true,
+      autoHighlight: true,
+    });
+
+    return [outer, inner];
   }
 }
