@@ -259,6 +259,8 @@ export const DEFAULT_MAP_LAYERS: MapLayers = {
   forecastOverlay: false,
   theaterPolygons: false,
   convergenceRings: false,
+  threatHeatmap: false,
+  sigintConvergence: false,
 };
 
 // Mobile defaults for tech variant
@@ -320,6 +322,8 @@ export const MOBILE_DEFAULT_MAP_LAYERS: MapLayers = {
   forecastOverlay: false,
   theaterPolygons: false,
   convergenceRings: false,
+  threatHeatmap: false,
+  sigintConvergence: false,
 };
 
 export const VARIANT_CONFIG: VariantConfig = {

@@ -104,3 +104,9 @@ export { WaterQualityPanel } from './WaterQualityPanel';
 export { NuclearMonitorPanel } from './NuclearMonitorPanel';
 export { NotificationDigestPanel } from './NotificationDigestPanel';
 
+// Worldview / Palantir / Dragos-inspired panels
+export { PatternOfLifePanel } from './PatternOfLifePanel';
+export { SigintPanel } from './SigintPanel';
+export { DarkVesselPanel } from './DarkVesselPanel';
+export { CourseOfActionPanel } from './CourseOfActionPanel';
+

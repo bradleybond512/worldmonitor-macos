@@ -595,6 +595,10 @@ export interface MapLayers {
   theaterPolygons: boolean;
   // Multi-domain threat convergence rings (cross-source signal clustering)
   convergenceRings: boolean;
+  // Aggregated threat density heatmap across all event sources
+  threatHeatmap: boolean;
+  // Unified SIGINT layer (GPS jamming + BGP anomalies + cable outages)
+  sigintConvergence: boolean;
 }
 
 export interface AIDataCenter {
