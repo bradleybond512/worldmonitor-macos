@@ -205,6 +205,19 @@ import { fetchPositiveGeoEvents, geocodePositiveNewsItems } from '@/services/pos
 import { fetchKindnessData } from '@/services/kindness-data';
 import { getPersistentCache, setPersistentCache } from '@/services/persistent-cache';
 import { withOfflineCache, registerCriticalSources } from '@/services/offline-alert-cache';
+import {
+  ingestCyberToIoc, ingestCisaKevToIoc,
+  ingestAisToDarkVessel, ingestMilVesselsToDarkVessel,
+  checkGeofenceEarthquakes, checkGeofenceProtests, checkGeofenceCyber, checkGeofenceAirstrikes, checkGeofenceMilitary,
+  ingestGpsToSigint, ingestCableToSigint, ingestOutagesToSigint,
+  ingestEarthquakesToPoL, ingestProtestsToPoL, ingestCyberToPoL, rollPoLBaseline,
+  ingestCyberToKillChain,
+  ingestCyberToConvergence, ingestOutagesToConvergence, ingestAirstrikesToConvergence,
+  ingestMilFlightsToOrbat, ingestMilVesselsToOrbat,
+  ingestOutagesToTopology, ingestCableToTopology,
+  ingestCisaToIcsOt,
+  initModeTracking,
+} from '@/services/intel-pipeline';
 import { fetchNewsApiHeadlines } from '@/services/newsapi';
 import { fetchNewsDataFeed } from '@/services/newsdata';
 import type { ThreatLevel as ClientThreatLevel } from '@/services/threat-classifier';
@@ -338,6 +351,9 @@ export class DataLoaderManager implements AppModule {
   init(): void {
     // Pre-register critical data sources for offline cache status tracking
     registerCriticalSources();
+
+    // Wire AAR auto-creation on mode transitions
+    initModeTracking();
 
     // Bridge breaking-news events into the unified alert store
     document.addEventListener('wm:breaking-news', (e: Event) => {
@@ -1220,6 +1236,8 @@ export class DataLoaderManager implements AppModule {
       this.ctx.intelligenceCache.earthquakes = earthquakeResult.value;
       this.ctx.map?.setEarthquakes(earthquakeResult.value);
       ingestEarthquakes(earthquakeResult.value);
+      checkGeofenceEarthquakes(earthquakeResult.value);
+      ingestEarthquakesToPoL(earthquakeResult.value);
       (this.ctx.panels.earthquakes as EarthquakesPanel)?.update(earthquakeResult.value);
       this.ctx.statusPanel?.updateApi('USGS', { status: 'ok' });
       dataFreshness.recordUpdate('usgs', earthquakeResult.value.length);
@@ -1344,6 +1362,9 @@ export class DataLoaderManager implements AppModule {
         this.ctx.intelligenceCache.outages = outages;
         ingestOutagesForCII(outages);
         signalAggregator.ingestOutages(outages);
+        ingestOutagesToSigint(outages);
+        ingestOutagesToConvergence(outages);
+        ingestOutagesToTopology(outages);
         dataFreshness.recordUpdate('outages', outages.length);
         if (this.ctx.mapLayers.outages) {
           this.ctx.map?.setOutages(outages);
@@ -1363,6 +1384,8 @@ export class DataLoaderManager implements AppModule {
         ingestProtests(protestData.events);
         ingestProtestsForCII(protestData.events);
         signalAggregator.ingestProtests(protestData.events);
+        checkGeofenceProtests(protestData.events);
+        ingestProtestsToPoL(protestData.events);
         const protestCount = protestData.sources.acled + protestData.sources.gdelt;
         if (protestCount > 0) dataFreshness.recordUpdate('acled', protestCount);
         if (protestData.sources.gdelt > 0) dataFreshness.recordUpdate('gdelt', protestData.sources.gdelt);
@@ -1444,6 +1467,10 @@ export class DataLoaderManager implements AppModule {
         ingestMilitaryForCII(flightData.flights, vesselData.vessels);
         signalAggregator.ingestFlights(flightData.flights);
         signalAggregator.ingestVessels(vesselData.vessels);
+        ingestMilFlightsToOrbat(flightData.flights);
+        ingestMilVesselsToOrbat(vesselData.vessels);
+        ingestMilVesselsToDarkVessel(vesselData.vessels);
+        checkGeofenceMilitary(flightData.flights);
         dataFreshness.recordUpdate('opensky', flightData.flights.length);
         updateAndCheck([
           { type: 'military_flights', region: 'global', count: flightData.flights.length },
@@ -1526,6 +1553,8 @@ export class DataLoaderManager implements AppModule {
         if (this.ctx.mapLayers.airstrikes) {
           this.ctx.map?.setAirstrikes(events);
         }
+        checkGeofenceAirstrikes(events);
+        ingestAirstrikesToConvergence(events);
         if (events.length > 0) dataFreshness.recordUpdate('acled_airstrikes', events.length);
       } catch (error) {
         console.error('[Intelligence] Airstrikes fetch failed:', error);
@@ -1625,6 +1654,7 @@ export class DataLoaderManager implements AppModule {
           return;
         }
         ingestGpsJammingForCII(data.hexes);
+        ingestGpsToSigint(data.hexes);
         if (this.ctx.mapLayers.gpsJamming) {
           this.ctx.map?.setGpsJamming(data.hexes);
           this.ctx.map?.setLayerReady('gpsJamming', data.hexes.length > 0);
@@ -1663,6 +1693,7 @@ export class DataLoaderManager implements AppModule {
     }
 
     (this.ctx.panels.cii as CIIPanel)?.refresh();
+    rollPoLBaseline();
     console.log('[Intelligence] All signals loaded for CII calculation');
   }
 
@@ -1722,6 +1753,13 @@ export class DataLoaderManager implements AppModule {
       this.ctx.map?.setCyberThreats(allThreats);
       this.ctx.map?.setLayerReady('cyberThreats', allThreats.length > 0);
       ingestCyberThreatsForCII(allThreats);
+      ingestCyberToIoc(allThreats);
+      ingestCisaKevToIoc(allThreats);
+      ingestCyberToKillChain(allThreats);
+      checkGeofenceCyber(allThreats);
+      ingestCyberToPoL(allThreats);
+      ingestCyberToConvergence(allThreats);
+      ingestCisaToIcsOt(allThreats);
       (this.ctx.panels.cii as CIIPanel)?.refresh();
       (this.ctx.panels['cyber-threats'] as CyberThreatPanel)?.update(allThreats);
       this.ctx.statusPanel?.updateFeed('Cyber Threats', { status: 'ok', itemCount: allThreats.length });
@@ -2213,6 +2251,7 @@ export class DataLoaderManager implements AppModule {
       this.ctx.map?.setAisData(disruptions, density);
       signalAggregator.ingestAisDisruptions(disruptions);
       ingestAisDisruptionsForCII(disruptions);
+      ingestAisToDarkVessel(disruptions);
       (this.ctx.panels.cii as CIIPanel)?.refresh();
       updateAndCheck([
         { type: 'ais_gaps', region: 'global', count: disruptions.length },
@@ -2294,6 +2333,8 @@ export class DataLoaderManager implements AppModule {
     try {
       const healthData = await fetchCableHealth();
       this.ctx.map?.setCableHealth(healthData.cables);
+      ingestCableToSigint(healthData.cables);
+      ingestCableToTopology(healthData.cables);
       const cableIds = Object.keys(healthData.cables);
       const faultCount = cableIds.filter((id) => healthData.cables[id]?.status === 'fault').length;
       const degradedCount = cableIds.filter((id) => healthData.cables[id]?.status === 'degraded').length;

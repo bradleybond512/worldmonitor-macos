@@ -211,6 +211,7 @@ export default tseslint.config(
       'src/services/custom-geofence.ts',
       'src/services/network-topology.ts',
       'src/services/stix-taxii.ts',
+      'src/services/intel-pipeline.ts',
     ],
     rules: {
       'no-console': 'off',
