@@ -192,7 +192,7 @@ const FULL_MAP_LAYERS: MapLayers = {
   // Data source layers
   ucdpEvents: true,
   airstrikes: true,
-  displacement: false,
+  displacement: true,
   climate: false,
   // Tech layers (disabled in full variant)
   startupHubs: false,
@@ -212,15 +212,17 @@ const FULL_MAP_LAYERS: MapLayers = {
   happiness: false,
   speciesRecovery: false,
   renewableInstallations: false,
-  tradeRoutes: false,
+  tradeRoutes: true,
   s2pimu: false,
-  dayNight: false,
+  dayNight: true,
   faaWeatherCams: true,
   adsb: false,
   acledEvents: false,
   militaryFlights: false,
   diseaseIntel: false,
   forecastOverlay: true,
+  theaterPolygons: true,
+  convergenceRings: true,
 };
 
 const FULL_MOBILE_MAP_LAYERS: MapLayers = {
@@ -280,6 +282,8 @@ const FULL_MOBILE_MAP_LAYERS: MapLayers = {
   militaryFlights: false,
   diseaseIntel: false,
   forecastOverlay: false,
+  theaterPolygons: false,
+  convergenceRings: false,
 };
 
 // ============================================
@@ -380,6 +384,8 @@ const TECH_MAP_LAYERS: MapLayers = {
   militaryFlights: false,
   diseaseIntel: false,
   forecastOverlay: false,
+  theaterPolygons: false,
+  convergenceRings: false,
 };
 
 const TECH_MOBILE_MAP_LAYERS: MapLayers = {
@@ -439,6 +445,8 @@ const TECH_MOBILE_MAP_LAYERS: MapLayers = {
   militaryFlights: false,
   diseaseIntel: false,
   forecastOverlay: false,
+  theaterPolygons: false,
+  convergenceRings: false,
 };
 
 // ============================================
@@ -535,6 +543,8 @@ const FINANCE_MAP_LAYERS: MapLayers = {
   militaryFlights: false,
   diseaseIntel: false,
   forecastOverlay: false,
+  theaterPolygons: false,
+  convergenceRings: false,
 };
 
 const FINANCE_MOBILE_MAP_LAYERS: MapLayers = {
@@ -594,6 +604,8 @@ const FINANCE_MOBILE_MAP_LAYERS: MapLayers = {
   militaryFlights: false,
   diseaseIntel: false,
   forecastOverlay: false,
+  theaterPolygons: false,
+  convergenceRings: false,
 };
 
 // ============================================
@@ -669,6 +681,8 @@ const HAPPY_MAP_LAYERS: MapLayers = {
   militaryFlights: false,
   diseaseIntel: false,
   forecastOverlay: false,
+  theaterPolygons: false,
+  convergenceRings: false,
 };
 
 const HAPPY_MOBILE_MAP_LAYERS: MapLayers = {
@@ -728,6 +742,8 @@ const HAPPY_MOBILE_MAP_LAYERS: MapLayers = {
   militaryFlights: false,
   diseaseIntel: false,
   forecastOverlay: false,
+  theaterPolygons: false,
+  convergenceRings: false,
 };
 
 // ============================================

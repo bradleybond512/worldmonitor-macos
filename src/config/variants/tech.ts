@@ -257,6 +257,8 @@ export const DEFAULT_MAP_LAYERS: MapLayers = {
   militaryFlights: false,
   diseaseIntel: false,
   forecastOverlay: false,
+  theaterPolygons: false,
+  convergenceRings: false,
 };
 
 // Mobile defaults for tech variant
@@ -316,6 +318,8 @@ export const MOBILE_DEFAULT_MAP_LAYERS: MapLayers = {
   militaryFlights: false,
   diseaseIntel: false,
   forecastOverlay: false,
+  theaterPolygons: false,
+  convergenceRings: false,
 };
 
 export const VARIANT_CONFIG: VariantConfig = {
