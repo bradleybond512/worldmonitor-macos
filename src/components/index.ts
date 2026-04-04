@@ -109,4 +109,11 @@ export { PatternOfLifePanel } from './PatternOfLifePanel';
 export { SigintPanel } from './SigintPanel';
 export { DarkVesselPanel } from './DarkVesselPanel';
 export { CourseOfActionPanel } from './CourseOfActionPanel';
-
+export { KillChainPanel } from './KillChainPanel';
+export { IcsOtDashboardPanel } from './IcsOtDashboardPanel';
+export { IocManagerPanel } from './IocManagerPanel';
+export { OrbatPanel } from './OrbatPanel';
+export { AarPanel } from './AarPanel';
+export { NetworkTopologyPanel } from './NetworkTopologyPanel';
+export { GeofencePanel } from './GeofencePanel';
+export { StixTaxiiPanel } from './StixTaxiiPanel';
