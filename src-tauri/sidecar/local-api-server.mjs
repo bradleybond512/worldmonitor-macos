@@ -5598,6 +5598,60 @@ async function dispatch(requestUrl, req, routes, context) {
     }
   }
 
+  // ── Water Quality: USGS Instantaneous Values proxy ──
+  if (requestUrl.pathname === '/api/usgs-water-proxy') {
+    const qs = requestUrl.search || '?parameterCd=00300,00010&siteStatus=active&period=P1D&siteType=ST';
+    const cacheKey = `usgs-water${qs}`;
+    const cached = getCached(cacheKey, 30 * 60 * 1000);
+    if (cached) return json(cached);
+    try {
+      const usgsUrl = `https://waterservices.usgs.gov/nwis/iv/${qs}&format=json`;
+      const r = await fetchWithTimeout(usgsUrl, { headers: { 'User-Agent': CHROME_UA } }, 15000);
+      if (!r.ok) throw new Error(`USGS HTTP ${r.status}`);
+      const data = await r.json();
+      setCached(cacheKey, data);
+      return json(data);
+    } catch (error) {
+      return json({ error: `usgs-water error: ${error.message ?? error}` }, 502);
+    }
+  }
+
+  // ── Water Quality: EPA SDWIS proxy ──
+  if (requestUrl.pathname === '/api/epa-sdwis-proxy') {
+    const qs = requestUrl.search || '?type=violations&is_health_based=Y&compliance_period=current';
+    const cacheKey = `epa-sdwis${qs}`;
+    const cached = getCached(cacheKey, 60 * 60 * 1000);
+    if (cached) return json(cached);
+    try {
+      const sdwisUrl = `https://data.epa.gov/efservice/VIOLATION/JSON${qs}`;
+      const r = await fetchWithTimeout(sdwisUrl, { headers: { 'User-Agent': CHROME_UA } }, 15000);
+      if (!r.ok) throw new Error(`EPA SDWIS HTTP ${r.status}`);
+      const raw = await r.json();
+      const result = { violations: Array.isArray(raw) ? raw.slice(0, 200) : [], source: 'epa.gov/sdwis', updatedAt: new Date().toISOString() };
+      setCached(cacheKey, result);
+      return json(result);
+    } catch (error) {
+      return json({ violations: [], error: `epa-sdwis error: ${error.message ?? error}` }, 502);
+    }
+  }
+
+  // ── Nuclear Monitor: EPA RadNet proxy ──
+  if (requestUrl.pathname === '/api/epa-radnet-proxy') {
+    const cached = getCached('epa-radnet', 30 * 60 * 1000);
+    if (cached) return json(cached);
+    try {
+      const radnetUrl = 'https://www.epa.gov/enviro/api/radnet/data?media=Air&analyte_group=Gross';
+      const r = await fetchWithTimeout(radnetUrl, { headers: { 'User-Agent': CHROME_UA } }, 15000);
+      if (!r.ok) throw new Error(`RadNet HTTP ${r.status}`);
+      const data = await r.json();
+      const result = { stations: Array.isArray(data) ? data.slice(0, 500) : data, source: 'epa.gov/radnet', updatedAt: new Date().toISOString() };
+      setCached('epa-radnet', result);
+      return json(result);
+    } catch (error) {
+      return json({ stations: [], error: `epa-radnet error: ${error.message ?? error}` }, 502);
+    }
+  }
+
   if (context.cloudFallback && cloudPreferred.has(requestUrl.pathname)) {
     const cloudResponse = await tryCloudFallback(requestUrl, req, context);
     if (cloudResponse) return cloudResponse;

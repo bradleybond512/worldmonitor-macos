@@ -1,6 +1,7 @@
 import { Panel } from './Panel';
 import { escapeHtml } from '@/utils/sanitize';
 import { isFeatureAvailable } from '@/services/runtime-config';
+import { showApiKeyGate } from '@/components/api-key-gate';
 import type { AcledEvent, AdsbMilitaryFlight } from '@/services/osint/geo-intel';
 
 const SECTION_HEADING_STYLE = 'font-size:11px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.05em;margin:10px 0 6px;';
@@ -30,6 +31,12 @@ export class GeoIntelPanel extends Panel {
 
   public update(data: { acled: AcledEvent[]; military: AdsbMilitaryFlight[] }): void {
     const { acled, military } = data;
+
+    // If ACLED not configured and no data, show key gate
+    if (!isFeatureAvailable('acledConflicts') && acled.length === 0) {
+      showApiKeyGate(this, 'ACLED_ACCESS_TOKEN', () => { window.location.reload(); });
+      return;
+    }
 
     this.setCount(acled.length + military.length);
 

@@ -139,7 +139,7 @@ export class EconomicPanel extends Panel {
   private renderIndicators(): string {
     if (this.fredData.length === 0) {
       if (isDesktopRuntime() && !isFeatureAvailable('economicFred')) {
-        return `<div class="economic-empty">${t('components.economic.fredKeyMissing')}</div>`;
+        return '';
       }
       return `<div class="economic-empty">${t('components.economic.noIndicatorData')}</div>`;
     }

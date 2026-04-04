@@ -1,12 +1,26 @@
 import { Panel } from './Panel';
 import { escapeHtml } from '@/utils/sanitize';
-import { isFeatureAvailable } from '@/services/runtime-config';
+import { isFeatureAvailable, setSecretValue } from '@/services/runtime-config';
+import type { RuntimeSecretKey } from '@/services/runtime-config';
 import type { GreyNoiseResult, OtxPulse, AbuseIpEntry, UrlscanResult } from '@/services/osint/threat-intel';
+import { HUMAN_LABELS, SIGNUP_URLS } from '@/services/settings-constants';
 
 const SECTION_HEADING_STYLE = 'font-size:11px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.05em;margin:10px 0 6px;';
 
-function sectionError(label: string, keyName: string): string {
-  return `<div style="padding:8px;font-size:11px;color:var(--text-muted);border:1px dashed var(--border-subtle);border-radius:4px;margin-bottom:8px;">${escapeHtml(label)}: configure ${escapeHtml(keyName)} in Settings → API Keys</div>`;
+function sectionError(_label: string, keyName: string): string {
+  const humanLabel = HUMAN_LABELS[keyName as RuntimeSecretKey] ?? keyName;
+  const signupUrl = SIGNUP_URLS[keyName as RuntimeSecretKey];
+  const signupLink = signupUrl ? ` <a href="${escapeHtml(signupUrl)}" target="_blank" rel="noopener" style="color:var(--accent-color);text-decoration:underline;">Get key</a>` : '';
+  const inputId = `threat-hub-key-${keyName}`;
+  return `<div style="padding:8px;font-size:11px;border:1px dashed var(--border-subtle);border-radius:4px;margin-bottom:8px;">
+    <div style="color:var(--text-muted);margin-bottom:6px;">${escapeHtml(humanLabel)} required${signupLink}</div>
+    <div style="display:flex;gap:4px;align-items:center;">
+      <input id="${inputId}" type="password" placeholder="Paste ${escapeHtml(keyName)}" autocomplete="off" spellcheck="false"
+        style="flex:1;background:var(--bg-secondary);color:var(--text-primary);border:1px solid var(--border-color);border-radius:4px;padding:4px 6px;font-size:11px;" />
+      <button data-key="${escapeHtml(keyName)}" data-input="${inputId}"
+        style="background:var(--accent-color);color:#fff;border:none;border-radius:4px;padding:4px 10px;font-size:11px;cursor:pointer;">Save</button>
+    </div>
+  </div>`;
 }
 
 export class ThreatIntelHubPanel extends Panel {
@@ -32,6 +46,24 @@ export class ThreatIntelHubPanel extends Panel {
       ${this.renderAbuseIp(abuseIp)}
       ${this.renderUrlscan(urlscan)}
     </div>`);
+
+    // Wire up inline key-save buttons
+    this.getContentElement().querySelectorAll('button[data-key]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const button = btn as HTMLButtonElement;
+        const keyName = button.dataset.key as RuntimeSecretKey;
+        const inputId = button.dataset.input ?? '';
+        const input = document.getElementById(inputId) as HTMLInputElement | null;
+        const value = input?.value.trim();
+        if (!value) return;
+        button.disabled = true;
+        button.textContent = 'Saving\u2026';
+        void setSecretValue(keyName, value).then(() => { window.location.reload(); }).catch(() => {
+          button.disabled = false;
+          button.textContent = 'Save';
+        });
+      });
+    });
   }
 
   private renderGreyNoise(results: GreyNoiseResult[]): string {

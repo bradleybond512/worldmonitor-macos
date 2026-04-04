@@ -4,6 +4,7 @@ import type { EconomicStressData } from '@/services/economic-stress';
 import type { WsbSnapshot } from '@/services/wsb-sentiment';
 import { tryInvokeTauri } from '@/services/tauri-bridge';
 import { isGhostMode } from '@/services/mode-manager';
+import { showApiKeyGate } from '@/components/api-key-gate';
 
 export class EconomicStressPanel extends Panel {
   private _previousStressIndex = 0;
@@ -93,8 +94,7 @@ export class EconomicStressPanel extends Panel {
   }
 
   private _renderKeyRequired(): void {
-    const el = this.getContentElement();
-    el.innerHTML = `<div style="padding:1rem;">${renderStatusCard({ label: 'Economic Stress', value: 'FRED API key required', severity: 'unknown', wide: true, sublabel: 'Add FRED_API_KEY in Settings → API Keys' })}</div>`;
+    showApiKeyGate(this, 'FRED_API_KEY', () => { window.location.reload(); });
   }
 
   private _renderError(): void {

@@ -11,6 +11,7 @@ import { escapeHtml } from '@/utils/sanitize';
 import { h, safeHtml, replaceChildren } from '@/utils/dom-utils';
 import { t } from '@/services/i18n';
 import { isFeatureAvailable } from '@/services/runtime-config';
+import { showApiKeyGate } from '@/components/api-key-gate';
 import {
   runClaudeAgent,
   toolLabel,
@@ -54,12 +55,7 @@ export class ClaudeAgentPanel extends Panel {
   /** Build the static chrome (input form + presets) once */
   private buildUI(): void {
     if (!isFeatureAvailable('aiClaude')) {
-      this.setContent(
-        `<div class="agent-unavailable">
-          <p>Claude AI is not configured.</p>
-          <p>Set <code>ANTHROPIC_API_KEY</code> in Settings to enable the Intelligence Agent.</p>
-        </div>`,
-      );
+      showApiKeyGate(this, 'ANTHROPIC_API_KEY', () => { this.buildUI(); });
       return;
     }
 
