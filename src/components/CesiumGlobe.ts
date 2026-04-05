@@ -51,7 +51,6 @@ export class CesiumGlobe {
           alpha: true,
           antialias: false,
           powerPreference: 'default',
-          failIfMajorPerformanceCaveat: true,
         },
         requestWebgl1: true,
       },

@@ -31,7 +31,6 @@ export class ThreeOverlay {
       alpha: true,
       antialias: false,
       powerPreference: 'low-power',
-      failIfMajorPerformanceCaveat: true,
     });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.setClearColor(0x00_00_00, 0);
