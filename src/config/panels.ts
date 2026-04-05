@@ -175,6 +175,16 @@ const FULL_PANELS: Record<string, PanelConfig> = {
   'network-topology': { name: 'Network Topology', enabled: true, priority: 2 },
   'custom-geofence': { name: 'Geofence Alerts', enabled: true, priority: 2 },
   'stix-taxii': { name: 'STIX/TAXII Feeds', enabled: true, priority: 2 },
+  // Gotham-advanced intel panels
+  'entity-link-graph': { name: 'Entity Link Graph', enabled: true, priority: 2 },
+  'timeline-scrubber': { name: 'Timeline Scrubber', enabled: true, priority: 2 },
+  'intel-report': { name: 'Intel Reports', enabled: true, priority: 2 },
+  'sanctions-crossref': { name: 'Sanctions Cross-Ref', enabled: true, priority: 2 },
+  'compound-threat': { name: 'Compound Threats', enabled: true, priority: 2 },
+  'correlation-matrix': { name: 'Correlation Matrix', enabled: true, priority: 2 },
+  'cascade-simulator': { name: 'Cascade Simulator', enabled: true, priority: 2 },
+  'emergency-broadcast': { name: 'Emergency Broadcasts', enabled: true, priority: 2 },
+  'satellite-change': { name: 'Satellite Change Detection', enabled: true, priority: 2 },
 };
 
 const FULL_MAP_LAYERS: MapLayers = {
@@ -817,7 +827,7 @@ export const PANEL_CATEGORY_MAP: Record<string, { labelKey: string; panelKeys: s
   // Full (geopolitical) variant
   intelligence: {
     labelKey: 'header.panelCatIntelligence',
-    panelKeys: ['watchlist', 'saved-places', 'watchlist-locations', 'local-logistics', 'comms-plan', 'unified-alert-inbox', 'alert-rules', 'situation-awareness', 'alert-center', 'strategic-risk', 'cii', 'geo-hubs', 'intel', 'gdelt-intel', 'cascade', 'telegram-intel', 'intelligence-briefing', 'ask-world-monitor', 'survival-advisor', 'threat-synthesis', 'scenario-simulator', 'escalation-forecast', 'notification-digest', 'pattern-of-life', 'course-of-action', 'kill-chain', 'orbat', 'after-action-review'],
+    panelKeys: ['watchlist', 'saved-places', 'watchlist-locations', 'local-logistics', 'comms-plan', 'unified-alert-inbox', 'alert-rules', 'situation-awareness', 'alert-center', 'strategic-risk', 'cii', 'geo-hubs', 'intel', 'gdelt-intel', 'cascade', 'telegram-intel', 'intelligence-briefing', 'ask-world-monitor', 'survival-advisor', 'threat-synthesis', 'scenario-simulator', 'escalation-forecast', 'notification-digest', 'pattern-of-life', 'course-of-action', 'kill-chain', 'orbat', 'after-action-review', 'entity-link-graph', 'timeline-scrubber', 'intel-report', 'compound-threat', 'correlation-matrix', 'cascade-simulator'],
     variants: ['full'],
   },
   regionalNews: {
@@ -837,7 +847,7 @@ export const PANEL_CATEGORY_MAP: Record<string, { labelKey: string; panelKeys: s
   },
   dataTracking: {
     labelKey: 'header.panelCatDataTracking',
-    panelKeys: ['monitors', 'cyber-threats', 'local-ids', 'comms-health', 'power-grid', 'ucdp-events', 'nuclear-risk', 'airstrikes', 'displacement', 'security-advisories', 'oref-sirens', 'space-weather', 'spaceflight-news', 'space-launches', 'population-exposure', 'internet-disruptions', 'air-traffic', 'threat-intel-hub', 'geo-intel', 'dark-web', 'anomaly-detection', 'financial-contagion', 'supply-chain-impact', 'nuclear-monitor', 'sigint-panel', 'dark-vessel', 'ics-ot-dashboard', 'ioc-manager', 'network-topology', 'stix-taxii', 'custom-geofence'],
+    panelKeys: ['monitors', 'cyber-threats', 'local-ids', 'comms-health', 'power-grid', 'ucdp-events', 'nuclear-risk', 'airstrikes', 'displacement', 'security-advisories', 'oref-sirens', 'space-weather', 'spaceflight-news', 'space-launches', 'population-exposure', 'internet-disruptions', 'air-traffic', 'threat-intel-hub', 'geo-intel', 'dark-web', 'anomaly-detection', 'financial-contagion', 'supply-chain-impact', 'nuclear-monitor', 'sigint-panel', 'dark-vessel', 'ics-ot-dashboard', 'ioc-manager', 'network-topology', 'stix-taxii', 'custom-geofence', 'sanctions-crossref', 'emergency-broadcast', 'satellite-change'],
     variants: ['full'],
   },
   hazards: {

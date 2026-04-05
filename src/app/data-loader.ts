@@ -217,6 +217,11 @@ import {
   ingestOutagesToTopology, ingestCableToTopology,
   ingestCisaToIcsOt,
   initModeTracking,
+  ingestCyberToGraph, ingestMilFlightsToGraph, ingestMilVesselsToGraph,
+  ingestEarthquakesToTimeline, ingestCyberToTimeline, ingestAirstrikesToTimeline,
+  updateCompoundThreatLevels,
+  ingestEarthquakesToMatrix, ingestCyberToMatrix, ingestAirstrikesToMatrix,
+  checkVesselsAgainstSanctions,
 } from '@/services/intel-pipeline';
 import { fetchNewsApiHeadlines } from '@/services/newsapi';
 import { fetchNewsDataFeed } from '@/services/newsdata';
@@ -1238,6 +1243,8 @@ export class DataLoaderManager implements AppModule {
       ingestEarthquakes(earthquakeResult.value);
       checkGeofenceEarthquakes(earthquakeResult.value);
       ingestEarthquakesToPoL(earthquakeResult.value);
+      ingestEarthquakesToTimeline(earthquakeResult.value);
+      ingestEarthquakesToMatrix(earthquakeResult.value);
       (this.ctx.panels.earthquakes as EarthquakesPanel)?.update(earthquakeResult.value);
       this.ctx.statusPanel?.updateApi('USGS', { status: 'ok' });
       dataFreshness.recordUpdate('usgs', earthquakeResult.value.length);
@@ -1471,6 +1478,9 @@ export class DataLoaderManager implements AppModule {
         ingestMilVesselsToOrbat(vesselData.vessels);
         ingestMilVesselsToDarkVessel(vesselData.vessels);
         checkGeofenceMilitary(flightData.flights);
+        ingestMilFlightsToGraph(flightData.flights);
+        ingestMilVesselsToGraph(vesselData.vessels);
+        checkVesselsAgainstSanctions(vesselData.vessels);
         dataFreshness.recordUpdate('opensky', flightData.flights.length);
         updateAndCheck([
           { type: 'military_flights', region: 'global', count: flightData.flights.length },
@@ -1555,6 +1565,8 @@ export class DataLoaderManager implements AppModule {
         }
         checkGeofenceAirstrikes(events);
         ingestAirstrikesToConvergence(events);
+        ingestAirstrikesToTimeline(events);
+        ingestAirstrikesToMatrix(events);
         if (events.length > 0) dataFreshness.recordUpdate('acled_airstrikes', events.length);
       } catch (error) {
         console.error('[Intelligence] Airstrikes fetch failed:', error);
@@ -1694,6 +1706,11 @@ export class DataLoaderManager implements AppModule {
 
     (this.ctx.panels.cii as CIIPanel)?.refresh();
     rollPoLBaseline();
+    updateCompoundThreatLevels(
+      this.ctx.cyberThreatsCache ?? [],
+      this.ctx.intelligenceCache.earthquakes ?? [],
+      (this.ctx.intelligenceCache.outages ?? []).map(o => ({ score: o.severity === 'total' ? 10 : o.severity === 'major' ? 7 : 3 })),
+    );
     console.log('[Intelligence] All signals loaded for CII calculation');
   }
 
@@ -1760,6 +1777,9 @@ export class DataLoaderManager implements AppModule {
       ingestCyberToPoL(allThreats);
       ingestCyberToConvergence(allThreats);
       ingestCisaToIcsOt(allThreats);
+      ingestCyberToGraph(allThreats);
+      ingestCyberToTimeline(allThreats);
+      ingestCyberToMatrix(allThreats);
       (this.ctx.panels.cii as CIIPanel)?.refresh();
       (this.ctx.panels['cyber-threats'] as CyberThreatPanel)?.update(allThreats);
       this.ctx.statusPanel?.updateFeed('Cyber Threats', { status: 'ok', itemCount: allThreats.length });
