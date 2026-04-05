@@ -21,6 +21,12 @@ import { addNode, updateNodeStatus, ingestTopoAlert } from '@/services/network-t
 import { ingestOtAlert, registerOtAsset } from '@/services/ics-ot-monitor';
 import { createAar, addTimelineEntry } from '@/services/after-action-review';
 import { getMode } from '@/services/mode-manager';
+import { addGraphNode, addGraphEdge } from '@/services/entity-link-graph';
+import { addTimelineEvent } from '@/services/timeline-scrubber';
+import { updateDomainLevel, detectCompoundThreats } from '@/services/compound-threat-detector';
+import { ingestEvent as ingestMatrixEvent } from '@/services/correlation-matrix';
+import { checkNames as checkSanctionsNames } from '@/services/sanctions-crossref';
+import { ingestBroadcast } from '@/services/emergency-broadcast';
 import type { CyberThreat, MilitaryFlight, MilitaryVessel, SocialUnrestEvent } from '@/types';
 import type { Earthquake } from '@/generated/client/worldmonitor/seismology/v1/service_client';
 import type { GpsJamHex } from '@/services/gps-interference';
@@ -448,5 +454,155 @@ export function initModeTracking(): void {
       const detail = (e as CustomEvent).detail as { mode?: string } | undefined;
       if (detail?.mode) trackModeForAar(detail.mode);
     });
+  } catch { /* non-critical */ }
+}
+
+// ── Entity Link Graph ─────────────────────────────────────────────────────
+
+export function ingestCyberToGraph(threats: CyberThreat[]): void {
+  try {
+    for (const t of threats.slice(0, 50)) {
+      const nodeId = addGraphNode(t.indicator, t.indicator, 'ioc', { source: t.source, type: t.type });
+      if (t.malwareFamily) {
+        const familyId = addGraphNode(`malware-${t.malwareFamily}`, t.malwareFamily, 'organization', { role: 'malware_family' });
+        addGraphEdge(nodeId, familyId, 'belongs_to', [`${t.source}: ${t.indicator}`]);
+      }
+    }
+  } catch { /* non-critical */ }
+}
+
+export function ingestMilFlightsToGraph(flights: MilitaryFlight[]): void {
+  try {
+    for (const f of flights.slice(0, 30)) {
+      const unitId = addGraphNode(`flight-${f.hexCode}`, f.callsign, 'unit', { type: f.aircraftType });
+      const orgId = addGraphNode(`org-${f.operatorCountry}`, `${f.operatorCountry} AF`, 'organization', { country: f.operatorCountry });
+      addGraphEdge(unitId, orgId, 'operated_by');
+    }
+  } catch { /* non-critical */ }
+}
+
+export function ingestMilVesselsToGraph(vessels: MilitaryVessel[]): void {
+  try {
+    for (const v of vessels.slice(0, 30)) {
+      const vesselId = addGraphNode(`vessel-${v.mmsi}`, v.name, 'vessel', { type: v.vesselType });
+      const orgId = addGraphNode(`org-${v.operatorCountry}-navy`, `${v.operatorCountry} Navy`, 'organization', { country: v.operatorCountry });
+      addGraphEdge(vesselId, orgId, 'operated_by');
+    }
+  } catch { /* non-critical */ }
+}
+
+// ── Timeline Scrubber ─────────────────────────────────────────────────────
+
+export function ingestEarthquakesToTimeline(quakes: Earthquake[]): void {
+  try {
+    for (const eq of quakes) {
+      if (!eq.location) continue;
+      const sev = (eq.magnitude ?? 0) >= 6.5 ? 'critical' : (eq.magnitude ?? 0) >= 5 ? 'high' : (eq.magnitude ?? 0) >= 4 ? 'medium' : 'low';
+      addTimelineEvent('earthquake', eq.location.latitude, eq.location.longitude, eq.occurredAt || Date.now(), `M${eq.magnitude} ${eq.place}`, sev, 'USGS');
+    }
+  } catch { /* non-critical */ }
+}
+
+export function ingestCyberToTimeline(threats: CyberThreat[]): void {
+  try {
+    for (const t of threats.slice(0, 50)) {
+      const sev = t.severity === 'critical' ? 'critical' : t.severity === 'high' ? 'high' : t.severity === 'medium' ? 'medium' : 'low';
+      addTimelineEvent('cyber', t.lat || 0, t.lon || 0, Date.now(), `${t.type}: ${t.indicator}`, sev, t.source);
+    }
+  } catch { /* non-critical */ }
+}
+
+export function ingestAirstrikesToTimeline(events: AirstrikeEvent[]): void {
+  try {
+    for (const e of events) {
+      addTimelineEvent('military', e.lat, e.lon, Date.now(), `${e.eventType}: ${e.location}`, 'high', 'Airstrikes');
+    }
+  } catch { /* non-critical */ }
+}
+
+// ── Compound Threat Detector ──────────────────────────────────────────────
+
+export function updateCompoundThreatLevels(cyber: CyberThreat[], quakes: Earthquake[], outages: Array<{ score?: number }>): void {
+  try {
+    const cyberCritical = cyber.filter(t => t.severity === 'critical' || t.severity === 'high').length;
+    updateDomainLevel('cyber', Math.min(100, cyberCritical * 10), cyberCritical, cyber.slice(0, 3).map(t => t.indicator));
+
+    const bigQuakes = quakes.filter(q => (q.magnitude ?? 0) >= 5).length;
+    updateDomainLevel('natural_disaster', Math.min(100, bigQuakes * 20), bigQuakes, quakes.slice(0, 3).map(q => `M${q.magnitude} ${q.place}`));
+
+    const bigOutages = outages.filter(o => (o.score ?? 0) >= 5).length;
+    updateDomainLevel('infrastructure', Math.min(100, bigOutages * 15), bigOutages);
+
+    detectCompoundThreats();
+  } catch { /* non-critical */ }
+}
+
+// ── Correlation Matrix ────────────────────────────────────────────────────
+
+export function ingestEarthquakesToMatrix(quakes: Earthquake[]): void {
+  try {
+    for (const eq of quakes) {
+      if (!eq.location) continue;
+      const sev = (eq.magnitude ?? 0) >= 6.5 ? 'critical' : (eq.magnitude ?? 0) >= 5 ? 'high' : (eq.magnitude ?? 0) >= 4 ? 'medium' : 'low' as const;
+      ingestMatrixEvent(eq.location.latitude, eq.location.longitude, 'weather', sev);
+    }
+  } catch { /* non-critical */ }
+}
+
+export function ingestCyberToMatrix(threats: CyberThreat[]): void {
+  try {
+    for (const t of threats.slice(0, 100)) {
+      if (t.lat && t.lon) {
+        const sev = t.severity === 'critical' ? 'critical' : t.severity === 'high' ? 'high' : t.severity === 'medium' ? 'medium' : 'low' as const;
+        ingestMatrixEvent(t.lat, t.lon, 'cyber', sev);
+      }
+    }
+  } catch { /* non-critical */ }
+}
+
+export function ingestAirstrikesToMatrix(events: AirstrikeEvent[]): void {
+  try {
+    for (const e of events) {
+      ingestMatrixEvent(e.lat, e.lon, 'military', 'high');
+    }
+  } catch { /* non-critical */ }
+}
+
+// ── Sanctions Cross-Ref ───────────────────────────────────────────────────
+
+export function checkVesselsAgainstSanctions(vessels: MilitaryVessel[]): void {
+  try {
+    const names = vessels.slice(0, 50).map(v => ({ name: v.name, source: `vessel-${v.mmsi}` }));
+    checkSanctionsNames(names);
+  } catch { /* non-critical */ }
+}
+
+// ── Emergency Broadcast ───────────────────────────────────────────────────
+
+export function ingestNwsToEmergencyBroadcast(alerts: Array<{
+  headline?: string; description?: string; severity?: string;
+  urgency?: string; certainty?: string; areaDesc?: string;
+  lat?: number; lon?: number; effective?: string; expires?: string;
+}>): void {
+  try {
+    for (const a of alerts.slice(0, 30)) {
+      ingestBroadcast(
+        'nws',
+        'met',
+        (a.severity === 'Extreme' ? 'extreme' : a.severity === 'Severe' ? 'severe' : a.severity === 'Moderate' ? 'moderate' : 'minor') as 'extreme' | 'severe' | 'moderate' | 'minor',
+        (a.urgency === 'Immediate' ? 'immediate' : a.urgency === 'Expected' ? 'expected' : 'future') as 'immediate' | 'expected' | 'future' | 'past',
+        (a.certainty === 'Observed' ? 'observed' : a.certainty === 'Likely' ? 'likely' : 'possible') as 'observed' | 'likely' | 'possible' | 'unlikely',
+        a.headline ?? 'Weather Alert',
+        a.description ?? '',
+        a.areaDesc ?? 'Unknown area',
+        {
+          lat: a.lat,
+          lon: a.lon,
+          effective: a.effective ? new Date(a.effective).getTime() : undefined,
+          expires: a.expires ? new Date(a.expires).getTime() : undefined,
+          source: 'NWS',
+        },
+      );
+    }
   } catch { /* non-critical */ }
 }

@@ -117,3 +117,14 @@ export { AarPanel } from './AarPanel';
 export { NetworkTopologyPanel } from './NetworkTopologyPanel';
 export { GeofencePanel } from './GeofencePanel';
 export { StixTaxiiPanel } from './StixTaxiiPanel';
+
+// Gotham-advanced intel panels
+export { EntityLinkGraphPanel } from './EntityLinkGraphPanel';
+export { TimelineScrubberPanel } from './TimelineScrubberPanel';
+export { IntelReportPanel } from './IntelReportPanel';
+export { SanctionsCrossRefPanel } from './SanctionsCrossRefPanel';
+export { CompoundThreatPanel } from './CompoundThreatPanel';
+export { CorrelationMatrixPanel } from './CorrelationMatrixPanel';
+export { CascadeSimulatorPanel } from './CascadeSimulatorPanel';
+export { EmergencyBroadcastPanel } from './EmergencyBroadcastPanel';
+export { SatelliteChangePanel } from './SatelliteChangePanel';
