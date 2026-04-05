@@ -25,7 +25,7 @@ import { addGraphNode, addGraphEdge } from '@/services/entity-link-graph';
 import { addTimelineEvent } from '@/services/timeline-scrubber';
 import { updateDomainLevel, detectCompoundThreats } from '@/services/compound-threat-detector';
 import { ingestEvent as ingestMatrixEvent } from '@/services/correlation-matrix';
-import { checkNames as checkSanctionsNames } from '@/services/sanctions-crossref';
+import { checkBatch as checkSanctionsNames } from '@/services/sanctions-crossref';
 import { ingestBroadcast } from '@/services/emergency-broadcast';
 import type { CyberThreat, MilitaryFlight, MilitaryVessel, SocialUnrestEvent } from '@/types';
 import type { Earthquake } from '@/generated/client/worldmonitor/seismology/v1/service_client';
@@ -572,7 +572,7 @@ export function ingestAirstrikesToMatrix(events: AirstrikeEvent[]): void {
 
 export function checkVesselsAgainstSanctions(vessels: MilitaryVessel[]): void {
   try {
-    const names = vessels.slice(0, 50).map(v => ({ name: v.name, source: `vessel-${v.mmsi}` }));
+    const names = vessels.slice(0, 50).map(v => ({ name: v.name, entityType: 'vessel', context: `mmsi-${v.mmsi}` }));
     checkSanctionsNames(names);
   } catch { /* non-critical */ }
 }

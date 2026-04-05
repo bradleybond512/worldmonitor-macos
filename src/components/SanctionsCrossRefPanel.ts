@@ -9,7 +9,7 @@
 import { Panel } from './Panel';
 import {
   getSanctionsStats,
-  getSanctionedEntities,
+  getRecentMatches,
   type SanctionsStats,
   type SanctionsMatch,
 } from '@/services/sanctions-crossref';
@@ -41,21 +41,21 @@ export class SanctionsCrossRefPanel extends Panel {
 
   private render(): void {
     const stats = getSanctionsStats();
-    const entities = getSanctionedEntities();
+    const recentMatches = getRecentMatches(15);
 
     this.setCount(stats.totalMatches);
 
-    if (stats.totalEntities === 0) {
+    if (stats.totalEntries === 0) {
       this.setContent(
         '<div class="panel-empty">No sanctions data available.</div>',
       );
       return;
     }
 
-    const summaryHtml = this.renderSummary(stats, entities.length);
-    const matchesHtml = this.renderRecentMatches(stats.recentMatches);
+    const summaryHtml = this.renderSummary(stats);
+    const matchesHtml = this.renderRecentMatches(recentMatches);
     const byListHtml = this.renderByList(stats.byList);
-    const byTypeHtml = this.renderByType(stats.byType);
+    const byTypeHtml = '';
 
     this.setContent(`
       <div class="ct-panel-content">
@@ -67,13 +67,13 @@ export class SanctionsCrossRefPanel extends Panel {
     `);
   }
 
-  private renderSummary(stats: SanctionsStats, entityCount: number): string {
+  private renderSummary(stats: SanctionsStats): string {
     return `<div class="anomaly-stats">
-      <span class="anomaly-stat">${escapeHtml(String(stats.totalEntities))} watched</span>
+      <span class="anomaly-stat">${escapeHtml(String(stats.totalEntries))} entries</span>
       <span class="anomaly-stat-sep">\u2502</span>
       <span class="anomaly-stat">${escapeHtml(String(stats.totalMatches))} matches</span>
       <span class="anomaly-stat-sep">\u2502</span>
-      <span class="anomaly-stat">${escapeHtml(String(entityCount))} entities</span>
+      <span class="anomaly-stat">${escapeHtml(String(stats.highConfidenceMatches))} high-conf</span>
     </div>`;
   }
 
@@ -83,27 +83,27 @@ export class SanctionsCrossRefPanel extends Panel {
     }
 
     const rows = matches.slice(0, 15).map((m) => {
-      const confidence = Math.round(m.confidence * 100);
+      const confidence = m.matchScore;
       const confColor =
         confidence >= 90
           ? 'var(--semantic-critical, #f44336)'
           : confidence >= 70
             ? 'var(--semantic-high, #ff9800)'
             : 'var(--semantic-elevated, #ffeb3b)';
-      const time = formatTime(new Date(m.timestamp));
+      const time = formatTime(new Date(m.checkedAt));
       const name =
-        m.matchedName.length > 35
-          ? m.matchedName.slice(0, 33) + '\u2026'
-          : m.matchedName;
+        m.entityName.length > 35
+          ? m.entityName.slice(0, 33) + '\u2026'
+          : m.entityName;
       const source =
-        m.matchedIn.length > 20
-          ? m.matchedIn.slice(0, 18) + '\u2026'
-          : m.matchedIn;
+        m.context.length > 20
+          ? m.context.slice(0, 18) + '\u2026'
+          : m.context || m.matchedEntry.source;
 
       return `<tr>
         <td>${escapeHtml(name)}</td>
         <td>${escapeHtml(source)}</td>
-        <td style="color:${confColor};font-weight:600;">${escapeHtml(String(confidence))}%</td>
+        <td style="color:${confColor};font-weight:600;">${escapeHtml(String(confidence))}</td>
         <td style="opacity:0.6;white-space:nowrap;">${escapeHtml(time)}</td>
       </tr>`;
     }).join('');
@@ -154,23 +154,6 @@ export class SanctionsCrossRefPanel extends Panel {
     `;
   }
 
-  private renderByType(byType: Record<string, number>): string {
-    const entries = Object.entries(byType).sort(([, a], [, b]) => b - a);
-    if (entries.length === 0) return '';
-
-    const items = entries.map(([type, count]) =>
-      `<span class="anomaly-stat">${escapeHtml(type)}: ${escapeHtml(String(count))}</span>`,
-    ).join('<span class="anomaly-stat-sep">\u2502</span>');
-
-    return `
-      <div style="margin-top:10px;">
-        <div style="font-size:11px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;">
-          By Type
-        </div>
-        <div class="anomaly-stats">${items}</div>
-      </div>
-    `;
-  }
 
   public override destroy(): void {
     if (this.refreshTimer) {

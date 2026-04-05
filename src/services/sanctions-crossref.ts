@@ -1,311 +1,409 @@
 /**
- * Sanctions Cross-Reference Service — pure TypeScript, fully offline
+ * @module sanctions-crossref
  *
- * Maintains an in-memory sanctions watchlist (persons, organizations, vessels,
- * aircraft) and cross-references incoming names against it using fuzzy Dice
- * coefficient matching. Matches above the 0.6 confidence threshold are tracked
- * with full provenance. Aliases are checked alongside primary names.
+ * Automated Sanctions Cross-Reference Service — pure TypeScript, fully offline
  *
- * Capacity: 500 sanctioned entities, 1 000 stored matches. Oldest matches are
- * evicted when the cap is reached.
+ * Maintains an in-memory sanctions database (max 10,000 entries) covering
+ * major sanctions lists (OFAC SDN, OFAC Consolidated, EU, UN, OpenSanctions)
+ * and cross-references entity names using a tiered matching strategy:
  *
- * Pre-seeded with a handful of demo OFAC-style entries (fictional names).
+ *   1. Exact match           → 100 score
+ *   2. Alias match           → 90 score
+ *   3. Substring containment → 75 score
+ *   4. Bigram Dice similarity → 60–80 score (coefficient > 0.7 required)
+ *
+ * All string comparisons are normalised: lowercase, diacritics removed, trimmed.
+ * Match history is capped at 1,000 entries; oldest matches are evicted on overflow.
  *
  * No external dependencies, no network calls. All state is in-memory.
  */
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
-/** Entity type on the sanctions watchlist */
-export type SanctionedEntityType = 'person' | 'organization' | 'vessel' | 'aircraft';
+/** Sanctions list identifiers */
+export type SanctionsListType =
+  | 'ofac_sdn'
+  | 'ofac_consolidated'
+  | 'eu_sanctions'
+  | 'un_sanctions'
+  | 'opensanctions';
 
-/** A sanctioned entity on the watchlist */
-export interface SanctionedEntity {
-  /** Unique identifier (auto-generated) */
+/** A single entry in the in-memory sanctions database */
+export interface SanctionsEntry {
+  /** Unique entry identifier */
   id: string;
-  /** Primary name */
+  /** Primary name of the sanctioned entity */
   name: string;
   /** Known aliases */
   aliases: string[];
-  /** Entity classification */
-  type: SanctionedEntityType;
-  /** Originating sanctions list (e.g. "OFAC-SDN", "EU-Consolidated") */
-  listSource: string;
-  /** ISO country code or name */
+  /** Originating sanctions list */
+  listType: SanctionsListType;
+  /** Country code or name (ISO 3166-1 alpha-2 or free text) */
   country?: string;
-  /** Epoch ms when the entity was added to the list */
-  addedDate: number;
-  /** Free-text reason for designation */
-  reason?: string;
+  /** Entity classification */
+  entityType: 'person' | 'organization' | 'vessel';
+  /** Human-readable reason for designation */
+  reason: string;
+  /** ISO date string (YYYY-MM-DD) when the entity was listed */
+  listedSince?: string;
+  /** Source dataset or feed identifier */
+  source: string;
 }
 
-/** A match produced by cross-referencing a name against the watchlist */
+/** The result of matching a queried name against the sanctions database */
 export interface SanctionsMatch {
-  /** Unique match identifier (auto-generated) */
+  /** Unique match identifier */
   id: string;
-  /** ID of the sanctioned entity that matched */
-  sanctionedEntityId: string;
-  /** The name string that was matched */
-  matchedName: string;
-  /** Source / context the name appeared in */
-  matchedIn: string;
-  /** Dice coefficient confidence (0–1) */
-  confidence: number;
-  /** Epoch ms when the match was recorded */
-  timestamp: number;
-  /** Optional notes */
-  details?: string;
+  /** The name string that was submitted for checking */
+  entityName: string;
+  /** Entity type provided by the caller */
+  entityType: string;
+  /** The sanctions entry that matched */
+  matchedEntry: SanctionsEntry;
+  /** Similarity score 0–100 */
+  matchScore: number;
+  /** How the match was determined */
+  matchType: 'exact' | 'alias' | 'fuzzy';
+  /** Unix ms timestamp when the check was performed */
+  checkedAt: number;
+  /** Optional caller-supplied context (e.g. vessel MMSI, transaction ID) */
+  context: string;
 }
 
-/** Aggregate statistics for the sanctions service */
+/** Aggregate statistics for dashboard display */
 export interface SanctionsStats {
-  /** Number of entities on the watchlist */
-  totalEntities: number;
-  /** Total matches ever recorded (capped at stored max) */
+  /** Total entries currently loaded in the database */
+  totalEntries: number;
+  /** Total matches recorded in history */
   totalMatches: number;
-  /** Most recent matches (up to 50) */
-  recentMatches: SanctionsMatch[];
-  /** Entity count per list source */
-  byList: Record<string, number>;
-  /** Entity count per type */
-  byType: Record<string, number>;
+  /** Entry count per list type */
+  byList: Record<SanctionsListType, number>;
+  /** Matches recorded in the last 24 hours */
+  recentMatches24h: number;
+  /** Matches with score >= 80 */
+  highConfidenceMatches: number;
 }
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
-const MAX_ENTITIES = 500;
+const MAX_ENTRIES = 10_000;
 const MAX_MATCHES = 1_000;
-const MATCH_THRESHOLD = 0.6;
 
-// ── State ──────────────────────────────────────────────────────────────────
+/** Minimum Dice coefficient for a fuzzy match to be reported */
+const FUZZY_DICE_THRESHOLD = 0.7;
 
-let entities: SanctionedEntity[] = [];
-let matches: SanctionsMatch[] = [];
-let idCounter = 0;
+// ── In-memory State ────────────────────────────────────────────────────────
+
+let _entries: SanctionsEntry[] = [];
+let _matches: SanctionsMatch[] = [];
+let _idSeq = 0;
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
 function nextId(prefix: string): string {
-  return `${prefix}-${Date.now().toString(36)}-${(++idCounter).toString(36)}`;
+  return `${prefix}-${Date.now().toString(36)}-${(++_idSeq).toString(36)}`;
 }
 
 /**
- * Dice coefficient (bigram similarity) between two strings.
- * Returns 1 for exact (case-insensitive) matches, 0 when either string
- * is shorter than 2 characters, and a value in (0, 1) otherwise.
+ * Normalise a name for comparison: lowercase, remove diacritics, collapse
+ * punctuation/whitespace.
+ */
+function normalise(name: string): string {
+  return name
+    .normalize('NFD')
+    .replace(/[\u0300-\u036F]/g, '') // strip combining diacritical marks
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ')   // non-alphanumeric → space
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
+ * Bigram Dice coefficient between two (already-normalised) strings.
+ * Returns 1 for identical strings, 0 when either input is shorter than
+ * 2 characters, and a value in (0, 1) otherwise.
  */
 function diceCoefficient(a: string, b: string): number {
-  const aN = a.toLowerCase();
-  const bN = b.toLowerCase();
-  if (aN === bN) return 1;
-  if (aN.length < 2 || bN.length < 2) return 0;
+  if (a === b) return 1;
+  if (a.length < 2 || b.length < 2) return 0;
 
-  const bigrams = new Map<string, number>();
-  for (let i = 0; i < aN.length - 1; i++) {
-    const bi = aN.slice(i, i + 2);
-    bigrams.set(bi, (bigrams.get(bi) ?? 0) + 1);
+  // Build bigram frequency map for a
+  const bigramsA = new Map<string, number>();
+  for (let i = 0; i < a.length - 1; i++) {
+    const bg = a.slice(i, i + 2);
+    bigramsA.set(bg, (bigramsA.get(bg) ?? 0) + 1);
   }
 
-  let matchCount = 0;
-  for (let i = 0; i < bN.length - 1; i++) {
-    const bi = bN.slice(i, i + 2);
-    const count = bigrams.get(bi);
+  // Count intersecting bigrams
+  let intersection = 0;
+  for (let i = 0; i < b.length - 1; i++) {
+    const bg = b.slice(i, i + 2);
+    const count = bigramsA.get(bg);
     if (count && count > 0) {
-      matchCount++;
-      bigrams.set(bi, count - 1);
+      intersection++;
+      bigramsA.set(bg, count - 1);
     }
   }
 
-  return (2 * matchCount) / (aN.length - 1 + bN.length - 1);
+  return (2 * intersection) / (a.length - 1 + b.length - 1);
 }
 
 /**
- * Check a single name against one sanctioned entity (primary + aliases).
- * Returns the best Dice coefficient found.
+ * Map a Dice coefficient (0.7–1.0) to a fuzzy match score (60–80).
  */
-function bestScore(name: string, entity: SanctionedEntity): number {
-  let best = diceCoefficient(name, entity.name);
-  for (const alias of entity.aliases) {
-    const score = diceCoefficient(name, alias);
-    if (score > best) best = score;
-  }
-  return best;
+function diceToScore(coefficient: number): number {
+  // Linear interpolation: 0.7 → 60, 1.0 → 80
+  return Math.round(60 + (coefficient - 0.7) * (80 - 60) / (1.0 - 0.7));
 }
 
-/** Trim the matches array to MAX_MATCHES, keeping the newest entries. */
+/** Trim match history to MAX_MATCHES, keeping the newest entries. */
 function trimMatches(): void {
-  if (matches.length > MAX_MATCHES) {
-    matches = matches.slice(matches.length - MAX_MATCHES);
+  if (_matches.length > MAX_MATCHES) {
+    _matches = _matches.slice(_matches.length - MAX_MATCHES);
   }
+}
+
+/**
+ * Attempt to match a normalised query name against a single sanctions entry.
+ * Returns a SanctionsMatch if a match is found, or null otherwise.
+ */
+function matchEntry(
+  rawName: string,
+  normName: string,
+  entityType: string,
+  context: string,
+  entry: SanctionsEntry,
+): SanctionsMatch | null {
+  const normPrimary = normalise(entry.name);
+
+  // ── 1. Exact match ───────────────────────────────────────────────────────
+  if (normName === normPrimary) {
+    return {
+      id: nextId('sm'),
+      entityName: rawName,
+      entityType,
+      matchedEntry: entry,
+      matchScore: 100,
+      matchType: 'exact',
+      checkedAt: Date.now(),
+      context,
+    };
+  }
+
+  // ── 2. Alias exact match ─────────────────────────────────────────────────
+  for (const alias of entry.aliases) {
+    if (normName === normalise(alias)) {
+      return {
+        id: nextId('sm'),
+        entityName: rawName,
+        entityType,
+        matchedEntry: entry,
+        matchScore: 90,
+        matchType: 'alias',
+        checkedAt: Date.now(),
+        context,
+      };
+    }
+  }
+
+  // ── 3. Substring containment (75 score) ──────────────────────────────────
+  const allNorms = [normPrimary, ...entry.aliases.map(normalise)];
+  for (const norm of allNorms) {
+    if (
+      (normName.length >= 4 && norm.includes(normName)) ||
+      (norm.length >= 4 && normName.includes(norm))
+    ) {
+      return {
+        id: nextId('sm'),
+        entityName: rawName,
+        entityType,
+        matchedEntry: entry,
+        matchScore: 75,
+        matchType: 'fuzzy',
+        checkedAt: Date.now(),
+        context,
+      };
+    }
+  }
+
+  // ── 4. Dice coefficient fuzzy match (60–80 score) ────────────────────────
+  let bestDice = 0;
+  for (const norm of allNorms) {
+    const coeff = diceCoefficient(normName, norm);
+    if (coeff > bestDice) bestDice = coeff;
+  }
+
+  if (bestDice >= FUZZY_DICE_THRESHOLD) {
+    return {
+      id: nextId('sm'),
+      entityName: rawName,
+      entityType,
+      matchedEntry: entry,
+      matchScore: diceToScore(bestDice),
+      matchType: 'fuzzy',
+      checkedAt: Date.now(),
+      context,
+    };
+  }
+
+  return null;
 }
 
 // ── Public API ─────────────────────────────────────────────────────────────
 
 /**
- * Add a single sanctioned entity to the watchlist.
- * Returns the created entity with its generated ID.
- * Silently drops the entity if the watchlist is at capacity.
+ * Bulk-load sanctions entries into the database.
+ * Existing entries are not deduplicated; call this once per list source.
+ * Entries are silently dropped once the 10,000-entry cap is reached.
+ *
+ * @param entries - Array of entry data (id will be auto-generated)
  */
-export function addSanctionedEntity(
-  entity: Omit<SanctionedEntity, 'id'>,
-): SanctionedEntity {
-  if (entities.length >= MAX_ENTITIES) {
-    const full: SanctionedEntity = { ...entity, id: nextId('se') };
-    // At capacity — return without storing
-    return full;
+export function loadSanctionsList(
+  entries: Array<{
+    name: string;
+    aliases?: string[];
+    listType: SanctionsListType;
+    country?: string;
+    entityType: 'person' | 'organization' | 'vessel';
+    reason: string;
+    listedSince?: string;
+    source: string;
+  }>,
+): void {
+  for (const e of entries) {
+    if (_entries.length >= MAX_ENTRIES) break;
+    _entries.push({
+      id: nextId('se'),
+      name: e.name,
+      aliases: e.aliases ?? [],
+      listType: e.listType,
+      country: e.country,
+      entityType: e.entityType,
+      reason: e.reason,
+      listedSince: e.listedSince,
+      source: e.source,
+    });
   }
-  const created: SanctionedEntity = { ...entity, id: nextId('se') };
-  entities.push(created);
-  return created;
 }
 
 /**
- * Bulk-add sanctioned entities. Returns the count actually added
- * (may be less than input length if the cap is reached).
+ * Check a single entity name against the full sanctions database.
+ * Returns zero or more SanctionsMatch objects sorted by matchScore descending.
+ * Matches are recorded in internal history.
+ *
+ * @param name       - Entity name to check
+ * @param entityType - Caller-supplied entity type label
+ * @param context    - Optional caller context (e.g. transaction ID, AIS MMSI)
  */
-export function bulkAddSanctioned(
-  incoming: Array<Omit<SanctionedEntity, 'id'>>,
-): number {
-  let added = 0;
-  for (const e of incoming) {
-    if (entities.length >= MAX_ENTITIES) break;
-    entities.push({ ...e, id: nextId('se') });
-    added++;
-  }
-  return added;
-}
-
-/**
- * Check a single name against the full watchlist. Returns all matches
- * with a Dice coefficient ≥ 0.6, sorted by confidence descending.
- * Matches are recorded in the internal history.
- */
-export function checkName(name: string, source: string): SanctionsMatch[] {
+export function checkEntity(
+  name: string,
+  entityType: string,
+  context = '',
+): SanctionsMatch[] {
+  const normName = normalise(name);
   const hits: SanctionsMatch[] = [];
-  for (const entity of entities) {
-    const score = bestScore(name, entity);
-    if (score >= MATCH_THRESHOLD) {
-      const m: SanctionsMatch = {
-        id: nextId('sm'),
-        sanctionedEntityId: entity.id,
-        matchedName: name,
-        matchedIn: source,
-        confidence: Math.round(score * 1000) / 1000,
-        timestamp: Date.now(),
-      };
-      hits.push(m);
-      matches.push(m);
+
+  for (const entry of _entries) {
+    const match = matchEntry(name, normName, entityType, context, entry);
+    if (match) {
+      hits.push(match);
+      _matches.push(match);
     }
   }
+
   trimMatches();
-  return hits.sort((a, b) => b.confidence - a.confidence);
+  return hits.sort((a, b) => b.matchScore - a.matchScore);
 }
 
 /**
- * Batch-check multiple names. Returns all matches across all names,
- * sorted by confidence descending.
+ * Batch-check multiple entities.
+ * Results are returned as a flat array sorted by matchScore descending.
+ *
+ * @param entities - Array of entities to check
  */
-export function checkNames(
-  names: Array<{ name: string; source: string }>,
+export function checkBatch(
+  entities: Array<{ name: string; entityType: string; context?: string }>,
 ): SanctionsMatch[] {
   const all: SanctionsMatch[] = [];
-  for (const { name, source } of names) {
-    all.push(...checkName(name, source));
-  }
-  return all.sort((a, b) => b.confidence - a.confidence);
-}
-
-/** Return all recorded matches, newest first. */
-export function getMatches(): SanctionsMatch[] {
-  return [...matches].reverse();
-}
-
-/** Return all sanctioned entities on the watchlist. */
-export function getSanctionedEntities(): SanctionedEntity[] {
-  return [...entities];
-}
-
-/** Aggregate statistics for the sanctions service. */
-export function getSanctionsStats(): SanctionsStats {
-  const byList: Record<string, number> = {};
-  const byType: Record<string, number> = {};
-
   for (const e of entities) {
-    byList[e.listSource] = (byList[e.listSource] ?? 0) + 1;
-    byType[e.type] = (byType[e.type] ?? 0) + 1;
+    all.push(...checkEntity(e.name, e.entityType, e.context ?? ''));
+  }
+  return all.sort((a, b) => b.matchScore - a.matchScore);
+}
+
+/**
+ * Return recorded matches, optionally filtered and limited.
+ * Results are ordered newest first.
+ *
+ * @param opts.minScore   - Minimum matchScore to include (default: 0)
+ * @param opts.entityType - Filter to a specific entity type
+ * @param opts.listType   - Filter to a specific sanctions list
+ * @param opts.limit      - Maximum number of results
+ */
+export function getMatches(opts?: {
+  minScore?: number;
+  entityType?: string;
+  listType?: SanctionsListType;
+  limit?: number;
+}): SanctionsMatch[] {
+  let result = [..._matches].reverse(); // newest first
+  if (opts?.minScore !== undefined) {
+    result = result.filter(m => m.matchScore >= (opts.minScore ?? 0));
+  }
+  if (opts?.entityType) {
+    result = result.filter(m => m.entityType === opts.entityType);
+  }
+  if (opts?.listType) {
+    result = result.filter(m => m.matchedEntry.listType === opts.listType);
+  }
+  if (opts?.limit && opts.limit > 0) {
+    result = result.slice(0, opts.limit);
+  }
+  return result;
+}
+
+/**
+ * Return aggregate statistics for the sanctions service.
+ */
+export function getSanctionsStats(): SanctionsStats {
+  const byList: Record<SanctionsListType, number> = {
+    ofac_sdn:          0,
+    ofac_consolidated: 0,
+    eu_sanctions:      0,
+    un_sanctions:      0,
+    opensanctions:     0,
+  };
+
+  for (const e of _entries) {
+    byList[e.listType]++;
   }
 
-  const recent = [...matches]
-    .reverse()
-    .slice(0, 50);
+  const cutoff24h = Date.now() - 24 * 3_600_000;
+  const recentMatches24h = _matches.filter(m => m.checkedAt >= cutoff24h).length;
+  const highConfidenceMatches = _matches.filter(m => m.matchScore >= 80).length;
 
   return {
-    totalEntities: entities.length,
-    totalMatches: matches.length,
-    recentMatches: recent,
+    totalEntries: _entries.length,
+    totalMatches: _matches.length,
     byList,
-    byType,
+    recentMatches24h,
+    highConfidenceMatches,
   };
 }
 
-/** Clear all stored matches. Does not affect the entity watchlist. */
+/**
+ * Return the most recent matches, newest first.
+ *
+ * @param limit - Maximum number of results (default: 20)
+ */
+export function getRecentMatches(limit = 20): SanctionsMatch[] {
+  return [..._matches].reverse().slice(0, limit);
+}
+
+/**
+ * Clear all recorded match history.
+ * The sanctions entry database is not affected.
+ */
 export function clearMatches(): void {
-  matches = [];
+  _matches = [];
 }
-
-// ── Demo Seed ──────────────────────────────────────────────────────────────
-
-/** Pre-seed fictional OFAC-style entries for demonstration. */
-function seedDemoEntities(): void {
-  const demo: Array<Omit<SanctionedEntity, 'id'>> = [
-    {
-      name: 'ACME Holdings Ltd',
-      aliases: ['ACME International', 'ACME Group'],
-      type: 'organization',
-      listSource: 'OFAC-SDN',
-      country: 'XX',
-      addedDate: Date.now() - 180 * 86_400_000,
-      reason: 'Proliferation financing network',
-    },
-    {
-      name: 'Umbrella Corp Maritime',
-      aliases: ['UCM Shipping', 'Umbrella Maritime LLC'],
-      type: 'organization',
-      listSource: 'OFAC-SDN',
-      country: 'XX',
-      addedDate: Date.now() - 90 * 86_400_000,
-      reason: 'Sanctions evasion — vessel deceptive shipping practices',
-    },
-    {
-      name: 'Viktor Bogdanov',
-      aliases: ['V. Bogdanoff', 'Viktor B.'],
-      type: 'person',
-      listSource: 'OFAC-SDN',
-      country: 'XX',
-      addedDate: Date.now() - 365 * 86_400_000,
-      reason: 'Designated pursuant to E.O. 13848 (demo)',
-    },
-    {
-      name: 'MV Darkwater',
-      aliases: ['Darkwater I', 'DW-7731'],
-      type: 'vessel',
-      listSource: 'OFAC-SDN',
-      country: 'XX',
-      addedDate: Date.now() - 60 * 86_400_000,
-      reason: 'Vessel involved in illicit petroleum transfers (demo)',
-    },
-    {
-      name: 'Nighthawk Aviation AG',
-      aliases: ['Nighthawk Air', 'NH-Aviation'],
-      type: 'aircraft',
-      listSource: 'EU-Consolidated',
-      country: 'XX',
-      addedDate: Date.now() - 30 * 86_400_000,
-      reason: 'Designated — unlicensed arms transport flights (demo)',
-    },
-  ];
-
-  bulkAddSanctioned(demo);
-}
-
-seedDemoEntities();
