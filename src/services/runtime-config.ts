@@ -111,7 +111,8 @@ export type RuntimeFeatureId =
   | 'dodNewsRss'
   | 'natoNewsRss'
   | 'acapsCrisisSeverity'
-  | 'liveUaMapFeed';
+  | 'liveUaMapFeed'
+  | 'godsEye3dGlobe';
 
 export interface RuntimeFeatureDefinition {
   id: RuntimeFeatureId;
@@ -203,6 +204,7 @@ const defaultToggles: Record<RuntimeFeatureId, boolean> = {
   natoNewsRss: true,
   acapsCrisisSeverity: true,
   liveUaMapFeed: true,
+  godsEye3dGlobe: true,
 };
 
 export const RUNTIME_FEATURES: RuntimeFeatureDefinition[] = [
@@ -691,6 +693,13 @@ export const RUNTIME_FEATURES: RuntimeFeatureDefinition[] = [
     requiredSecrets: [],
     desktopRequiredSecrets: [],
     fallback: 'LiveUAMap Ukraine frontline feed is disabled.',
+  },
+  {
+    id: 'godsEye3dGlobe',
+    name: "God's Eye 3D Globe",
+    description: 'Cesium-powered 3D globe with dark tactical imagery, terrain, and Three.js overlay effects. Requires a free Cesium Ion token.',
+    requiredSecrets: ['CESIUM_ION_TOKEN'],
+    fallback: 'Falls back to OpenStreetMap tiles without a Cesium Ion token.',
   },
 ];
 

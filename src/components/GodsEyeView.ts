@@ -27,19 +27,30 @@ export class GodsEyeView {
     if (this.active) return;
     this.active = true;
 
-    // Initialize Cesium globe
-    this.globe = new CesiumGlobe({
-      container: this.container,
-      ionToken: this.ionToken,
-    });
-    await this.globe.initialize();
+    try {
+      // Initialize Cesium globe
+      this.globe = new CesiumGlobe({
+        container: this.container,
+        ionToken: this.ionToken,
+      });
+      await this.globe.initialize();
 
-    // Initialize Three.js overlay
-    this.threeOverlay = new ThreeOverlay({
-      container: this.container,
-      enableBloom: true,
-    });
-    this.threeOverlay.initialize();
+      // Initialize Three.js overlay
+      this.threeOverlay = new ThreeOverlay({
+        container: this.container,
+        enableBloom: true,
+      });
+      this.threeOverlay.initialize();
+    } catch (error) {
+      // eslint-disable-next-line no-console -- surface GPU crash diagnostics
+      console.error('[GodsEyeView] WebGL initialization failed:', error);
+      this.globe?.destroy();
+      this.globe = null;
+      this.threeOverlay?.destroy();
+      this.threeOverlay = null;
+      this.active = false;
+      return;
+    }
 
     // Initialize HUD
     this.hud = new GlobeHUD(this.container);

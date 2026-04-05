@@ -1,6 +1,7 @@
 import {
   Viewer,
   IonImageryProvider,
+  OpenStreetMapImageryProvider,
   SceneMode,
   Color,
   type Scene,
@@ -46,23 +47,43 @@ export class CesiumGlobe {
       skyBox: false,
       skyAtmosphere: false,
       contextOptions: {
-        webgl: { alpha: true },
+        webgl: {
+          alpha: true,
+          antialias: false,
+          powerPreference: 'default',
+          failIfMajorPerformanceCaveat: true,
+        },
+        requestWebgl1: true,
       },
+      msaaSamples: 1,
+      useBrowserRecommendedResolution: true,
     });
 
     // Dark background
     this.viewer.scene.backgroundColor = Color.fromCssColorString('#0a0a0f');
     this.viewer.scene.globe.baseColor = Color.fromCssColorString('#0d1b2a');
 
-    // Remove default imagery and add dark-styled layer
+    // Replace default imagery with dark-styled or OSM layer
     this.viewer.imageryLayers.removeAll();
-    const darkImagery = await IonImageryProvider.fromAssetId(3845, {});
-    this.viewer.imageryLayers.addImageryProvider(darkImagery);
+    if (this.options.ionToken) {
+      const darkImagery = await IonImageryProvider.fromAssetId(3845, {});
+      this.viewer.imageryLayers.addImageryProvider(darkImagery);
+    } else {
+      const osmImagery = new OpenStreetMapImageryProvider({
+        url: 'https://tile.openstreetmap.org/',
+      });
+      this.viewer.imageryLayers.addImageryProvider(osmImagery);
+    }
 
-    // Globe settings
+
+    // Reduce shader complexity to avoid WebKit ANGLE/Metal translator crashes
     this.viewer.scene.globe.enableLighting = false;
     this.viewer.scene.globe.showGroundAtmosphere = false;
     this.viewer.scene.fog.enabled = false;
+    this.viewer.scene.highDynamicRange = false;
+    this.viewer.scene.postProcessStages.fxaa.enabled = false;
+    if (this.viewer.scene.sun) this.viewer.scene.sun.show = false;
+    if (this.viewer.scene.moon) this.viewer.scene.moon.show = false;
     this.viewer.scene.screenSpaceCameraController.enableTilt = true;
     this.viewer.scene.screenSpaceCameraController.enableLook = true;
 
