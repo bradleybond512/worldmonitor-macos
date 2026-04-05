@@ -538,8 +538,8 @@ export class UnifiedSettings {
       const loc = proxConfig.location;
       const locLabel = loc ? escapeHtml(loc.label) : 'Not set';
       const locSource = loc ? ` (${escapeHtml(loc.source)})` : '';
-      const latVal = loc ? String(loc.lat) : '';
-      const lonVal = loc ? String(loc.lon) : '';
+      const latVal = loc ? escapeHtml(String(loc.lat)) : '';
+      const lonVal = loc ? escapeHtml(String(loc.lon)) : '';
       const labelVal = loc ? escapeHtml(loc.label) : '';
       html += `<div class="ai-flow-section-label">Home Location</div>`;
       html += `
