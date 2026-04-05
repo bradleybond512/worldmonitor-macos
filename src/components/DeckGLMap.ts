@@ -5442,8 +5442,6 @@ export class DeckGLMap {
       getLineWidth: 2,
       lineWidthUnits: 'pixels' as const,
       pickable: true,
-      autoHighlight: true,
-      highlightColor: isLight ? [255, 200, 50, 60] : [255, 200, 80, 50],
     });
 
     const labels = new TextLayer<TheaterPolygon>({
