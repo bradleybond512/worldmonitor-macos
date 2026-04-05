@@ -40,6 +40,8 @@ import { PanelLayoutManager } from '@/app/panel-layout';
 import { DataLoaderManager } from '@/app/data-loader';
 import { EventHandlerManager } from '@/app/event-handlers';
 import { resolveUserRegion } from '@/utils/user-location';
+import { GodsEyeView } from '@/components/GodsEyeView';
+import { getRuntimeConfigSnapshot } from '@/services/runtime-config';
 
 const CYBER_LAYER_ENABLED = import.meta.env.VITE_ENABLE_CYBER_LAYER === 'true';
 const CRITICAL_PRIORITY_PANELS: Record<string, string[]> = {
@@ -69,6 +71,7 @@ export class App {
   private desktopUpdater: DesktopUpdater;
   private desktopNotifications: DesktopNotifications;
 
+  private godsEyeView: GodsEyeView | null = null;
   private modules: { destroy(): void }[] = [];
   private unsubAiFlow: (() => void) | null = null;
 
@@ -416,6 +419,9 @@ export class App {
     this.eventHandlers.setupMapLayerHandlers();
     this.countryIntel.init();
 
+    // God's Eye toggle (keyboard shortcut + sidebar button dispatch this)
+    document.addEventListener('wm:toggle-gods-eye', () => this.toggleGodsEye());
+
     // Phase 5: Event listeners + URL sync
     this.eventHandlers.init();
     // Capture ?country= BEFORE URL sync overwrites it
@@ -475,6 +481,14 @@ export class App {
     destroyBreakingNewsAlerts();
     this.state.map?.destroy();
     disconnectAisStream();
+  }
+
+  toggleGodsEye(): void {
+    if (!this.godsEyeView) {
+      const ionToken = getRuntimeConfigSnapshot().secrets.CESIUM_ION_TOKEN?.value;
+      this.godsEyeView = new GodsEyeView(ionToken);
+    }
+    this.godsEyeView.toggle();
   }
 
   private handleDeepLinks(): void {
