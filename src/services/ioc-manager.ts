@@ -286,7 +286,7 @@ export function exportIocsStix(): string {
 
   /** Map IocType to a STIX pattern expression */
   function buildPattern(type: IocType, value: string): string {
-    const escaped = value.replace(/'/g, "\\'");
+    const escaped = value.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
     switch (type) {
       case 'ip':            return `[ipv4-addr:value = '${escaped}']`;
       case 'domain':        return `[domain-name:value = '${escaped}']`;
