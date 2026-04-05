@@ -46,7 +46,8 @@ export type RuntimeSecretKey =
   | 'PULSEDIVE_API_KEY'
   | 'HIBP_API_KEY'
   | 'GEONAMES_USERNAME'
-  | 'IPINFO_TOKEN';
+  | 'IPINFO_TOKEN'
+  | 'CESIUM_ION_TOKEN';
 
 export type RuntimeFeatureId =
   | 'cloudApiFallbackAuth'
@@ -849,6 +850,7 @@ export function setFeatureToggle(featureId: RuntimeFeatureId, enabled: boolean):
 
 export async function setSecretValue(key: RuntimeSecretKey, value: string): Promise<void> {
   if (!isDesktopRuntime()) {
+    // eslint-disable-next-line no-console
     console.warn('[runtime-config] Ignoring secret write outside desktop runtime');
     return;
   }
@@ -867,6 +869,7 @@ export async function setSecretValue(key: RuntimeSecretKey, value: string): Prom
   try {
     await pushSecretToSidecar(key, sanitized || '');
   } catch (error) {
+    // eslint-disable-next-line no-console
     console.warn(`[runtime-config] Failed to sync ${key} to sidecar`, error);
   }
 
@@ -880,15 +883,13 @@ export async function setSecretValue(key: RuntimeSecretKey, value: string): Prom
 }
 
 async function getLocalApiToken(): Promise<string | null> {
-  if (!localApiTokenPromise) {
-    localApiTokenPromise = invokeTauri<string>('get_local_api_token')
-      .then((token) => token.trim() || null)
-      .catch((error) => {
-        // Allow retries on subsequent calls if bridge/token is temporarily unavailable.
-        localApiTokenPromise = null;
-        throw error;
-      });
-  }
+  localApiTokenPromise ??= invokeTauri<string>('get_local_api_token')
+    .then((token) => token.trim() || null)
+    .catch((error) => {
+      // Allow retries on subsequent calls if bridge/token is temporarily unavailable.
+      localApiTokenPromise = null;
+      throw error;
+    });
   return localApiTokenPromise;
 }
 
@@ -910,7 +911,8 @@ async function pushSecretToSidecar(key: string, value: string): Promise<void> {
     try {
       detail = await response.text();
     } catch { /* ignore non-readable body */ }
-    throw new Error(`Sidecar secret sync failed (${response.status})${detail ? `: ${detail.slice(0, 200)}` : ''}`);
+    const suffix = detail ? `: ${detail.slice(0, 200)}` : '';
+    throw new Error(`Sidecar secret sync failed (${response.status})${suffix}`);
   }
 }
 
@@ -930,7 +932,7 @@ export async function verifySecretWithApi(
 ): Promise<SecretVerificationResult> {
   const localValidation = validateSecret(key, value);
   if (!localValidation.valid) {
-    return { valid: false, message: localValidation.hint || 'Invalid value' };
+    return { valid: false, message: localValidation.hint ?? 'Invalid value' };
   }
 
   if (!isDesktopRuntime()) {
@@ -950,12 +952,9 @@ export async function verifySecretWithApi(
     } catch { /* non-JSON response */ }
 
     if (!response.ok) {
-      const message = payload && typeof payload === 'object'
-        ? String(
-          (payload as Record<string, unknown>).message
-          || (payload as Record<string, unknown>).error
-          || 'Secret validation failed'
-        )
+      const rec = payload && typeof payload === 'object' ? payload as Record<string, string> : null;
+      const message = rec
+        ? String(rec.message ?? rec.error ?? 'Secret validation failed')
         : `Secret validation failed (${response.status})`;
       return { valid: false, message };
     }
@@ -964,8 +963,9 @@ export async function verifySecretWithApi(
       return { valid: false, message: 'Secret validation returned an invalid response' };
     }
 
-    const valid = Boolean((payload as Record<string, unknown>).valid);
-    const message = String((payload as Record<string, unknown>).message || (valid ? 'Verified' : 'Verification failed'));
+    const rec = payload as Record<string, string | boolean>;
+    const valid = Boolean(rec.valid);
+    const message = String(rec.message ?? (valid ? 'Verified' : 'Verification failed'));
     return { valid, message };
   } catch (error) {
     // Network errors reaching the sidecar should NOT block saving.
@@ -989,6 +989,7 @@ export async function loadDesktopSecrets(): Promise<void> {
         try {
           await pushSecretToSidecar(key as RuntimeSecretKey, value);
         } catch (error) {
+          // eslint-disable-next-line no-console
           console.warn(`[runtime-config] Failed to sync ${key} to sidecar`, error);
         }
       })
@@ -996,11 +997,13 @@ export async function loadDesktopSecrets(): Promise<void> {
 
     const failures = syncResults.filter((r) => r.status === 'rejected');
     if (failures.length > 0) {
+      // eslint-disable-next-line no-console
       console.warn(`[runtime-config] ${failures.length} key(s) failed to sync to sidecar`);
     }
 
     notifyConfigChanged();
   } catch (error) {
+    // eslint-disable-next-line no-console
     console.warn('[runtime-config] Failed to load desktop secrets from vault', error);
   } finally {
     secretsReadyResolve();
