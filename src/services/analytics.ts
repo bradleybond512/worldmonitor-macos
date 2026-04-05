@@ -105,6 +105,7 @@ const SECRET_ANALYTICS_NAMES: Record<RuntimeSecretKey, string> = {
   HIBP_API_KEY: 'hibp',
   GEONAMES_USERNAME: 'geonames',
   IPINFO_TOKEN: 'ipinfo',
+  CESIUM_ION_TOKEN: 'cesium',
 };
 
 // ── Typed event schemas (allowlisted properties per event) ──
@@ -167,7 +168,7 @@ function stripSecretsValue(value: unknown): unknown {
     return API_KEY_PREFIXES.test(value) ? '[REDACTED]' : value;
   }
   if (Array.isArray(value)) {
-    return value.map(stripSecretsValue);
+    return value.map((v) => stripSecretsValue(v));
   }
   if (value !== null && typeof value === 'object') {
     const cleaned: Record<string, unknown> = {};
@@ -196,7 +197,7 @@ let initPromise: Promise<void> | null = null;
 
 const POSTHOG_KEY = import.meta.env.VITE_POSTHOG_KEY as string | undefined;
 const POSTHOG_HOST = isDesktopRuntime()
-  ? ((import.meta.env.VITE_POSTHOG_HOST as string | undefined) || 'https://us.i.posthog.com')
+  ? ((import.meta.env.VITE_POSTHOG_HOST as string | undefined) ?? 'https://us.i.posthog.com')
   : '/ingest'; // Reverse proxy through own domain to bypass ad blockers
 
 // ── Public API ──
@@ -268,6 +269,7 @@ export async function initAnalytics(): Promise<void> {
         window.addEventListener('online', () => flushOfflineQueue());
       }
     } catch (error) {
+      // eslint-disable-next-line no-console
       console.warn('[Analytics] Failed to initialize PostHog:', error);
     }
   })();
@@ -283,7 +285,7 @@ const OFFLINE_QUEUE_CAP = 200;
 function enqueueOffline(name: string, props: Record<string, unknown>): void {
   try {
     const raw = localStorage.getItem(OFFLINE_QUEUE_KEY);
-    const queue: { name: string; props: Record<string, unknown>; ts: number }[] = raw ? JSON.parse(raw) : [];
+    const queue = (raw ? JSON.parse(raw) : []) as { name: string; props: Record<string, unknown>; ts: number }[];
     queue.push({ name, props, ts: Date.now() });
     if (queue.length > OFFLINE_QUEUE_CAP) queue.splice(0, queue.length - OFFLINE_QUEUE_CAP);
     localStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(queue));
@@ -295,7 +297,7 @@ function flushOfflineQueue(): void {
   try {
     const raw = localStorage.getItem(OFFLINE_QUEUE_KEY);
     if (!raw) return;
-    const queue: { name: string; props: Record<string, unknown> }[] = JSON.parse(raw);
+    const queue = JSON.parse(raw) as { name: string; props: Record<string, unknown> }[];
     localStorage.removeItem(OFFLINE_QUEUE_KEY);
     for (const { name, props } of queue) {
       posthogInstance.capture(name, props);
@@ -342,7 +344,7 @@ export function trackApiKeysSnapshot(): void {
     ...presence,
     enabled_features: enabledFeatures,
     total_features_enabled: enabledFeatures.length,
-    ollama_model: config.secrets.OLLAMA_MODEL?.value || 'none',
+    ollama_model: config.secrets.OLLAMA_MODEL?.value ?? 'none',
   });
 }
 

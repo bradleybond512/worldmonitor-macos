@@ -335,6 +335,14 @@ export class EventHandlerManager implements AppModule {
           e.preventDefault();
           toggleGhostMode();
         }
+        // G key (no modifiers) — toggle God's Eye mode
+        if (e.key === 'g' && !e.ctrlKey && !e.metaKey && !e.shiftKey && !e.altKey) {
+          const target = e.target as HTMLElement;
+          const tag = target.tagName;
+          if (tag === 'INPUT' || tag === 'TEXTAREA' || target.isContentEditable) return;
+          e.preventDefault();
+          document.dispatchEvent(new CustomEvent('wm:toggle-gods-eye'));
+        }
         // Cmd+\ — toggle sidebar
         if (e.metaKey && e.key === '\\' && !e.shiftKey && !e.altKey) {
           const active = document.activeElement;

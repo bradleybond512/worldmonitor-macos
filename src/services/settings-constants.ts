@@ -42,6 +42,7 @@ export const SIGNUP_URLS: Partial<Record<RuntimeSecretKey, string>> = {
   HIBP_API_KEY: 'https://haveibeenpwned.com/API/Key',
   GEONAMES_USERNAME: 'https://www.geonames.org/login',
   IPINFO_TOKEN: 'https://ipinfo.io/signup',
+  CESIUM_ION_TOKEN: 'https://ion.cesium.com/signup/',
 };
 
 export const PLAINTEXT_KEYS = new Set<RuntimeSecretKey>([
@@ -100,6 +101,7 @@ export const HUMAN_LABELS: Record<RuntimeSecretKey, string> = {
   HIBP_API_KEY: 'Have I Been Pwned API Key',
   GEONAMES_USERNAME: 'GeoNames Username',
   IPINFO_TOKEN: 'IPInfo Token',
+  CESIUM_ION_TOKEN: 'Cesium Ion Token',
 };
 
 export interface SettingsCategory {

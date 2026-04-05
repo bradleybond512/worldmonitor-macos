@@ -1,5 +1,6 @@
 import { defineConfig, type Plugin } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
+import { viteStaticCopy } from 'vite-plugin-static-copy';
 import { resolve, dirname, extname } from 'path';
 import { mkdir, readFile, writeFile } from 'fs/promises';
 import { spawnSync } from 'child_process';
@@ -723,6 +724,14 @@ export default defineConfig({
     youtubeLivePlugin(),
     sebufApiPlugin(),
     brotliPrecompressPlugin(),
+    viteStaticCopy({
+      targets: [
+        { src: 'node_modules/cesium/Build/Cesium/Workers', dest: 'cesium' },
+        { src: 'node_modules/cesium/Build/Cesium/ThirdParty', dest: 'cesium' },
+        { src: 'node_modules/cesium/Build/Cesium/Assets', dest: 'cesium' },
+        { src: 'node_modules/cesium/Build/Cesium/Widgets', dest: 'cesium' },
+      ],
+    }),
     VitePWA({
       registerType: 'autoUpdate',
       injectRegister: false,
@@ -754,7 +763,7 @@ export default defineConfig({
       workbox: {
         globPatterns: ['**/*.{js,css,ico,png,svg,woff2}'],
         globIgnores: ['**/ml*.js', '**/onnx*.wasm', '**/locale-*.js'],
-        maximumFileSizeToCacheInBytes: 3 * 1024 * 1024, // 3 MiB — panels bundle exceeds 2 MiB default
+        maximumFileSizeToCacheInBytes: 6 * 1024 * 1024, // 6 MiB — CesiumJS adds ~2.4 MiB to panels bundle
         navigateFallback: null,
         skipWaiting: true,
         clientsClaim: true,

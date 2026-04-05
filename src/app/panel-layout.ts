@@ -472,6 +472,7 @@ export class PanelLayoutManager implements AppModule {
             </div>
             ${getMode() === 'war' ? '<button class="mac-alert-family-btn" id="alertFamilyBtn">⚠ Alert Family</button>' : ''}
             <button class="mac-ghost-mode-btn${getMode() === 'ghost' ? ' mac-ghost-mode-active' : ''}" id="ghostModeBtn" title="Ghost Mode — Reduce polling, suppress notifications (⌘⇧G)">👻 Ghost Mode</button>
+            <button class="mac-ghost-mode-btn" id="godsEyeBtn" title="God's Eye — 3D globe view (G)">🌍 God's Eye</button>
           </div>`}
 
           <!-- Footer: theme, low-power, settings, version, collapse -->
@@ -1369,6 +1370,10 @@ export class PanelLayoutManager implements AppModule {
     // Ghost Mode button + Tauri menu event
     document.getElementById('ghostModeBtn')?.addEventListener('click', () => {
       toggleGhostMode();
+    });
+    // God's Eye button
+    document.getElementById('godsEyeBtn')?.addEventListener('click', () => {
+      document.dispatchEvent(new CustomEvent('wm:toggle-gods-eye'));
     });
     document.addEventListener('wm:toggle-ghost-mode', () => {
       toggleGhostMode();
