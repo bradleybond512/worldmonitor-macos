@@ -1323,6 +1323,15 @@ export class GlobeDataManager {
     return counts;
   }
 
+  /** Expose data sources for AutoFollowEngine to read entity positions. */
+  getDataSources(): Map<string, CustomDataSource> {
+    const result = new Map<string, CustomDataSource>();
+    for (const [name, layer] of this.layers) {
+      result.set(name, layer.source);
+    }
+    return result;
+  }
+
   destroy(): void {
     for (const [, layer] of this.layers) {
       this.viewer.dataSources.remove(layer.source, true);

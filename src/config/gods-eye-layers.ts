@@ -136,6 +136,12 @@ export const DEFAULT_GODS_EYE_LAYERS: GodsEyeLayers = {
     enabled: true,
     description: 'Geopolitical hotspots with escalation scores',
   },
+  autoFollow: {
+    name: 'Auto-Follow',
+    category: 'analytical',
+    enabled: false,
+    description: 'Intelligent camera auto-pilot — cycles through highest-priority events',
+  },
   spaceports: {
     name: 'Spaceports',
     category: 'spatial',
