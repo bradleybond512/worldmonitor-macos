@@ -60,31 +60,11 @@ export class CesiumGlobe {
       useBrowserRecommendedResolution: true,
     });
 
-    // Dark background
+    // Dark background for God's Eye aesthetic
     this.viewer.scene.backgroundColor = Color.fromCssColorString('#0a0a0f');
     this.viewer.scene.globe.baseColor = Color.fromCssColorString('#0d1b2a');
 
-    // Replace default imagery with dark-styled Ion layer, falling back to OSM
-    this.viewer.imageryLayers.removeAll();
-    let usedIon = false;
-    if (this.options.ionToken) {
-      try {
-        const darkImagery = await IonImageryProvider.fromAssetId(3845, {});
-        this.viewer.imageryLayers.addImageryProvider(darkImagery);
-        usedIon = true;
-      } catch {
-        // Ion token may lack access to asset 3845 — fall through to OSM
-      }
-    }
-    if (!usedIon) {
-      const osmImagery = new OpenStreetMapImageryProvider({
-        url: 'https://tile.openstreetmap.org/',
-      });
-      this.viewer.imageryLayers.addImageryProvider(osmImagery);
-    }
-
-
-    // Reduce shader complexity to avoid WebKit ANGLE/Metal translator crashes
+    // Reduce shader complexity — avoid WebKit ANGLE/Metal crashes
     this.viewer.scene.globe.enableLighting = false;
     this.viewer.scene.globe.showGroundAtmosphere = false;
     this.viewer.scene.fog.enabled = false;
@@ -92,8 +72,26 @@ export class CesiumGlobe {
     this.viewer.scene.postProcessStages.fxaa.enabled = false;
     if (this.viewer.scene.sun) this.viewer.scene.sun.show = false;
     if (this.viewer.scene.moon) this.viewer.scene.moon.show = false;
-    this.viewer.scene.screenSpaceCameraController.enableTilt = true;
-    this.viewer.scene.screenSpaceCameraController.enableLook = true;
+
+    // Add imagery AFTER viewer init — avoids passing Promise to baseLayer
+    this.viewer.imageryLayers.removeAll();
+    if (this.options.ionToken) {
+      try {
+        const darkImagery = await IonImageryProvider.fromAssetId(3845, {});
+        this.viewer.imageryLayers.addImageryProvider(darkImagery);
+      } catch {
+        // Ion token may lack access to dark imagery — fall back to OSM
+        const osmImagery = new OpenStreetMapImageryProvider({
+          url: 'https://tile.openstreetmap.org/',
+        });
+        this.viewer.imageryLayers.addImageryProvider(osmImagery);
+      }
+    } else {
+      const osmImagery = new OpenStreetMapImageryProvider({
+        url: 'https://tile.openstreetmap.org/',
+      });
+      this.viewer.imageryLayers.addImageryProvider(osmImagery);
+    }
 
     // Handle resize
     this.resizeObserver = new ResizeObserver(() => {
