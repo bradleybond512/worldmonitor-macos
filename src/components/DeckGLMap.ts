@@ -117,6 +117,9 @@ import { strikeColor, strikeOpacity, type LightningStrike } from '@/services/lig
 import { getGoesWmsTileUrl } from '@/services/satellite-weather';
 import { getOwmTileUrl, type OwmTileLayer } from '@/services/owm-weather-tiles';
 import type { RedFlagWarning } from '@/services/red-flag-warnings';
+import type { SatellitePosition, OrbitPath } from '@/services/satellite-propagator';
+import type { SatelliteTLE } from '@/services/satellite-catalog';
+import { filterNotable } from '@/services/satellite-catalog';
 
 export type TimeRange = '1h' | '6h' | '24h' | '48h' | '7d' | 'all';
 export type DeckMapView = 'global' | 'america' | 'mena' | 'eu' | 'asia' | 'latam' | 'africa' | 'oceania';
@@ -499,6 +502,9 @@ export class DeckGLMap {
   private radarState: RadarState | null = null;
   private lightningStrikes: LightningStrike[] = [];
   private redFlagWarnings: RedFlagWarning[] = [];
+  private satellitePositions: SatellitePosition[] = [];
+  private satelliteCatalog: SatelliteTLE[] = [];
+  private selectedOrbitPath: OrbitPath | null = null;
   private lastCableHighlightSignature = '';
   private lastCableHealthSignature = '';
   private lastPipelineHighlightSignature = '';
@@ -1289,6 +1295,15 @@ export class DeckGLMap {
     // Red flag warnings (NWS fire weather)
     if (mapLayers.redFlagWarnings && this.redFlagWarnings.length > 0) {
       layers.push(this.createRedFlagWarningsLayer());
+    }
+
+    // Satellite ground positions
+    if (mapLayers.satellites && this.satellitePositions.length > 0) {
+      layers.push(this.createSatelliteLayer());
+      layers.push(this.createSatelliteLabelLayer());
+      if (this.selectedOrbitPath) {
+        layers.push(this.createSatelliteOrbitLayer());
+      }
     }
 
     // Internet outages layer + ghost for easier picking
@@ -5822,6 +5837,81 @@ export class DeckGLMap {
 
   public setRedFlagWarnings(warnings: RedFlagWarning[]): void {
     this.redFlagWarnings = warnings;
+    this.rafUpdateLayers();
+  }
+
+  // ── Satellite Layers ─────────────────────────────────────────────
+
+  private createSatelliteLayer(): ScatterplotLayer {
+    const zoom = this.maplibreMap?.getZoom() ?? 0;
+    const notable = this.satelliteCatalog.length > 0
+      ? new Set(filterNotable(this.satelliteCatalog).map(s => s.noradId))
+      : new Set<number>();
+
+    const data = zoom < 3
+      ? this.satellitePositions.filter(s => notable.has(s.noradId))
+      : this.satellitePositions;
+
+    return new ScatterplotLayer({
+      id: 'satellite-positions',
+      data,
+      getPosition: (d: SatellitePosition) => [d.lon, d.lat],
+      getRadius: (d: SatellitePosition) => notable.has(d.noradId) ? 20_000 : 8_000,
+      getFillColor: (d: SatellitePosition) => {
+        const cat = this.satelliteCatalog.find(s => s.noradId === d.noradId);
+        if (cat?.annotation) return [...cat.annotation.color, 200] as [number, number, number, number];
+        return [150, 150, 150, 100];
+      },
+      radiusUnits: 'meters' as const,
+      radiusMinPixels: 1,
+      radiusMaxPixels: 6,
+      pickable: true,
+    });
+  }
+
+  private createSatelliteLabelLayer(): TextLayer {
+    const notable = this.satelliteCatalog.filter(s => s.annotation && s.classification !== 'constellation');
+    const notableIds = new Set(notable.map(s => s.noradId));
+    const labeled = this.satellitePositions.filter(s => notableIds.has(s.noradId));
+
+    return new TextLayer({
+      id: 'satellite-labels',
+      data: labeled,
+      getPosition: (d: SatellitePosition) => [d.lon, d.lat],
+      getText: (d: SatellitePosition) => {
+        const cat = this.satelliteCatalog.find(s => s.noradId === d.noradId);
+        return cat?.annotation?.label ?? '';
+      },
+      getSize: 10,
+      getColor: [255, 255, 255, 180],
+      getTextAnchor: 'start' as const,
+      getAlignmentBaseline: 'center' as const,
+      getPixelOffset: [8, 0],
+      fontFamily: 'monospace',
+      billboard: true,
+    });
+  }
+
+  private createSatelliteOrbitLayer(): PathLayer {
+    if (!this.selectedOrbitPath) return new PathLayer({ id: 'satellite-orbit', data: [] });
+    return new PathLayer({
+      id: 'satellite-orbit',
+      data: [{ path: this.selectedOrbitPath.points.map(p => [p[0], p[1]]) }],
+      getPath: (d: { path: [number, number][] }) => d.path,
+      getColor: [255, 215, 0, 150],
+      getWidth: 2,
+      widthUnits: 'pixels' as const,
+    });
+  }
+
+  public setSatellitePositions(positions: SatellitePosition[], catalog: SatelliteTLE[]): void {
+    this.satellitePositions = positions;
+    this.satelliteCatalog = catalog;
+    this.rafUpdateLayers();
+  }
+
+  public setSelectedOrbitPath(path: OrbitPath | null): void {
+    this.selectedOrbitPath = path;
     this.rafUpdateLayers();
   }
 }
