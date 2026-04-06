@@ -4268,6 +4268,7 @@ export class DeckGLMap {
     try {
       this.deckOverlay?.setProps({ layers: this.buildLayers() });
       this.syncWeatherRasterLayers();
+      this.syncBuildingExtrusions();
     } catch { /* map may be mid-teardown (null.getProjection) */ }
     const elapsed = performance.now() - startTime;
     if (import.meta.env.DEV && elapsed > 16) {
@@ -5643,6 +5644,49 @@ export class DeckGLMap {
       pickable: true,
       autoHighlight: true,
     });
+  }
+
+  // ── Building Extrusions (MapLibre GL native fill-extrusion) ──────
+
+  private syncBuildingExtrusions(): void {
+    if (!this.maplibreMap) return;
+    const map = this.maplibreMap;
+    const enabled = this.state.layers.buildings3d;
+    const layerId = 'wm-3d-buildings';
+    const zoom = map.getZoom();
+
+    if (!enabled || zoom < 14) {
+      if (map.getLayer(layerId)) {
+        map.setLayoutProperty(layerId, 'visibility', 'none');
+      }
+      return;
+    }
+
+    if (!map.getLayer(layerId)) {
+      const firstSymbolId = map.getStyle()?.layers?.find(l => l.type === 'symbol')?.id;
+      map.addLayer(
+        {
+          id: layerId,
+          type: 'fill-extrusion',
+          source: 'carto',
+          'source-layer': 'building',
+          minzoom: 14,
+          paint: {
+            'fill-extrusion-color': this.activeBaseMap === 'light' ? '#c8c8c8' : '#1a2744',
+            'fill-extrusion-height': ['get', 'render_height'],
+            'fill-extrusion-base': ['get', 'render_min_height'],
+            'fill-extrusion-opacity': [
+              'interpolate', ['linear'], ['zoom'],
+              14, 0,
+              15, 0.7,
+            ],
+          },
+        },
+        firstSymbolId,
+      );
+    } else {
+      map.setLayoutProperty(layerId, 'visibility', 'visible');
+    }
   }
 
   // ── Weather Raster Tile Layers (MapLibre GL native) ──────────────
