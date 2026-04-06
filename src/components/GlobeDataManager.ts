@@ -15,8 +15,11 @@ import {
   type ImageryLayer,
   PointPrimitiveCollection,
   PolylineCollection,
+  HeadingPitchRoll,
+  Transforms,
 } from 'cesium';
 
+import { modelLoader } from '@/services/model-loader';
 import { BuildingTileManager } from '@/services/building-tiles';
 import { fetchSatelliteCatalog, filterNotable, type SatelliteTLE } from '@/services/satellite-catalog';
 import { satellitePropagator, type SatellitePosition } from '@/services/satellite-propagator';
@@ -36,7 +39,6 @@ import {
 } from '@/config/geo';
 
 import {
-  AIRCRAFT_ICONS,
   VESSEL_ICONS,
   GDACS_ICONS,
   ICON_NUCLEAR,
@@ -47,7 +49,6 @@ import {
   ICON_CYBER_CRITICAL,
   ICON_PROTEST,
   ICON_CABLE_LANDING,
-  ICON_TRANSPORT,
   ICON_WARSHIP,
   ICON_FIRE,
   ICON_BASE,
@@ -923,20 +924,25 @@ export class GlobeDataManager {
     const { flights } = await fetchMilitaryFlights();
 
     for (const f of flights) {
-      const icon = AIRCRAFT_ICONS[f.aircraftType] ?? ICON_TRANSPORT;
       const altMeters = f.altitude * 0.3048;
 
       layer.source.entities.add({
         position: Cartesian3.fromDegrees(f.lon, f.lat, altMeters),
-        billboard: {
-          image: icon,
+        orientation: Transforms.headingPitchRollQuaternion(
+          Cartesian3.fromDegrees(f.lon, f.lat, altMeters),
+          new HeadingPitchRoll(
+            CesiumMath.toRadians(f.heading),
+            0,
+            0,
+          ),
+        ) as unknown as import('cesium').Property,
+        model: {
+          uri: modelLoader.getUrlForMilitary(f.aircraftType),
+          minimumPixelSize: 24,
+          maximumScale: 5000,
           color: C.flight,
-          scale: 0.4,
-          rotation: CesiumMath.toRadians(-f.heading),
-          alignedAxis: Cartesian3.UNIT_Z,
-          scaleByDistance: new NearFarScalar(1e4, 1.5, 1e7, 0.5),
-          verticalOrigin: VerticalOrigin.CENTER,
-          horizontalOrigin: HorizontalOrigin.CENTER,
+          colorBlendMode: 2,
+          colorBlendAmount: 0.5,
         },
         label: {
           text: f.callsign ?? f.hexCode,
