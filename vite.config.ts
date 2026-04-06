@@ -1,7 +1,7 @@
 import { defineConfig, type Plugin } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
-import { viteStaticCopy } from 'vite-plugin-static-copy';
-import { resolve, dirname, extname } from 'path';
+import { cpSync, createReadStream, existsSync } from 'fs';
+import { resolve, dirname, extname, join } from 'path';
 import { mkdir, readFile, writeFile } from 'fs/promises';
 import { spawnSync } from 'child_process';
 import { brotliCompress } from 'zlib';
@@ -724,14 +724,41 @@ export default defineConfig({
     youtubeLivePlugin(),
     sebufApiPlugin(),
     brotliPrecompressPlugin(),
-    viteStaticCopy({
-      targets: [
-        { src: 'node_modules/cesium/Build/Cesium/Workers', dest: 'cesium' },
-        { src: 'node_modules/cesium/Build/Cesium/ThirdParty', dest: 'cesium' },
-        { src: 'node_modules/cesium/Build/Cesium/Assets', dest: 'cesium' },
-        { src: 'node_modules/cesium/Build/Cesium/Widgets', dest: 'cesium' },
-      ],
-    }),
+    {
+      name: 'cesium-assets',
+      configureServer(server) {
+        const cesiumRoot = resolve(__dirname, 'node_modules/cesium/Build/Cesium');
+        const mimeTypes: Record<string, string> = {
+          '.js': 'application/javascript',
+          '.json': 'application/json',
+          '.css': 'text/css',
+          '.png': 'image/png',
+          '.jpg': 'image/jpeg',
+          '.gif': 'image/gif',
+          '.svg': 'image/svg+xml',
+          '.wasm': 'application/wasm',
+          '.glb': 'model/gltf-binary',
+        };
+        server.middlewares.use('/cesium', (req, res, next) => {
+          const filePath = join(cesiumRoot, req.url ?? '');
+          if (existsSync(filePath)) {
+            const ext = extname(filePath);
+            const mime = mimeTypes[ext] || 'application/octet-stream';
+            res.setHeader('Content-Type', mime);
+            createReadStream(filePath).pipe(res);
+          } else {
+            next();
+          }
+        });
+      },
+      writeBundle() {
+        const cesiumSrc = resolve(__dirname, 'node_modules/cesium/Build/Cesium');
+        const cesiumDest = resolve(__dirname, 'dist/cesium');
+        for (const dir of ['Workers', 'ThirdParty', 'Assets', 'Widgets']) {
+          cpSync(`${cesiumSrc}/${dir}`, `${cesiumDest}/${dir}`, { recursive: true });
+        }
+      },
+    } satisfies Plugin,
     VitePWA({
       registerType: 'autoUpdate',
       injectRegister: false,
@@ -982,6 +1009,12 @@ export default defineConfig({
       'posthog-js',
       'fast-xml-parser',
       'lz-string',
+      'cesium',
+      'mersenne-twister',
+      'three',
+      'three/examples/jsm/postprocessing/EffectComposer.js',
+      'three/examples/jsm/postprocessing/RenderPass.js',
+      'three/examples/jsm/postprocessing/UnrealBloomPass.js',
     ],
   },
   server: {

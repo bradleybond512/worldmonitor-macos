@@ -29,8 +29,8 @@ export class ThreeOverlay {
     this.renderer = new THREE.WebGLRenderer({
       canvas,
       alpha: true,
-      antialias: true,
-      powerPreference: 'high-performance',
+      antialias: false,
+      powerPreference: 'low-power',
     });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.setClearColor(0x00_00_00, 0);

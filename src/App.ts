@@ -40,7 +40,7 @@ import { PanelLayoutManager } from '@/app/panel-layout';
 import { DataLoaderManager } from '@/app/data-loader';
 import { EventHandlerManager } from '@/app/event-handlers';
 import { resolveUserRegion } from '@/utils/user-location';
-import { GodsEyeView } from '@/components/GodsEyeView';
+import type { GodsEyeView } from '@/components/GodsEyeView';
 import { getRuntimeConfigSnapshot } from '@/services/runtime-config';
 
 const CYBER_LAYER_ENABLED = import.meta.env.VITE_ENABLE_CYBER_LAYER === 'true';
@@ -420,7 +420,9 @@ export class App {
     this.countryIntel.init();
 
     // God's Eye toggle (keyboard shortcut + sidebar button dispatch this)
-    document.addEventListener('wm:toggle-gods-eye', () => this.toggleGodsEye());
+    document.addEventListener('wm:toggle-gods-eye', () => {
+      this.toggleGodsEye().catch(() => {/* error handled in GodsEyeView */});
+    });
 
     // Phase 5: Event listeners + URL sync
     this.eventHandlers.init();
@@ -483,8 +485,11 @@ export class App {
     disconnectAisStream();
   }
 
-  toggleGodsEye(): void {
+  async toggleGodsEye(): Promise<void> {
     if (!this.godsEyeView) {
+      // Cesium reads CESIUM_BASE_URL at module init — must be set before dynamic import
+      (window as unknown as Record<string, unknown>).CESIUM_BASE_URL = '/cesium';
+      const { GodsEyeView } = await import('@/components/GodsEyeView');
       const ionToken = getRuntimeConfigSnapshot().secrets.CESIUM_ION_TOKEN?.value;
       this.godsEyeView = new GodsEyeView(ionToken);
     }

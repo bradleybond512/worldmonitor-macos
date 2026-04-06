@@ -1,6 +1,8 @@
 import {
   Viewer,
   IonImageryProvider,
+  UrlTemplateImageryProvider,
+  Terrain,
   SceneMode,
   Color,
   type Scene,
@@ -30,10 +32,14 @@ export class CesiumGlobe {
     cesiumContainer.style.cssText = 'width:100%;height:100%;position:absolute;inset:0;';
     this.container.append(cesiumContainer);
 
+    const hasToken = Boolean(this.options.ionToken);
+
     this.viewer = new Viewer(cesiumContainer, {
       sceneMode: SceneMode.SCENE3D,
       animation: false,
       baseLayerPicker: false,
+      baseLayer: false,
+      terrain: hasToken ? Terrain.fromWorldTerrain() : undefined,
       fullscreenButton: false,
       geocoder: false,
       homeButton: false,
@@ -43,35 +49,122 @@ export class CesiumGlobe {
       selectionIndicator: false,
       timeline: false,
       shadows: false,
-      skyBox: false,
-      skyAtmosphere: false,
       contextOptions: {
-        webgl: { alpha: true },
+        webgl: {
+          alpha: true,
+          antialias: true,
+          powerPreference: 'high-performance',
+        },
       },
+      msaaSamples: 4,
+      useBrowserRecommendedResolution: false,
     });
 
-    // Dark background
-    this.viewer.scene.backgroundColor = Color.fromCssColorString('#0a0a0f');
-    this.viewer.scene.globe.baseColor = Color.fromCssColorString('#0d1b2a');
+    const scene = this.viewer.scene;
+    const globe = scene.globe;
 
-    // Remove default imagery and add dark-styled layer
+    // ── Resolution ──────────────────────────────────────
+    // Render at native retina resolution for sharp imagery
+    this.viewer.resolutionScale = Math.min(window.devicePixelRatio, 2);
+
+    // ── Sky & Space ────────────────────────────────────
+    scene.backgroundColor = Color.fromCssColorString('#050510');
+    globe.baseColor = Color.fromCssColorString('#0d1b2a');
+
+    // Sun and moon — visible light sources give depth
+    if (scene.sun) scene.sun.show = true;
+    if (scene.moon) scene.moon.show = true;
+
+    // ── Globe Lighting ─────────────────────────────────
+    // Disable day/night cycle — keeps globe evenly lit and sharp
+    globe.enableLighting = false;
+    globe.showGroundAtmosphere = true;
+
+    // Sky atmosphere — the blue glow around Earth's edge
+    if (scene.skyAtmosphere) {
+      scene.skyAtmosphere.show = true;
+      // Cool blue-shifted atmosphere for cinematic look
+      scene.skyAtmosphere.hueShift = -0.05;
+      scene.skyAtmosphere.saturationShift = 0.15;
+      scene.skyAtmosphere.brightnessShift = -0.05;
+    }
+
+    // ── Terrain ────────────────────────────────────────
+    // Exaggerate elevation so mountains are dramatic when zoomed out
+    scene.verticalExaggeration = 1.5;
+    scene.verticalExaggerationRelativeHeight = 0;
+
+    // ── Fog & Depth ────────────────────────────────────
+    // Atmospheric fog fades distant terrain into haze
+    scene.fog.enabled = true;
+    scene.fog.density = 2e-4;
+    scene.fog.minimumBrightness = 0.03;
+
+    // ── Post-Processing ────────────────────────────────
+    // FXAA anti-aliasing
+    scene.postProcessStages.fxaa.enabled = true;
+
+    // Bloom — disabled for clarity; enable per-layer if needed
+    scene.postProcessStages.bloom.enabled = false;
+
+    // Ambient occlusion — disabled; darkens terrain too much at globe scale
+    scene.postProcessStages.ambientOcclusion.enabled = false;
+
+    // HDR for richer lighting range
+    scene.highDynamicRange = true;
+
+    // ── Camera Controls ────────────────────────────────
+    const controller = scene.screenSpaceCameraController;
+    controller.enableZoom = true;
+    controller.enableRotate = true;
+    controller.enableTilt = true;
+    controller.enableLook = true;
+    // Allow deeper tilt for dramatic oblique views
+    controller.minimumZoomDistance = 250;
+    controller.maximumZoomDistance = 5e7;
+
+    // ── Imagery Layers ─────────────────────────────────
     this.viewer.imageryLayers.removeAll();
-    const darkImagery = await IonImageryProvider.fromAssetId(3845, {});
-    this.viewer.imageryLayers.addImageryProvider(darkImagery);
 
-    // Globe settings
-    this.viewer.scene.globe.enableLighting = false;
-    this.viewer.scene.globe.showGroundAtmosphere = false;
-    this.viewer.scene.fog.enabled = false;
-    this.viewer.scene.screenSpaceCameraController.enableTilt = true;
-    this.viewer.scene.screenSpaceCameraController.enableLook = true;
+    if (hasToken) {
+      try {
+        // Day imagery: Bing Maps Aerial (asset 2) — high-res satellite
+        // Fades to 30% on night side so terrain stays visible
+        const bingImagery = await IonImageryProvider.fromAssetId(2, {});
+        const dayLayer = this.viewer.imageryLayers.addImageryProvider(bingImagery);
+        dayLayer.alpha = 1;
+        dayLayer.brightness = 1.1;
+        dayLayer.contrast = 1.15;
+        dayLayer.saturation = 1.2;
+      } catch {
+        this.addFallbackImagery();
+      }
+    } else {
+      this.addFallbackImagery();
+    }
 
-    // Handle resize
+    // ── Resize Observer ────────────────────────────────
     this.resizeObserver = new ResizeObserver(() => {
       this.viewer?.resize();
     });
     this.resizeObserver.observe(this.container);
   }
+
+  private addFallbackImagery(): void {
+    if (!this.viewer) return;
+    // ArcGIS World Imagery — free satellite tiles, no API key needed
+    const satImagery = new UrlTemplateImageryProvider({
+      url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+      credit: 'Esri, Maxar, Earthstar Geographics',
+      maximumLevel: 19,
+    });
+    const layer = this.viewer.imageryLayers.addImageryProvider(satImagery);
+    layer.alpha = 1;
+    layer.brightness = 1.1;
+    layer.contrast = 1.1;
+    layer.saturation = 1.15;
+  }
+
 
   get scene(): Scene | undefined {
     return this.viewer?.scene;
@@ -83,6 +176,10 @@ export class CesiumGlobe {
 
   get cesiumViewer(): Viewer | undefined {
     return this.viewer ?? undefined;
+  }
+
+  get canvas(): HTMLCanvasElement | undefined {
+    return this.viewer?.canvas;
   }
 
   destroy(): void {

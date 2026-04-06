@@ -9,18 +9,42 @@ export interface HUDState {
   threatLevel: string;
 }
 
+function threatFromHotspots(count: number): { label: string; cls: string } {
+  if (count > 500) return { label: 'CRITICAL', cls: 'ge-threat-critical' };
+  if (count > 200) return { label: 'ELEVATED', cls: 'ge-threat-elevated' };
+  if (count > 50)  return { label: 'GUARDED', cls: 'ge-threat-guarded' };
+  return { label: 'NOMINAL', cls: 'ge-threat-nominal' };
+}
+
+function formatCoord(deg: number, pos: string, neg: string): string {
+  const dir = deg >= 0 ? pos : neg;
+  return `${Math.abs(deg).toFixed(2)}\u00B0${dir}`;
+}
+
+const THEATER_HINTS = [
+  ['1', 'Middle East'],
+  ['2', 'Pacific'],
+  ['3', 'Europe'],
+  ['4', 'Arctic'],
+  ['5', 'Africa'],
+  ['6', 'Americas'],
+  ['ESC', 'Exit'],
+] as const;
+
 export class GlobeHUD {
   private element: HTMLElement;
   private layers: GodsEyeLayers;
   private onLayerToggle: ((layerKey: string, enabled: boolean) => void) | null = null;
   private onExit: (() => void) | null = null;
+  private clockId: number | null = null;
 
-  // Cached DOM references for efficient updates
+  // Cached DOM refs
   private threatEl: HTMLElement | null = null;
   private hotspotsEl: HTMLElement | null = null;
-  private satsEl: HTMLElement | null = null;
   private altEl: HTMLElement | null = null;
   private coordsEl: HTMLElement | null = null;
+  private clockEl: HTMLElement | null = null;
+  private layerCountEls = new Map<string, HTMLElement>();
 
   constructor(container: HTMLElement) {
     this.layers = loadGodsEyeLayers();
@@ -29,33 +53,56 @@ export class GlobeHUD {
     this.element.style.cssText = 'position:absolute;inset:0;pointer-events:none;z-index:10;';
     container.append(this.element);
     this.buildDOM();
+    this.startClock();
   }
 
   private buildDOM(): void {
-    // Top-left: threat info card
-    const topLeft = this.createPositioned('top:12px;left:12px;pointer-events:auto;');
-    const card = this.createCard();
-    this.appendLabel(card, 'THREAT LEVEL');
-    this.threatEl = this.appendValue(card, 'NOMINAL', 'ge-hud-threat');
-    this.hotspotsEl = this.appendStat(card, 'Hotspots: ', '0');
-    this.satsEl = this.appendStat(card, 'Satellites: ', '0');
+    // ── Top-left: Threat card ──
+    const topLeft = this.pos('top:16px;left:16px;pointer-events:auto;');
+    const card = this.card('ge-hud-threat-card');
+    this.clockEl = this.el('div', 'ge-hud-clock');
+    card.append(this.clockEl);
+    const threatLabel = this.el('div', 'ge-hud-micro-label', 'THREAT ASSESSMENT');
+    card.append(threatLabel);
+    this.threatEl = this.el('div', 'ge-hud-threat-value ge-threat-nominal', 'NOMINAL');
+    card.append(this.threatEl);
+    const statsRow = this.el('div', 'ge-hud-stats-row');
+    this.hotspotsEl = this.statPill(statsRow, 'HOTSPOTS', '0');
+    this.altEl = this.statPill(statsRow, 'ALT', '0 km');
+    card.append(statsRow);
+    const coordRow = this.el('div', 'ge-hud-stats-row');
+    this.coordsEl = this.el('span', 'ge-hud-coord', '0.00\u00B0N, 0.00\u00B0E');
+    coordRow.append(this.coordsEl);
+    card.append(coordRow);
     topLeft.append(card);
     this.element.append(topLeft);
 
-    // Top-right: exit button
-    const topRight = this.createPositioned('top:12px;right:12px;pointer-events:auto;');
+    // ── Top-right: Exit + theater legend ──
+    const topRight = this.pos('top:16px;right:16px;pointer-events:auto;display:flex;flex-direction:column;align-items:flex-end;gap:8px;');
     const exitBtn = document.createElement('button');
     exitBtn.className = 'ge-exit-btn';
     exitBtn.id = 'geExitBtn';
     exitBtn.title = 'Exit God\'s Eye (ESC)';
-    exitBtn.textContent = 'EXIT';
+    const exitIcon = this.el('span', 'ge-exit-icon', '\u2715');
+    exitBtn.append(exitIcon, document.createTextNode(' EXIT'));
     exitBtn.addEventListener('click', () => this.onExit?.());
     topRight.append(exitBtn);
+
+    // Theater preset hints
+    const hints = this.card('ge-hud-hints');
+    for (const [key, label] of THEATER_HINTS) {
+      const row = document.createElement('div');
+      row.className = 'ge-hint-row';
+      const keyEl = this.el('span', 'ge-hint-key', key);
+      row.append(keyEl, document.createTextNode(` ${label}`));
+      hints.append(row);
+    }
+    topRight.append(hints);
     this.element.append(topRight);
 
-    // Bottom-center: layer toggle bar
-    const bottomCenter = this.createPositioned(
-      'bottom:12px;left:50%;transform:translateX(-50%);pointer-events:auto;',
+    // ── Bottom-center: Layer toggle bar ──
+    const bottomCenter = this.pos(
+      'bottom:16px;left:50%;transform:translateX(-50%);pointer-events:auto;max-width:90vw;',
     );
     const layerBar = document.createElement('div');
     layerBar.className = 'ge-layer-bar';
@@ -64,59 +111,42 @@ export class GlobeHUD {
     bottomCenter.append(layerBar);
     this.element.append(bottomCenter);
 
-    // Bottom-right: camera readout
-    const bottomRight = this.createPositioned('bottom:12px;right:12px;');
-    const camCard = this.createCard();
-    camCard.classList.add('ge-hud-camera');
-    this.altEl = document.createElement('span');
-    this.altEl.textContent = '0 km';
-    this.coordsEl = document.createElement('span');
-    this.coordsEl.textContent = '0.00\u00B0, 0.00\u00B0';
-    camCard.append(this.altEl);
-    camCard.append(document.createTextNode(' \u00B7 '));
-    camCard.append(this.coordsEl);
-    bottomRight.append(camCard);
-    this.element.append(bottomRight);
+    // ── Overlays ──
+    const scanlines = document.createElement('div');
+    scanlines.className = 'ge-scanlines';
+    this.element.append(scanlines);
+
+    const vignette = document.createElement('div');
+    vignette.className = 'ge-vignette';
+    this.element.append(vignette);
   }
 
-  private createPositioned(style: string): HTMLElement {
+  private pos(style: string): HTMLElement {
     const el = document.createElement('div');
     el.style.cssText = `position:absolute;${style}`;
     return el;
   }
 
-  private createCard(): HTMLElement {
-    const card = document.createElement('div');
-    card.className = 'ge-hud-card';
-    return card;
-  }
-
-  private appendLabel(parent: HTMLElement, text: string): void {
+  private card(cls: string): HTMLElement {
     const el = document.createElement('div');
-    el.className = 'ge-hud-label';
-    el.textContent = text;
-    parent.append(el);
-  }
-
-  private appendValue(parent: HTMLElement, text: string, className: string): HTMLElement {
-    const el = document.createElement('div');
-    el.className = `ge-hud-value ${className}`;
-    el.textContent = text;
-    parent.append(el);
+    el.className = `ge-hud-card ${cls}`;
     return el;
   }
 
-  private appendStat(parent: HTMLElement, label: string, value: string): HTMLElement {
-    const el = document.createElement('div');
-    el.className = 'ge-hud-stat';
-    const labelSpan = document.createElement('span');
-    labelSpan.textContent = label;
-    const valueSpan = document.createElement('span');
-    valueSpan.textContent = value;
-    el.append(labelSpan);
-    el.append(valueSpan);
-    parent.append(el);
-    return valueSpan;
+  private el(tag: string, cls: string, text?: string): HTMLElement {
+    const el = document.createElement(tag);
+    el.className = cls;
+    if (text) el.textContent = text;
+    return el;
+  }
+
+  private statPill(parent: HTMLElement, label: string, value: string): HTMLElement {
+    const pill = this.el('div', 'ge-hud-stat-pill');
+    const labelEl = this.el('span', 'ge-hud-stat-label', label);
+    const valueEl = this.el('span', 'ge-hud-stat-value', value);
+    pill.append(labelEl, valueEl);
+    parent.append(pill);
+    return valueEl;
   }
 
   private buildLayerButtons(bar: HTMLElement): void {
@@ -126,7 +156,16 @@ export class GlobeHUD {
       btn.className = `ge-layer-btn${config.enabled ? ' ge-layer-active' : ''}`;
       btn.dataset.layer = key;
       btn.title = config.description;
-      btn.textContent = config.name;
+
+      const nameSpan = document.createElement('span');
+      nameSpan.className = 'ge-layer-name';
+      nameSpan.textContent = config.name;
+
+      const countSpan = document.createElement('span');
+      countSpan.className = 'ge-layer-count';
+      this.layerCountEls.set(key, countSpan);
+
+      btn.append(nameSpan, countSpan);
       btn.addEventListener('click', () => {
         const layer = this.layers[key];
         if (!layer) return;
@@ -139,22 +178,43 @@ export class GlobeHUD {
     }
   }
 
+  private updateClock(): void {
+    if (!this.clockEl) return;
+    const now = new Date();
+    const h = String(now.getUTCHours()).padStart(2, '0');
+    const m = String(now.getUTCMinutes()).padStart(2, '0');
+    const s = String(now.getUTCSeconds()).padStart(2, '0');
+    this.clockEl.textContent = `${h}:${m}:${s} UTC`;
+  }
+
+  private startClock(): void {
+    this.updateClock();
+    this.clockId = window.setInterval(() => this.updateClock(), 1000);
+  }
+
   updateState(state: Partial<HUDState>): void {
-    if (state.threatLevel !== undefined && this.threatEl) {
-      this.threatEl.textContent = state.threatLevel;
-    }
-    if (state.activeHotspots !== undefined && this.hotspotsEl) {
-      this.hotspotsEl.textContent = String(state.activeHotspots);
-    }
-    if (state.satelliteCount !== undefined && this.satsEl) {
-      this.satsEl.textContent = String(state.satelliteCount);
+    if (state.activeHotspots !== undefined) {
+      if (this.hotspotsEl) this.hotspotsEl.textContent = String(state.activeHotspots);
+      if (this.threatEl) {
+        const { label, cls } = threatFromHotspots(state.activeHotspots);
+        this.threatEl.textContent = label;
+        this.threatEl.className = `ge-hud-threat-value ${cls}`;
+      }
     }
     if (state.cameraAltitude !== undefined && this.altEl) {
       const km = Math.round(state.cameraAltitude / 1000);
       this.altEl.textContent = km > 1000 ? `${(km / 1000).toFixed(1)}k km` : `${km} km`;
     }
     if (state.cameraLat !== undefined && state.cameraLon !== undefined && this.coordsEl) {
-      this.coordsEl.textContent = `${state.cameraLat.toFixed(2)}\u00B0, ${state.cameraLon.toFixed(2)}\u00B0`;
+      this.coordsEl.textContent =
+        `${formatCoord(state.cameraLat, 'N', 'S')}, ${formatCoord(state.cameraLon, 'E', 'W')}`;
+    }
+  }
+
+  updateLayerCounts(counts: Map<string, number>): void {
+    for (const [key, el] of this.layerCountEls) {
+      const n = counts.get(key);
+      el.textContent = n != null && n > 0 ? String(n) : '';
     }
   }
 
@@ -167,6 +227,7 @@ export class GlobeHUD {
   }
 
   destroy(): void {
+    if (this.clockId != null) clearInterval(this.clockId);
     this.element.remove();
     this.onLayerToggle = null;
     this.onExit = null;
