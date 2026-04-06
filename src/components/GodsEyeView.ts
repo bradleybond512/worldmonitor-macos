@@ -48,7 +48,6 @@ export class GodsEyeView {
   private idleTimer: number | null = null;
   private eventHandler: ScreenSpaceEventHandler | null = null;
   private active = false;
-  private userInteracting = false;
   private ionToken: string | undefined;
   private cleanupHandlers: (() => void)[] = [];
 
@@ -164,44 +163,9 @@ export class GodsEyeView {
     this.container.remove();
   }
 
-  // ── Auto-orbit ───────────────────────────────────────
-
-  private startIdleOrbitTimer(): void {
-    if (this.idleTimer != null) clearTimeout(this.idleTimer);
-    this.userInteracting = false;
-    this.idleTimer = window.setTimeout(() => {
-      if (!this.userInteracting) this.startOrbit();
-    }, 8000);
-  }
-
-  private stopOrbit(): void {
-    if (this.orbitTickId != null) {
-      cancelAnimationFrame(this.orbitTickId);
-      this.orbitTickId = null;
-    }
-  }
-
-  private startOrbit(): void {
-    this.stopOrbit();
-    const camera = this.globe?.camera;
-    if (!camera) return;
-
-    let lastTime = performance.now();
-    const tick = (now: number) => {
-      if (!this.active || this.userInteracting) { this.orbitTickId = null; return; }
-      const dt = (now - lastTime) / 1000;
-      lastTime = now;
-      // Rotate ~2 degrees per second
-      camera.rotateRight(CesiumMath.toRadians(2 * dt));
-      this.orbitTickId = requestAnimationFrame(tick);
-    };
-    this.orbitTickId = requestAnimationFrame(tick);
-  }
-
   private onUserInteraction(): void {
-    this.userInteracting = true;
-    this.stopOrbit();
-    this.startIdleOrbitTimer();
+    if (this.orbitTickId != null) { cancelAnimationFrame(this.orbitTickId); this.orbitTickId = null; }
+    if (this.idleTimer != null) clearTimeout(this.idleTimer);
   }
 
   // ── Click to fly ─────────────────────────────────────
