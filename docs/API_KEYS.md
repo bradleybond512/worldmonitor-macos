@@ -10,7 +10,7 @@ These keys unlock the most impactful features and are free with simple registrat
 |-----|----------------|--------|
 | `CESIUM_ION_TOKEN` | God's Eye 3D globe with Bing satellite imagery | [ion.cesium.com](https://ion.cesium.com/signup/) |
 | `NASA_FIRMS_API_KEY` | 7,000+ satellite fire detections worldwide | [NASA FIRMS](https://firms.modaps.eosdis.nasa.gov/api/area/) |
-| `OWM_API_KEY` | Weather tile overlays (clouds, rain, temperature) | [openweathermap.org](https://openweathermap.org/api) |
+| `OWM_API_KEY` | Weather map tiles (temperature, precipitation, clouds, wind, pressure) | [openweathermap.org](https://openweathermap.org/api) |
 | `FINNHUB_API_KEY` | Real-time stock market data | [finnhub.io](https://finnhub.io/register) |
 | `NEWSAPI_KEY` | 150k+ news sources for headline aggregation | [newsapi.org](https://newsapi.org/register) |
 
@@ -83,7 +83,7 @@ These keys unlock the most impactful features and are free with simple registrat
 | Key | Label | Free? | What It Enables | Signup |
 |-----|-------|-------|-----------------|--------|
 | `CESIUM_ION_TOKEN` | Cesium Ion Token | Free | God's Eye 3D globe (Bing satellite tiles) | [ion.cesium.com](https://ion.cesium.com/signup/) |
-| `OWM_API_KEY` | OpenWeatherMap Key | Free (limited) | Weather tile overlays on maps | [openweathermap.org](https://openweathermap.org/api) |
+| `OWM_API_KEY` | OpenWeatherMap Key | Free (limited) | Weather map tiles (temperature, precipitation, clouds, wind, pressure) | [openweathermap.org](https://openweathermap.org/api) |
 
 ### AI Summarization
 
@@ -125,6 +125,13 @@ These data sources are free and require no registration:
 - ISW situation reports
 - Travel warnings (UK FCDO, Australia DFAT, Canada GAC)
 - Global weather (Open-Meteo)
+- 7-day extended forecast (Open-Meteo)
+- Weather radar (RainViewer — global radar composite)
+- Lightning detection (Blitzortung)
+- Satellite weather imagery (NOAA GOES/Himawari)
+- Tide predictions (NOAA CO-OPS — US coastal stations)
+- Pollen & allergy data (Open-Meteo Air Quality)
+- Red Flag / fire weather warnings (NWS/SPC)
 - Air quality (OpenAQ)
 
 ---

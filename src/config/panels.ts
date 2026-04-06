@@ -185,6 +185,10 @@ const FULL_PANELS: Record<string, PanelConfig> = {
   'cascade-simulator': { name: 'Cascade Simulator', enabled: true, priority: 2 },
   'emergency-broadcast': { name: 'Emergency Broadcasts', enabled: true, priority: 2 },
   'satellite-change': { name: 'Satellite Change Detection', enabled: true, priority: 2 },
+  'extended-forecast': { name: '7-Day Forecast', enabled: true, priority: 2 },
+  'tide-predictions': { name: 'Tide Predictions', enabled: true, priority: 2 },
+  'pollen': { name: 'Pollen & Allergy', enabled: true, priority: 2 },
+  'weather-radar': { name: 'Weather Radar', enabled: true, priority: 2 },
 };
 
 const FULL_MAP_LAYERS: MapLayers = {
@@ -248,6 +252,15 @@ const FULL_MAP_LAYERS: MapLayers = {
   convergenceRings: true,
   threatHeatmap: false,
   sigintConvergence: true,
+  // Weather overlay layers
+  weatherRadar: false,
+  weatherSatellite: false,
+  lightning: false,
+  owmTemperature: false,
+  owmPrecipitation: false,
+  owmClouds: false,
+  owmWind: false,
+  redFlagWarnings: true,
 };
 
 const FULL_MOBILE_MAP_LAYERS: MapLayers = {
@@ -311,6 +324,14 @@ const FULL_MOBILE_MAP_LAYERS: MapLayers = {
   convergenceRings: false,
   threatHeatmap: false,
   sigintConvergence: false,
+  weatherRadar: false,
+  weatherSatellite: false,
+  lightning: false,
+  owmTemperature: false,
+  owmPrecipitation: false,
+  owmClouds: false,
+  owmWind: false,
+  redFlagWarnings: false,
 };
 
 // ============================================
@@ -415,6 +436,14 @@ const TECH_MAP_LAYERS: MapLayers = {
   convergenceRings: false,
   threatHeatmap: false,
   sigintConvergence: false,
+  weatherRadar: false,
+  weatherSatellite: false,
+  lightning: false,
+  owmTemperature: false,
+  owmPrecipitation: false,
+  owmClouds: false,
+  owmWind: false,
+  redFlagWarnings: false,
 };
 
 const TECH_MOBILE_MAP_LAYERS: MapLayers = {
@@ -478,6 +507,14 @@ const TECH_MOBILE_MAP_LAYERS: MapLayers = {
   convergenceRings: false,
   threatHeatmap: false,
   sigintConvergence: false,
+  weatherRadar: false,
+  weatherSatellite: false,
+  lightning: false,
+  owmTemperature: false,
+  owmPrecipitation: false,
+  owmClouds: false,
+  owmWind: false,
+  redFlagWarnings: false,
 };
 
 // ============================================
@@ -578,6 +615,14 @@ const FINANCE_MAP_LAYERS: MapLayers = {
   convergenceRings: false,
   threatHeatmap: false,
   sigintConvergence: false,
+  weatherRadar: false,
+  weatherSatellite: false,
+  lightning: false,
+  owmTemperature: false,
+  owmPrecipitation: false,
+  owmClouds: false,
+  owmWind: false,
+  redFlagWarnings: false,
 };
 
 const FINANCE_MOBILE_MAP_LAYERS: MapLayers = {
@@ -641,6 +686,14 @@ const FINANCE_MOBILE_MAP_LAYERS: MapLayers = {
   convergenceRings: false,
   threatHeatmap: false,
   sigintConvergence: false,
+  weatherRadar: false,
+  weatherSatellite: false,
+  lightning: false,
+  owmTemperature: false,
+  owmPrecipitation: false,
+  owmClouds: false,
+  owmWind: false,
+  redFlagWarnings: false,
 };
 
 // ============================================
@@ -720,6 +773,14 @@ const HAPPY_MAP_LAYERS: MapLayers = {
   convergenceRings: false,
   threatHeatmap: false,
   sigintConvergence: false,
+  weatherRadar: false,
+  weatherSatellite: false,
+  lightning: false,
+  owmTemperature: false,
+  owmPrecipitation: false,
+  owmClouds: false,
+  owmWind: false,
+  redFlagWarnings: false,
 };
 
 const HAPPY_MOBILE_MAP_LAYERS: MapLayers = {
@@ -783,6 +844,14 @@ const HAPPY_MOBILE_MAP_LAYERS: MapLayers = {
   convergenceRings: false,
   threatHeatmap: false,
   sigintConvergence: false,
+  weatherRadar: false,
+  weatherSatellite: false,
+  lightning: false,
+  owmTemperature: false,
+  owmPrecipitation: false,
+  owmClouds: false,
+  owmWind: false,
+  redFlagWarnings: false,
 };
 
 // ============================================

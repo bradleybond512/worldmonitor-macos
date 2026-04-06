@@ -141,6 +141,14 @@ const layers = {
   convergenceRings: false,
   threatHeatmap: false,
   sigintConvergence: false,
+  weatherRadar: false,
+  weatherSatellite: false,
+  lightning: false,
+  owmTemperature: false,
+  owmPrecipitation: false,
+  owmClouds: false,
+  owmWind: false,
+  redFlagWarnings: false,
 };
 
 await initI18n();

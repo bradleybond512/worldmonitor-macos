@@ -112,7 +112,8 @@ export type RuntimeFeatureId =
   | 'natoNewsRss'
   | 'acapsCrisisSeverity'
   | 'liveUaMapFeed'
-  | 'godsEye3dGlobe';
+  | 'godsEye3dGlobe'
+  | 'owmWeatherTiles';
 
 export interface RuntimeFeatureDefinition {
   id: RuntimeFeatureId;
@@ -205,6 +206,7 @@ const defaultToggles: Record<RuntimeFeatureId, boolean> = {
   acapsCrisisSeverity: true,
   liveUaMapFeed: true,
   godsEye3dGlobe: true,
+  owmWeatherTiles: true,
 };
 
 export const RUNTIME_FEATURES: RuntimeFeatureDefinition[] = [
@@ -700,6 +702,14 @@ export const RUNTIME_FEATURES: RuntimeFeatureDefinition[] = [
     description: 'Cesium-powered 3D globe with dark tactical imagery, terrain, and Three.js overlay effects. Requires a free Cesium Ion token.',
     requiredSecrets: ['CESIUM_ION_TOKEN'],
     fallback: 'Falls back to OpenStreetMap tiles without a Cesium Ion token.',
+  },
+  {
+    id: 'owmWeatherTiles',
+    name: 'Weather map tile overlays',
+    description: 'OpenWeatherMap tile layers for temperature, precipitation, clouds, wind, and pressure overlays on the map.',
+    requiredSecrets: ['OWM_API_KEY'],
+    desktopRequiredSecrets: [],
+    fallback: 'Weather tile overlays disabled. Free weather radar (RainViewer), satellite imagery (NOAA), and lightning data still available.',
   },
 ];
 
