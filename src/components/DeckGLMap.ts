@@ -47,6 +47,8 @@ import type { Earthquake } from '@/services/earthquakes';
 import type { ClimateAnomaly } from '@/services/climate';
 import { ArcLayer } from '@deck.gl/layers';
 import { HeatmapLayer } from '@deck.gl/aggregation-layers';
+import { SimpleMeshLayer } from '@deck.gl/mesh-layers';
+import { modelLoader } from '@/services/model-loader';
 import type { WeatherAlert } from '@/services/weather';
 import { escapeHtml } from '@/utils/sanitize';
 import { tokenizeForMatch, matchKeyword, matchesAnyKeyword, findMatchingKeywords } from '@/utils/keyword-match';
@@ -1333,7 +1335,11 @@ export class DeckGLMap {
 
     // ADS-B live aircraft layer
     if (mapLayers.adsb && this.adsbFlights.length > 0) {
-      layers.push(this.createAdsbLayer());
+      if (mapLayers.aircraft3d && (this.maplibreMap?.getZoom() ?? 0) >= 5) {
+        layers.push(this.createAdsb3DLayer());
+      } else {
+        layers.push(this.createAdsbLayer());
+      }
     }
 
     // Strategic ports layer (shown with AIS)
@@ -1403,7 +1409,11 @@ export class DeckGLMap {
 
     // Military flights layer
     if (mapLayers.military && filteredMilitaryFlights.length > 0) {
-      layers.push(this.createMilitaryFlightsLayer(filteredMilitaryFlights));
+      if (mapLayers.aircraft3d && (this.maplibreMap?.getZoom() ?? 0) >= 5) {
+        layers.push(this.createMilitary3DFlightsLayer(filteredMilitaryFlights));
+      } else {
+        layers.push(this.createMilitaryFlightsLayer(filteredMilitaryFlights));
+      }
     }
 
     // Military flight clusters layer
@@ -2269,6 +2279,22 @@ export class DeckGLMap {
     });
   }
 
+  private createAdsb3DLayer(): SimpleMeshLayer {
+    const data = this.adsbFlights.slice(0, 200);
+    const fallbackUrl = modelLoader.getFallbackUrl();
+
+    return new SimpleMeshLayer({
+      id: 'adsb-flights-3d',
+      data,
+      mesh: fallbackUrl,
+      getPosition: (d: typeof this.adsbFlights[0]) => [d.lon, d.lat, (d.altitude ?? 0) * 0.3048],
+      getOrientation: (d: typeof this.adsbFlights[0]) => [0, -(d.heading ?? 0), 0],
+      getColor: [200, 200, 200, 200],
+      sizeScale: 300,
+      pickable: true,
+    });
+  }
+
   private createCableAdvisoriesLayer(advisories: CableAdvisory[]): ScatterplotLayer {
     // Cable fault/maintenance advisories
     return new ScatterplotLayer({
@@ -2359,6 +2385,27 @@ export class DeckGLMap {
       },
       radiusMinPixels: 4,
       radiusMaxPixels: 12,
+      pickable: true,
+    });
+  }
+
+  private createMilitary3DFlightsLayer(flights: MilitaryFlight[]): SimpleMeshLayer {
+    const data = flights.slice(0, 200);
+    const fallbackUrl = modelLoader.getFallbackUrl();
+
+    return new SimpleMeshLayer({
+      id: 'military-flights-3d',
+      data,
+      mesh: fallbackUrl,
+      getPosition: (d: MilitaryFlight) => [d.lon, d.lat, d.altitude * 0.3048],
+      getOrientation: (d: MilitaryFlight) => [0, -d.heading, 0],
+      getColor: (d: MilitaryFlight) => {
+        if (d.operator === 'usaf' || d.operator === 'usn' || d.operator === 'usa' || d.operator === 'usmc') return [52, 211, 153, 255];
+        if (d.operatorCountry === 'Russia') return [248, 113, 113, 255];
+        if (d.operatorCountry === 'China') return [251, 191, 36, 255];
+        return [129, 140, 248, 255];
+      },
+      sizeScale: 500,
       pickable: true,
     });
   }
