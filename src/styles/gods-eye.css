@@ -1,5 +1,12 @@
 /* God's Eye Mode — full-viewport 3D globe */
 
+/* Lock body scroll when God's Eye is active — prevents WKWebView's
+   NSScrollView from consuming wheel events at the AppKit level */
+body.gods-eye-lock {
+  overflow: hidden !important;
+  overscroll-behavior: none !important;
+}
+
 .gods-eye-container {
   position: fixed;
   inset: 0;
@@ -8,6 +15,7 @@
   opacity: 0;
   pointer-events: none;
   overflow: hidden;
+  overscroll-behavior: none;
   touch-action: none;
   transition: opacity 0.6s ease;
 }

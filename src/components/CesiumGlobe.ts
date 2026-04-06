@@ -73,6 +73,13 @@ export class CesiumGlobe {
     if (this.viewer.scene.sun) this.viewer.scene.sun.show = false;
     if (this.viewer.scene.moon) this.viewer.scene.moon.show = false;
 
+    // Explicitly enable camera controls — WKWebView can be finicky
+    const controller = this.viewer.scene.screenSpaceCameraController;
+    controller.enableZoom = true;
+    controller.enableRotate = true;
+    controller.enableTilt = true;
+    controller.enableLook = true;
+
     // Add imagery AFTER viewer init — avoids passing Promise to baseLayer
     this.viewer.imageryLayers.removeAll();
     if (this.options.ionToken) {

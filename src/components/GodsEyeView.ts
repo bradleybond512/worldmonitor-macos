@@ -5,16 +5,13 @@ export class GodsEyeView {
   private globe: CesiumGlobe | null = null;
   private active = false;
   private ionToken: string | undefined;
+  private wheelCapture: ((e: WheelEvent) => void) | null = null;
 
   constructor(ionToken?: string) {
     this.ionToken = ionToken;
     this.container = document.createElement('div');
     this.container.className = 'gods-eye-container';
     document.body.append(this.container);
-
-    // Prevent WKWebView from consuming trackpad scroll for elastic bounce —
-    // lets Cesium receive wheel events for zoom
-    this.container.addEventListener('wheel', (e) => e.preventDefault(), { passive: false });
   }
 
   get isActive(): boolean {
@@ -27,6 +24,16 @@ export class GodsEyeView {
 
     // Make container visible BEFORE Cesium init — ensures canvas gets real dimensions
     this.container.classList.add('gods-eye-active');
+    // Prevent WKWebView's NSScrollView from consuming wheel events for elastic bounce.
+    // Capture-phase listener fires before any element handlers — tells the browser
+    // NOT to do its own scrolling, so the event reaches Cesium's canvas handler intact.
+    document.body.classList.add('gods-eye-lock');
+    this.wheelCapture = (e: WheelEvent) => {
+      if (this.container.contains(e.target as Node)) {
+        e.preventDefault();
+      }
+    };
+    document.addEventListener('wheel', this.wheelCapture, { passive: false, capture: true });
 
     try {
       this.globe = new CesiumGlobe({
@@ -51,6 +58,11 @@ export class GodsEyeView {
 
     // Animate out
     this.container.classList.remove('gods-eye-active');
+    document.body.classList.remove('gods-eye-lock');
+    if (this.wheelCapture) {
+      document.removeEventListener('wheel', this.wheelCapture, { capture: true } as EventListenerOptions);
+      this.wheelCapture = null;
+    }
 
     // Cleanup after animation completes
     setTimeout(() => {
