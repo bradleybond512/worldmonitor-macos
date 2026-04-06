@@ -340,6 +340,10 @@ export class App {
 
   public async init(): Promise<void> {
     const initStart = performance.now();
+    if (isDesktopRuntime()) {
+      const { installLogBridge } = await import('@/services/log-bridge');
+      installLogBridge();
+    }
     await initDB();
     await initI18n();
     const aiFlow = getAiFlowSettings();

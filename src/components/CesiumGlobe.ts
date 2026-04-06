@@ -148,6 +148,23 @@ export class CesiumGlobe {
       this.viewer?.resize();
     });
     this.resizeObserver.observe(this.container);
+
+    // ── WebGL context loss handlers ────────────────────
+    // macOS reclaims GPU resources from background apps; without these,
+    // a context loss looks identical to an app crash (black globe).
+    const canvas = this.viewer.canvas;
+    canvas.addEventListener('webglcontextlost', (e) => {
+      e.preventDefault();
+      void import('@/services/log-bridge').then((m) => {
+        m.logToDesktop('WARN', 'CesiumGlobe webglcontextlost — GPU context dropped');
+      });
+    }, false);
+    canvas.addEventListener('webglcontextrestored', () => {
+      void import('@/services/log-bridge').then((m) => {
+        m.logToDesktop('INFO', 'CesiumGlobe webglcontextrestored — re-rendering');
+      });
+      this.viewer?.scene.requestRender();
+    }, false);
   }
 
   private addFallbackImagery(): void {

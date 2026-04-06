@@ -89,11 +89,29 @@ static NOTIFICATION_LAST_SENT: Mutex<Option<Instant>> = Mutex::new(None);
 const NOTIFICATION_RATE_LIMIT: Duration = Duration::from_secs(30);
 const MIN_CACHE_FLUSH_INTERVAL: Duration = Duration::from_secs(2);
 
-#[derive(Default)]
 struct LocalApiState {
     child: Mutex<Option<Child>>,
     token: Mutex<Option<String>>,
     port: Mutex<Option<u16>>,
+    restart_count: Mutex<u32>,
+    last_restart_at: Mutex<Option<Instant>>,
+}
+
+const BUILD_SHA: &str = match option_env!("WM_BUILD_SHA") {
+    Some(s) => s,
+    None => "dev",
+};
+
+impl Default for LocalApiState {
+    fn default() -> Self {
+        Self {
+            child: Mutex::new(None),
+            token: Mutex::new(None),
+            port: Mutex::new(None),
+            restart_count: Mutex::new(0),
+            last_restart_at: Mutex::new(None),
+        }
+    }
 }
 
 /// In-memory cache for keychain secrets. Populated once at startup to avoid
@@ -596,7 +614,12 @@ fn append_desktop_log(app: &AppHandle, level: &str, message: &str) {
         .duration_since(UNIX_EPOCH)
         .map(|d| d.as_secs())
         .unwrap_or(0);
-    let _ = writeln!(file, "[{timestamp}][{level}] {message}");
+    let _ = writeln!(
+        file,
+        "[{timestamp}][v{}+{}][{level}] {message}",
+        env!("CARGO_PKG_VERSION"),
+        BUILD_SHA
+    );
 }
 
 fn open_in_shell(arg: &str) -> Result<(), String> {
@@ -1465,6 +1488,50 @@ fn start_local_api(app: &AppHandle) -> Result<(), String> {
         *port_slot = None;
     }
 
+    // ── Restart counter / flap detector ──────────────────────────────
+    if let (Ok(mut count), Ok(mut last)) = (state.restart_count.lock(), state.last_restart_at.lock()) {
+        *count += 1;
+        let total = *count;
+        let now = Instant::now();
+        let recent = last.map(|t| now.duration_since(t) < Duration::from_secs(300)).unwrap_or(false);
+        *last = Some(now);
+        if total > 1 {
+            append_desktop_log(
+                app,
+                if recent && total >= 4 { "WARN" } else { "INFO" },
+                &format!("sidecar restart_count={total} recent_window=5min flapping={}", recent && total >= 4),
+            );
+        }
+    }
+
+    // ── Stale-sidecar reaper ─────────────────────────────────────────
+    // Scan port 46123 for an existing listener. If it's an orphaned node
+    // process (not us), log it and kill it so the new sidecar can claim
+    // the canonical port instead of falling back to a random one.
+    #[cfg(unix)]
+    {
+        if let Ok(out) = Command::new("lsof")
+            .args(["-nP", "-tiTCP:46123", "-sTCP:LISTEN"])
+            .output()
+        {
+            let stdout = String::from_utf8_lossy(&out.stdout);
+            for line in stdout.lines() {
+                if let Ok(pid) = line.trim().parse::<u32>() {
+                    if pid != std::process::id() {
+                        append_desktop_log(
+                            app,
+                            "WARN",
+                            &format!("pre-existing listener on port 46123 pid={pid} — killing"),
+                        );
+                        let _ = Command::new("kill").args(["-TERM", &pid.to_string()]).status();
+                        std::thread::sleep(Duration::from_millis(300));
+                        let _ = Command::new("kill").args(["-KILL", &pid.to_string()]).status();
+                    }
+                }
+            }
+        }
+    }
+
     let (script, resource_root) = local_api_paths(app);
     if !script.exists() {
         return Err(format!(
@@ -1549,8 +1616,12 @@ fn start_local_api(app: &AppHandle) -> Result<(), String> {
         .env("LOCAL_API_DATA_DIR", &data_dir)
         .env("LOCAL_API_MODE", "tauri-sidecar")
         .env("LOCAL_API_TOKEN", &local_api_token)
+        .env("WM_BUILD_TAG", format!("v{}+{}", env!("CARGO_PKG_VERSION"), BUILD_SHA))
         .stdout(Stdio::from(log_file))
         .stderr(Stdio::from(log_file_err));
+    if std::env::var("WM_TRACE").ok().as_deref() == Some("1") {
+        cmd.env("WM_TRACE", "1");
+    }
     if let Some(parent) = script.parent() {
         cmd.current_dir(parent);
     }
@@ -1580,13 +1651,85 @@ fn start_local_api(app: &AppHandle) -> Result<(), String> {
     let child = cmd
         .spawn()
         .map_err(|e| format!("Failed to launch local API: {e}"))?;
+    let child_pid = child.id();
     append_desktop_log(
         app,
         "INFO",
-        &format!("local API sidecar started pid={}", child.id()),
+        &format!("local API sidecar started pid={child_pid}"),
     );
     *slot = Some(child);
     drop(slot);
+
+    // Watcher thread: poll for sidecar exit so we can log status code / signal
+    // when it dies unexpectedly. Without this we only see "sidecar stopped" from
+    // stop_local_api(), which masks crashes from manual kills or external signals.
+    // Also tails the heartbeat file and warns if it goes stale (event-loop hang).
+    {
+        let app_handle = app.clone();
+        let heartbeat_path = logs_dir_path(app)
+            .ok()
+            .map(|p| p.join("sidecar.health.json"));
+        let mut last_heartbeat_age_warn = false;
+        std::thread::spawn(move || {
+            loop {
+                std::thread::sleep(std::time::Duration::from_millis(1500));
+                // Heartbeat staleness check
+                if let Some(ref hb_path) = heartbeat_path {
+                    if let Ok(meta) = fs::metadata(hb_path) {
+                        if let Ok(modified) = meta.modified() {
+                            if let Ok(age) = SystemTime::now().duration_since(modified) {
+                                let stale = age > Duration::from_secs(30);
+                                if stale && !last_heartbeat_age_warn {
+                                    append_desktop_log(
+                                        &app_handle,
+                                        "WARN",
+                                        &format!("sidecar heartbeat stale age={}s pid={child_pid}", age.as_secs()),
+                                    );
+                                    last_heartbeat_age_warn = true;
+                                } else if !stale && last_heartbeat_age_warn {
+                                    append_desktop_log(&app_handle, "INFO", "sidecar heartbeat recovered");
+                                    last_heartbeat_age_warn = false;
+                                }
+                            }
+                        }
+                    }
+                }
+                let Some(state) = app_handle.try_state::<LocalApiState>() else { return; };
+                let Ok(mut slot) = state.child.lock() else { return; };
+                let Some(child) = slot.as_mut() else { return; }; // already cleared by stop_local_api
+                if child.id() != child_pid { return; } // a newer sidecar replaced us
+                match child.try_wait() {
+                    Ok(Some(status)) => {
+                        append_desktop_log(
+                            &app_handle,
+                            "WARN",
+                            &format!(
+                                "sidecar pid={child_pid} exited unexpectedly status={status:?} code={:?} signal={:?}",
+                                status.code(),
+                                {
+                                    #[cfg(unix)]
+                                    { use std::os::unix::process::ExitStatusExt; status.signal() }
+                                    #[cfg(not(unix))]
+                                    { None::<i32> }
+                                }
+                            ),
+                        );
+                        *slot = None;
+                        return;
+                    }
+                    Ok(None) => continue, // still running
+                    Err(e) => {
+                        append_desktop_log(
+                            &app_handle,
+                            "ERROR",
+                            &format!("sidecar try_wait pid={child_pid} failed: {e}"),
+                        );
+                        return;
+                    }
+                }
+            }
+        });
+    }
 
     // Wait for sidecar to write confirmed port (up to 15s — Node.js ESM startup can be slow)
     if let Some(confirmed_port) = read_port_file(&port_file, 15000) {
@@ -1610,6 +1753,75 @@ fn start_local_api(app: &AppHandle) -> Result<(), String> {
     }
 
     Ok(())
+}
+
+/// Frontend → desktop log bridge. JS calls this from window.onerror,
+/// unhandledrejection, and key event handlers so renderer-side errors land
+/// in desktop.log instead of dying in WebInspector.
+#[tauri::command]
+fn log_frontend(app: AppHandle, level: String, message: String, context: Option<String>) {
+    let lvl = match level.to_uppercase().as_str() {
+        "ERROR" | "WARN" | "INFO" | "DEBUG" => level.to_uppercase(),
+        _ => "INFO".to_string(),
+    };
+    let ctx = context.unwrap_or_default();
+    let truncated_msg = if message.len() > 1000 { &message[..1000] } else { &message };
+    append_desktop_log(
+        &app,
+        &lvl,
+        &format!("[FRONTEND] {truncated_msg}{}", if ctx.is_empty() { String::new() } else { format!(" | {ctx}") }),
+    );
+}
+
+/// Returns a diagnostics bundle (last N log lines + sidecar /api/diag) as a
+/// single string suitable for copying to the clipboard. Triggered by Cmd+Shift+D.
+#[tauri::command]
+async fn copy_diagnostics(app: AppHandle) -> Result<String, String> {
+    let mut out = String::new();
+    out.push_str(&format!(
+        "=== World Monitor diagnostics ===\nversion: v{}+{}\ntime: {}\n\n",
+        env!("CARGO_PKG_VERSION"),
+        BUILD_SHA,
+        SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0)
+    ));
+
+    // Tail desktop.log + local-api.log (last 200 lines each)
+    for (label, getter) in &[
+        ("desktop.log", desktop_log_path as fn(&AppHandle) -> Result<PathBuf, String>),
+        ("local-api.log", sidecar_log_path as fn(&AppHandle) -> Result<PathBuf, String>),
+    ] {
+        out.push_str(&format!("--- {label} (last 200 lines) ---\n"));
+        if let Ok(path) = getter(&app) {
+            if let Ok(content) = fs::read_to_string(&path) {
+                let lines: Vec<&str> = content.lines().collect();
+                let start = lines.len().saturating_sub(200);
+                for l in &lines[start..] {
+                    out.push_str(l);
+                    out.push('\n');
+                }
+            } else {
+                out.push_str("(unreadable)\n");
+            }
+        }
+        out.push('\n');
+    }
+
+    // Fetch /api/diag from the live sidecar
+    let port = app.state::<LocalApiState>().port.lock().ok().and_then(|p| *p).unwrap_or(DEFAULT_LOCAL_API_PORT);
+    out.push_str(&format!("--- /api/diag (port {port}) ---\n"));
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(2))
+        .build()
+        .map_err(|e| e.to_string())?;
+    match client.get(format!("http://127.0.0.1:{port}/api/diag")).send().await {
+        Ok(resp) => match resp.text().await {
+            Ok(body) => out.push_str(&body),
+            Err(e) => out.push_str(&format!("(diag body read failed: {e})")),
+        },
+        Err(e) => out.push_str(&format!("(diag fetch failed: {e})")),
+    }
+    out.push('\n');
+    Ok(out)
 }
 
 fn stop_local_api(app: &AppHandle) {
@@ -1674,6 +1886,28 @@ fn resolve_appimage_gio_module_dir() -> Option<PathBuf> {
 }
 
 fn main() {
+    // Panic hook — without this, a Rust panic exits the process silently with
+    // no log line. We append the panic info to desktop.log via direct path
+    // resolution (the AppHandle isn't available yet at panic time on every thread).
+    std::panic::set_hook(Box::new(|info| {
+        let msg = info.payload().downcast_ref::<&str>().copied()
+            .or_else(|| info.payload().downcast_ref::<String>().map(|s| s.as_str()))
+            .unwrap_or("(no message)");
+        let location = info.location()
+            .map(|l| format!("{}:{}", l.file(), l.line()))
+            .unwrap_or_else(|| "(unknown location)".to_string());
+        eprintln!("[tauri PANIC] {msg} at {location}");
+        // Best-effort write to log file at known location.
+        if let Some(home) = std::env::var_os("HOME") {
+            let log = PathBuf::from(home)
+                .join("Library/Logs/com.bradleybond.worldmonitor/desktop.log");
+            if let Ok(mut f) = OpenOptions::new().create(true).append(true).open(&log) {
+                let ts = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
+                let _ = writeln!(f, "[{ts}][v{}+{}][PANIC] {msg} at {location}", env!("CARGO_PKG_VERSION"), BUILD_SHA);
+            }
+        }
+    }));
+
     // Work around WebKitGTK rendering issues on Linux that can cause blank white
     // screens. DMA-BUF renderer failures are common with NVIDIA drivers and on
     // immutable distros (e.g. Bazzite/Fedora Atomic).  Setting the env var before
@@ -1826,6 +2060,8 @@ fn main() {
             delete_cache_entry,
             open_logs_folder,
             open_sidecar_log_file,
+            log_frontend,
+            copy_diagnostics,
             open_settings_window_command,
             close_settings_window,
             open_live_channels_window_command,
@@ -1842,6 +2078,20 @@ fn main() {
             // Load persistent cache into memory (avoids 14MB file I/O on every IPC call)
             let cache_path = cache_file_path(&app.handle()).unwrap_or_default();
             app.manage(PersistentCache::load(&cache_path));
+
+            append_desktop_log(
+                &app.handle(),
+                "INFO",
+                &format!(
+                    "app launched pid={} version={} bundle={}",
+                    std::process::id(),
+                    env!("CARGO_PKG_VERSION"),
+                    env::current_exe()
+                        .ok()
+                        .and_then(|p| p.to_str().map(String::from))
+                        .unwrap_or_else(|| "?".into())
+                ),
+            );
 
             if let Err(err) = start_local_api(&app.handle()) {
                 append_desktop_log(
@@ -1892,7 +2142,12 @@ fn main() {
                         let _ = sw.set_focus();
                     }
                 }
-                RunEvent::ExitRequested { .. } | RunEvent::Exit => {
+                RunEvent::ExitRequested { code, .. } => {
+                    append_desktop_log(
+                        app,
+                        "INFO",
+                        &format!("RunEvent::ExitRequested code={:?} pid={}", code, std::process::id()),
+                    );
                     // Flush in-memory cache to disk before quitting
                     if let Ok(path) = cache_file_path(app) {
                         if let Some(cache) = app.try_state::<PersistentCache>() {
@@ -1900,6 +2155,31 @@ fn main() {
                         }
                     }
                     stop_local_api(app);
+                }
+                RunEvent::Exit => {
+                    append_desktop_log(
+                        app,
+                        "INFO",
+                        &format!("RunEvent::Exit pid={}", std::process::id()),
+                    );
+                    if let Ok(path) = cache_file_path(app) {
+                        if let Some(cache) = app.try_state::<PersistentCache>() {
+                            let _ = cache.flush(&path, true);
+                        }
+                    }
+                    stop_local_api(app);
+                }
+                #[cfg(target_os = "macos")]
+                RunEvent::WindowEvent {
+                    label,
+                    event: WindowEvent::CloseRequested { .. },
+                    ..
+                } => {
+                    append_desktop_log(
+                        app,
+                        "INFO",
+                        &format!("WindowEvent::CloseRequested label={label}"),
+                    );
                 }
                 _ => {}
             }
