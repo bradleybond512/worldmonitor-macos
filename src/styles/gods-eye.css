@@ -1,23 +1,40 @@
-/* God's Eye Mode — full-viewport 3D globe */
+/* God's Eye Mode — Apple-futuristic command center */
 
-/* Lock body scroll when God's Eye is active — prevents WKWebView's
-   NSScrollView from consuming wheel events at the AppKit level */
+/* ── Variables ───────────────────────────────────── */
+:root {
+  --ge-blue: 96, 165, 250;
+  --ge-cyan: 34, 211, 238;
+  --ge-green: 52, 211, 153;
+  --ge-amber: 251, 191, 36;
+  --ge-red: 248, 113, 113;
+  --ge-white: 255, 255, 255;
+  --ge-glass: rgba(0, 0, 0, 0.55);
+  --ge-glass-border: rgba(var(--ge-blue), 0.18);
+  --ge-blur: 20px;
+  --ge-radius: 14px;
+  --ge-font: 'SF Pro Text', 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif;
+  --ge-mono: 'SF Mono', ui-monospace, 'Fira Code', 'Cascadia Code', monospace;
+  --ge-glow: 0 0 20px rgba(var(--ge-blue), 0.15), 0 0 60px rgba(var(--ge-blue), 0.05);
+}
+
+/* ── Body lock ───────────────────────────────────── */
 body.gods-eye-lock {
   overflow: hidden !important;
   overscroll-behavior: none !important;
 }
 
+/* ── Container ───────────────────────────────────── */
 .gods-eye-container {
   position: fixed;
   inset: 0;
   z-index: 1000;
-  background: #0a0a0f;
+  background: #050510;
   opacity: 0;
   pointer-events: none;
   overflow: hidden;
   overscroll-behavior: none;
   touch-action: none;
-  transition: opacity 0.6s ease;
+  transition: opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .gods-eye-container.gods-eye-active {
@@ -25,94 +42,363 @@ body.gods-eye-lock {
   pointer-events: auto;
 }
 
+/* ── Shared card glass ───────────────────────────── */
 .ge-hud-card {
-  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-family: var(--ge-mono);
   font-size: 11px;
-  color: rgba(96, 165, 250, 0.9);
-  background: rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(8px);
-  border: 1px solid rgba(59, 130, 246, 0.25);
-  border-radius: 6px;
-  padding: 8px 10px;
-  line-height: 1.6;
+  color: rgba(var(--ge-blue), 0.9);
+  background: var(--ge-glass);
+  backdrop-filter: blur(var(--ge-blur)) saturate(1.4);
+  -webkit-backdrop-filter: blur(var(--ge-blur)) saturate(1.4);
+  border: 1px solid var(--ge-glass-border);
+  border-radius: var(--ge-radius);
+  padding: 12px 14px;
+  line-height: 1.5;
+  box-shadow: var(--ge-glow), inset 0 1px 0 rgba(var(--ge-white), 0.04);
+  transition: border-color 0.4s ease, box-shadow 0.4s ease;
 }
 
-.ge-hud-label {
+.ge-hud-card:hover {
+  border-color: rgba(var(--ge-blue), 0.3);
+}
+
+/* ── Threat card (top-left) ──────────────────────── */
+.ge-hud-threat-card {
+  min-width: 180px;
+  animation: ge-card-in 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: 0.3s;
+}
+
+/* ── Clock ───────────────────────────────────────── */
+.ge-hud-clock {
+  font-family: var(--ge-mono);
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: 2px;
+  color: rgba(var(--ge-white), 0.85);
+  margin-bottom: 8px;
+  text-shadow: 0 0 12px rgba(var(--ge-blue), 0.4);
+}
+
+/* ── Micro label ─────────────────────────────────── */
+.ge-hud-micro-label {
+  font-family: var(--ge-font);
   font-size: 9px;
-  letter-spacing: 1.5px;
-  color: rgba(96, 165, 250, 0.6);
-  margin-bottom: 2px;
+  font-weight: 600;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: rgba(var(--ge-blue), 0.5);
+  margin-bottom: 4px;
 }
 
-.ge-hud-value {
-  font-size: 16px;
+/* ── Threat value ────────────────────────────────── */
+.ge-hud-threat-value {
+  font-family: var(--ge-font);
+  font-size: 22px;
   font-weight: 700;
+  letter-spacing: 3px;
+  margin-bottom: 10px;
+  transition: color 0.5s ease, text-shadow 0.5s ease;
 }
 
-.ge-hud-threat {
-  color: #34d399;
+.ge-threat-nominal {
+  color: rgba(var(--ge-green), 1);
+  text-shadow: 0 0 16px rgba(var(--ge-green), 0.4);
 }
 
-.ge-hud-stat {
+.ge-threat-guarded {
+  color: rgba(var(--ge-cyan), 1);
+  text-shadow: 0 0 16px rgba(var(--ge-cyan), 0.4);
+}
+
+.ge-threat-elevated {
+  color: rgba(var(--ge-amber), 1);
+  text-shadow: 0 0 16px rgba(var(--ge-amber), 0.5);
+  animation: ge-pulse-glow 2s ease-in-out infinite;
+}
+
+.ge-threat-critical {
+  color: rgba(var(--ge-red), 1);
+  text-shadow: 0 0 20px rgba(var(--ge-red), 0.6);
+  animation: ge-pulse-glow 1s ease-in-out infinite;
+}
+
+/* ── Stats row ───────────────────────────────────── */
+.ge-hud-stats-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+/* ── Stat pill ───────────────────────────────────── */
+.ge-hud-stat-pill {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(var(--ge-white), 0.04);
+  border: 1px solid rgba(var(--ge-white), 0.06);
+  border-radius: 8px;
+  padding: 3px 8px;
+}
+
+.ge-hud-stat-label {
+  font-family: var(--ge-font);
+  font-size: 8px;
+  font-weight: 600;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: rgba(var(--ge-white), 0.3);
+}
+
+.ge-hud-stat-value {
+  font-family: var(--ge-mono);
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.6);
+  font-weight: 600;
+  color: rgba(var(--ge-white), 0.7);
 }
 
+/* ── Coordinates ─────────────────────────────────── */
+.ge-hud-coord {
+  font-family: var(--ge-mono);
+  font-size: 10px;
+  letter-spacing: 0.5px;
+  color: rgba(var(--ge-white), 0.35);
+}
+
+/* ── Exit button ─────────────────────────────────── */
 .ge-exit-btn {
-  font-family: 'SF Mono', monospace;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--ge-font);
   font-size: 11px;
-  letter-spacing: 1px;
-  color: rgba(255, 255, 255, 0.7);
-  background: rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(8px);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  border-radius: 6px;
-  padding: 6px 12px;
+  font-weight: 600;
+  letter-spacing: 1.5px;
+  color: rgba(var(--ge-white), 0.6);
+  background: var(--ge-glass);
+  backdrop-filter: blur(var(--ge-blur));
+  -webkit-backdrop-filter: blur(var(--ge-blur));
+  border: 1px solid rgba(var(--ge-white), 0.1);
+  border-radius: 10px;
+  padding: 8px 16px;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  animation: ge-card-in 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: 0.2s;
 }
 
 .ge-exit-btn:hover {
   color: #fff;
-  border-color: rgba(248, 113, 113, 0.5);
-  background: rgba(248, 113, 113, 0.15);
+  border-color: rgba(var(--ge-red), 0.5);
+  background: rgba(var(--ge-red), 0.12);
+  box-shadow: 0 0 20px rgba(var(--ge-red), 0.15);
+  transform: scale(1.03);
 }
 
+.ge-exit-btn:active {
+  transform: scale(0.97);
+}
+
+.ge-exit-icon {
+  font-size: 14px;
+  line-height: 1;
+}
+
+/* ── Theater hint card ───────────────────────────── */
+.ge-hud-hints {
+  min-width: 120px;
+  animation: ge-card-in 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: 0.5s;
+}
+
+.ge-hint-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 0;
+  font-family: var(--ge-font);
+  font-size: 10px;
+  color: rgba(var(--ge-white), 0.4);
+  letter-spacing: 0.3px;
+}
+
+.ge-hint-key {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 20px;
+  font-family: var(--ge-mono);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0;
+  color: rgba(var(--ge-blue), 0.8);
+  background: rgba(var(--ge-blue), 0.08);
+  border: 1px solid rgba(var(--ge-blue), 0.2);
+  border-radius: 5px;
+  padding: 0 4px;
+}
+
+/* ── Layer bar (bottom-center) ───────────────────── */
 .ge-layer-bar {
   display: flex;
-  gap: 4px;
-  background: rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(8px);
-  border: 1px solid rgba(59, 130, 246, 0.15);
-  border-radius: 8px;
-  padding: 4px;
+  gap: 3px;
+  flex-wrap: wrap;
+  justify-content: center;
+  background: var(--ge-glass);
+  backdrop-filter: blur(var(--ge-blur)) saturate(1.4);
+  -webkit-backdrop-filter: blur(var(--ge-blur)) saturate(1.4);
+  border: 1px solid var(--ge-glass-border);
+  border-radius: 12px;
+  padding: 5px 6px;
+  box-shadow: var(--ge-glow);
+  animation: ge-bar-in 0.8s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: 0.6s;
 }
 
 .ge-layer-btn {
-  font-family: 'SF Mono', monospace;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--ge-font);
   font-size: 10px;
-  color: rgba(255, 255, 255, 0.35);
-  background: none;
+  font-weight: 500;
+  color: rgba(var(--ge-white), 0.3);
+  background: transparent;
   border: 1px solid transparent;
-  border-radius: 4px;
-  padding: 4px 8px;
+  border-radius: 8px;
+  padding: 5px 10px;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
   white-space: nowrap;
+  user-select: none;
 }
 
 .ge-layer-btn:hover {
-  color: rgba(255, 255, 255, 0.6);
+  color: rgba(var(--ge-white), 0.55);
+  background: rgba(var(--ge-white), 0.03);
 }
 
 .ge-layer-btn.ge-layer-active {
-  color: #60a5fa;
-  border-color: rgba(96, 165, 250, 0.3);
-  background: rgba(96, 165, 250, 0.08);
+  color: rgba(var(--ge-blue), 0.95);
+  border-color: rgba(var(--ge-blue), 0.25);
+  background: rgba(var(--ge-blue), 0.08);
+  box-shadow: 0 0 12px rgba(var(--ge-blue), 0.08);
 }
 
-.ge-hud-camera {
-  font-size: 10px;
-  padding: 4px 8px;
-  color: rgba(255, 255, 255, 0.4);
+.ge-layer-btn.ge-layer-active:hover {
+  background: rgba(var(--ge-blue), 0.12);
+}
+
+.ge-layer-name {
+  pointer-events: none;
+}
+
+.ge-layer-count {
+  font-family: var(--ge-mono);
+  font-size: 9px;
+  font-weight: 700;
+  color: rgba(var(--ge-cyan), 0.8);
+  min-width: 0;
+}
+
+.ge-layer-count:empty {
+  display: none;
+}
+
+/* ── Scanline overlay ────────────────────────────── */
+.ge-scanlines {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0, 0, 0, 0.03) 2px,
+    rgba(0, 0, 0, 0.03) 4px
+  );
+  z-index: 20;
+  opacity: 0;
+  animation: ge-scanline-in 2s ease 1s forwards;
+}
+
+/* ── Vignette overlay ────────────────────────────── */
+.ge-vignette {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(
+    ellipse at center,
+    transparent 50%,
+    rgba(0, 0, 0, 0.35) 85%,
+    rgba(0, 0, 0, 0.65) 100%
+  );
+  z-index: 19;
+  opacity: 0;
+  animation: ge-fade-in 1.5s ease 0.5s forwards;
+}
+
+/* ── Animations ──────────────────────────────────── */
+@keyframes ge-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.96);
+    filter: blur(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+}
+
+@keyframes ge-bar-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(12px);
+    filter: blur(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+    filter: blur(0);
+  }
+}
+
+@keyframes ge-pulse-glow {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+@keyframes ge-scanline-in {
+  to { opacity: 1; }
+}
+
+@keyframes ge-fade-in {
+  to { opacity: 1; }
+}
+
+/* ── Cesium widget cleanup ───────────────────────── */
+.gods-eye-container .cesium-viewer,
+.gods-eye-container .cesium-viewer-cesiumWidgetContainer,
+.gods-eye-container .cesium-widget {
+  position: absolute !important;
+  inset: 0 !important;
+}
+
+.gods-eye-container .cesium-viewer .cesium-widget-credits,
+.gods-eye-container .cesium-viewer-bottom {
+  display: none !important;
+}
+
+/* ── Scrollbar hidden for layer bar overflow ─────── */
+.ge-layer-bar::-webkit-scrollbar {
+  display: none;
+}
+
+.ge-layer-bar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }

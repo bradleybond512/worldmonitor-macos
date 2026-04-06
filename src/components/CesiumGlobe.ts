@@ -2,6 +2,10 @@ import {
   Viewer,
   IonImageryProvider,
   OpenStreetMapImageryProvider,
+  UrlTemplateImageryProvider,
+  ImageryLayer,
+  GeographicTilingScheme,
+  Terrain,
   SceneMode,
   Color,
   type Scene,
@@ -31,12 +35,14 @@ export class CesiumGlobe {
     cesiumContainer.style.cssText = 'width:100%;height:100%;position:absolute;inset:0;';
     this.container.append(cesiumContainer);
 
+    const hasToken = Boolean(this.options.ionToken);
+
     this.viewer = new Viewer(cesiumContainer, {
       sceneMode: SceneMode.SCENE3D,
       animation: false,
       baseLayerPicker: false,
       baseLayer: false,
-      terrain: undefined,
+      terrain: hasToken ? Terrain.fromWorldTerrain() : undefined,
       fullscreenButton: false,
       geocoder: false,
       homeButton: false,
@@ -46,64 +52,160 @@ export class CesiumGlobe {
       selectionIndicator: false,
       timeline: false,
       shadows: false,
-      skyBox: false,
-      skyAtmosphere: false,
       contextOptions: {
         webgl: {
           alpha: true,
-          antialias: false,
-          powerPreference: 'default',
+          antialias: true,
+          powerPreference: 'high-performance',
         },
       },
-      msaaSamples: 1,
-      useBrowserRecommendedResolution: true,
+      msaaSamples: 4,
+      useBrowserRecommendedResolution: false,
     });
 
-    // Dark background for God's Eye aesthetic
-    this.viewer.scene.backgroundColor = Color.fromCssColorString('#0a0a0f');
-    this.viewer.scene.globe.baseColor = Color.fromCssColorString('#0d1b2a');
+    const scene = this.viewer.scene;
+    const globe = scene.globe;
 
-    // Reduce shader complexity — avoid WebKit ANGLE/Metal crashes
-    this.viewer.scene.globe.enableLighting = false;
-    this.viewer.scene.globe.showGroundAtmosphere = false;
-    this.viewer.scene.fog.enabled = false;
-    this.viewer.scene.highDynamicRange = false;
-    this.viewer.scene.postProcessStages.fxaa.enabled = false;
-    if (this.viewer.scene.sun) this.viewer.scene.sun.show = false;
-    if (this.viewer.scene.moon) this.viewer.scene.moon.show = false;
+    // ── Resolution ──────────────────────────────────────
+    // Render at native retina resolution for sharp imagery
+    this.viewer.resolutionScale = Math.min(window.devicePixelRatio, 2);
 
-    // Explicitly enable camera controls — WKWebView can be finicky
-    const controller = this.viewer.scene.screenSpaceCameraController;
+    // ── Sky & Space ────────────────────────────────────
+    scene.backgroundColor = Color.fromCssColorString('#050510');
+    globe.baseColor = Color.fromCssColorString('#0d1b2a');
+
+    // Sun and moon — visible light sources give depth
+    if (scene.sun) scene.sun.show = true;
+    if (scene.moon) scene.moon.show = true;
+
+    // ── Globe Lighting ─────────────────────────────────
+    // Day/night cycle with atmospheric scattering
+    globe.enableLighting = true;
+    globe.showGroundAtmosphere = true;
+
+    // Sky atmosphere — the blue glow around Earth's edge
+    if (scene.skyAtmosphere) {
+      scene.skyAtmosphere.show = true;
+      // Cool blue-shifted atmosphere for cinematic look
+      scene.skyAtmosphere.hueShift = -0.05;
+      scene.skyAtmosphere.saturationShift = 0.15;
+      scene.skyAtmosphere.brightnessShift = -0.05;
+    }
+
+    // ── Terrain ────────────────────────────────────────
+    // Exaggerate elevation so mountains are dramatic when zoomed out
+    scene.verticalExaggeration = 1.5;
+    scene.verticalExaggerationRelativeHeight = 0;
+
+    // ── Fog & Depth ────────────────────────────────────
+    // Atmospheric fog fades distant terrain into haze
+    scene.fog.enabled = true;
+    scene.fog.density = 2e-4;
+    scene.fog.minimumBrightness = 0.03;
+
+    // ── Post-Processing ────────────────────────────────
+    // FXAA anti-aliasing
+    scene.postProcessStages.fxaa.enabled = true;
+
+    // Bloom — glow on bright entities (fire, nuclear, sun)
+    const bloom = scene.postProcessStages.bloom;
+    bloom.enabled = true;
+    const bu = bloom.uniforms as Record<string, unknown>;
+    bu.contrast = 119;
+    bu.brightness = -0.2;
+    bu.glowOnly = false;
+    bu.delta = 1;
+    bu.sigma = 3.78;
+    bu.stepSize = 5;
+
+    // Ambient occlusion — subtle shadows in terrain crevices
+    const ao = scene.postProcessStages.ambientOcclusion;
+    ao.enabled = true;
+    const au = ao.uniforms as Record<string, unknown>;
+    au.ambientOcclusionOnly = false;
+    au.intensity = 2.5;
+    au.bias = 0.1;
+    au.lengthCap = 0.03;
+    au.stepSize = 1.95;
+    au.blurStepSize = 0.86;
+
+    // HDR for richer lighting range
+    scene.highDynamicRange = true;
+
+    // ── Camera Controls ────────────────────────────────
+    const controller = scene.screenSpaceCameraController;
     controller.enableZoom = true;
     controller.enableRotate = true;
     controller.enableTilt = true;
     controller.enableLook = true;
+    // Allow deeper tilt for dramatic oblique views
+    controller.minimumZoomDistance = 250;
+    controller.maximumZoomDistance = 5e7;
 
-    // Add imagery AFTER viewer init — avoids passing Promise to baseLayer
+    // ── Imagery Layers ─────────────────────────────────
     this.viewer.imageryLayers.removeAll();
-    if (this.options.ionToken) {
+
+    if (hasToken) {
       try {
-        const darkImagery = await IonImageryProvider.fromAssetId(3845, {});
-        this.viewer.imageryLayers.addImageryProvider(darkImagery);
+        // Day imagery: Bing Maps Aerial (asset 2) — high-res satellite
+        // Fades to 30% on night side so terrain stays visible
+        const bingImagery = await IonImageryProvider.fromAssetId(2, {});
+        const dayLayer = this.viewer.imageryLayers.addImageryProvider(bingImagery);
+        dayLayer.dayAlpha = 1;
+        dayLayer.nightAlpha = 0.25;
+        dayLayer.brightness = 1.05;
+        dayLayer.contrast = 1.1;
+        dayLayer.saturation = 1.15;
       } catch {
-        // Ion token may lack access to dark imagery — fall back to OSM
-        const osmImagery = new OpenStreetMapImageryProvider({
-          url: 'https://tile.openstreetmap.org/',
-        });
-        this.viewer.imageryLayers.addImageryProvider(osmImagery);
+        this.addFallbackImagery();
       }
     } else {
-      const osmImagery = new OpenStreetMapImageryProvider({
-        url: 'https://tile.openstreetmap.org/',
-      });
-      this.viewer.imageryLayers.addImageryProvider(osmImagery);
+      this.addFallbackImagery();
     }
 
-    // Handle resize
+    // Night-side city lights — NASA VIIRS Black Marble
+    this.addNightLightsLayer();
+
+    // ── Resize Observer ────────────────────────────────
     this.resizeObserver = new ResizeObserver(() => {
       this.viewer?.resize();
     });
     this.resizeObserver.observe(this.container);
+  }
+
+  private addFallbackImagery(): void {
+    if (!this.viewer) return;
+    const osmImagery = new OpenStreetMapImageryProvider({
+      url: 'https://tile.openstreetmap.org/',
+    });
+    const layer = this.viewer.imageryLayers.addImageryProvider(osmImagery);
+    layer.dayAlpha = 1;
+    layer.nightAlpha = 0.2;
+  }
+
+  private addNightLightsLayer(): void {
+    if (!this.viewer) return;
+
+    // NASA VIIRS Black Marble (Earth at Night) via GIBS WMTS
+    try {
+      const nightProvider = new UrlTemplateImageryProvider({
+        url: 'https://gibs.earthdata.nasa.gov/wmts/epsg4326/best/VIIRS_Black_Marble/default/2016-01-01/500m/{z}/{reverseY}/{x}.jpg',
+        minimumLevel: 0,
+        maximumLevel: 8,
+        tilingScheme: new GeographicTilingScheme(),
+        credit: 'NASA Black Marble',
+      });
+      const nightLayer = new ImageryLayer(nightProvider, {
+        dayAlpha: 0,
+        nightAlpha: 1,
+        brightness: 2,
+        contrast: 1.4,
+        saturation: 0.6,
+      });
+      this.viewer.imageryLayers.add(nightLayer);
+    } catch {
+      // Night lights are non-critical — globe works fine without them
+    }
   }
 
   get scene(): Scene | undefined {

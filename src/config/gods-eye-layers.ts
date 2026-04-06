@@ -8,6 +8,147 @@ export interface GodsEyeLayerConfig {
 export type GodsEyeLayers = Record<string, GodsEyeLayerConfig>;
 
 export const DEFAULT_GODS_EYE_LAYERS: GodsEyeLayers = {
+  // ── Data Layers (shown in HUD bar) ──
+  earthquakes: {
+    name: 'Earthquakes',
+    category: 'intelligence',
+    enabled: true,
+    description: 'USGS seismic events worldwide',
+  },
+  gdacs: {
+    name: 'Disasters',
+    category: 'intelligence',
+    enabled: true,
+    description: 'GDACS disaster alerts — floods, cyclones, earthquakes',
+  },
+  conflicts: {
+    name: 'Conflicts',
+    category: 'intelligence',
+    enabled: true,
+    description: 'ACLED conflict events — battles, explosions, violence',
+  },
+  airstrikes: {
+    name: 'Airstrikes',
+    category: 'intelligence',
+    enabled: true,
+    description: 'Air strikes and drone attacks',
+  },
+  flights: {
+    name: 'Mil. Flights',
+    category: 'intelligence',
+    enabled: true,
+    description: 'Military aircraft positions with heading and trails',
+  },
+  vessels: {
+    name: 'Mil. Vessels',
+    category: 'intelligence',
+    enabled: true,
+    description: 'Military and naval vessel positions with heading',
+  },
+  darkVessels: {
+    name: 'Dark Ships',
+    category: 'intelligence',
+    enabled: true,
+    description: 'Vessels with AIS transponder disabled — suspicious activity',
+  },
+  cyber: {
+    name: 'Cyber',
+    category: 'intelligence',
+    enabled: true,
+    description: 'Cyber threat indicators — C2 servers, malware, phishing',
+  },
+  nuclear: {
+    name: 'Nuclear',
+    category: 'intelligence',
+    enabled: true,
+    description: 'Nuclear facilities, weapons sites, and test locations',
+  },
+  fires: {
+    name: 'Fires',
+    category: 'intelligence',
+    enabled: true,
+    description: 'NASA FIRMS satellite fire detections',
+  },
+  volcanoes: {
+    name: 'Volcanoes',
+    category: 'intelligence',
+    enabled: true,
+    description: 'USGS/Smithsonian volcano alert levels',
+  },
+  cyclones: {
+    name: 'Cyclones',
+    category: 'intelligence',
+    enabled: true,
+    description: 'Active tropical cyclones with category and wind speed',
+  },
+  protests: {
+    name: 'Protests',
+    category: 'intelligence',
+    enabled: true,
+    description: 'Social unrest, protests, and civil disturbance events',
+  },
+  gpsJamming: {
+    name: 'GPS Jamming',
+    category: 'intelligence',
+    enabled: true,
+    description: 'GPS interference zones from GPSJam.org',
+  },
+  disease: {
+    name: 'Disease',
+    category: 'intelligence',
+    enabled: true,
+    description: 'Disease outbreak hotspots by country',
+  },
+  displacement: {
+    name: 'Refugees',
+    category: 'intelligence',
+    enabled: true,
+    description: 'UNHCR displacement data with refugee flow arcs',
+  },
+  satChange: {
+    name: 'Sat. Change',
+    category: 'intelligence',
+    enabled: true,
+    description: 'Satellite imagery change detection at watched locations',
+  },
+  // ── Static Geo Layers ──
+  bases: {
+    name: 'Mil. Bases',
+    category: 'spatial',
+    enabled: true,
+    description: 'Military installations worldwide — US/NATO, Russia, China, others',
+  },
+  cables: {
+    name: 'Cables',
+    category: 'spatial',
+    enabled: true,
+    description: 'Undersea fiber optic cables and landing points',
+  },
+  waterways: {
+    name: 'Chokepoints',
+    category: 'spatial',
+    enabled: true,
+    description: 'Strategic waterways — Suez, Hormuz, Malacca, etc.',
+  },
+  hotspots: {
+    name: 'Intel Hotspots',
+    category: 'analytical',
+    enabled: true,
+    description: 'Geopolitical hotspots with escalation scores',
+  },
+  spaceports: {
+    name: 'Spaceports',
+    category: 'spatial',
+    enabled: false,
+    description: 'Launch facilities worldwide',
+  },
+  minerals: {
+    name: 'Minerals',
+    category: 'spatial',
+    enabled: false,
+    description: 'Critical mineral projects — lithium, cobalt, rare earth',
+  },
+  // ── Future / Aesthetic ──
   satellites: {
     name: 'Satellite Tracking',
     category: 'spatial',
@@ -26,29 +167,17 @@ export const DEFAULT_GODS_EYE_LAYERS: GodsEyeLayers = {
     enabled: false,
     description: 'Google Photorealistic 3D Tiles / OSM Buildings',
   },
-  imagery: {
-    name: 'Satellite Imagery',
-    category: 'spatial',
+  rfCoverage: {
+    name: 'RF/SIGINT',
+    category: 'intelligence',
     enabled: false,
-    description: 'Sentinel-2, Landsat, MODIS overlays',
-  },
-  hud: {
-    name: 'HUD Overlay',
-    category: 'aesthetic',
-    enabled: false,
-    description: 'Threat brackets, status readouts, compass',
+    description: 'GPS jamming domes, radar cones, EW hotspots',
   },
   entityGraph: {
     name: 'Entity Graph',
     category: 'analytical',
     enabled: false,
     description: '3D force-directed entity link analysis',
-  },
-  rfCoverage: {
-    name: 'RF/SIGINT',
-    category: 'intelligence',
-    enabled: false,
-    description: 'GPS jamming domes, radar cones, EW hotspots',
   },
   timeline: {
     name: 'Timeline',
