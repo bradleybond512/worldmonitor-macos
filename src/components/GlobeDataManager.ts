@@ -342,10 +342,10 @@ export class GlobeDataManager {
       layer.source.entities.add({
         polyline: {
           positions,
-          width: cable.major ? 2.5 : 1.5,
+          width: cable.major ? 1.5 : 0.8,
           material: new PolylineDashMaterialProperty({
-            color: cable.major ? C.cableMajor : C.cable,
-            dashLength: 16,
+            color: cable.major ? C.cable : C.cable.withAlpha(0.25),
+            dashLength: 12,
           }),
           clampToGround: true,
         },
@@ -738,9 +738,11 @@ export class GlobeDataManager {
       const lat = f.location?.latitude;
       const lon = f.location?.longitude;
       if (lat == null || lon == null) continue;
+      // Only show significant fires to avoid flooding the globe
+      if (f.frp < 10) continue;
 
       const color = fireColor(f.confidence ?? '');
-      const scale = fireScale(f.confidence ?? '');
+      const scale = fireScale(f.confidence ?? '') * 0.7;
 
       layer.source.entities.add({
         position: Cartesian3.fromDegrees(lon, lat),
@@ -749,7 +751,7 @@ export class GlobeDataManager {
           color,
           scale,
           heightReference: HeightReference.CLAMP_TO_GROUND,
-          scaleByDistance: new NearFarScalar(1e4, 1.5, 1e7, 0.2),
+          scaleByDistance: new NearFarScalar(1e4, 1.2, 1e7, 0.15),
           verticalOrigin: VerticalOrigin.CENTER,
           horizontalOrigin: HorizontalOrigin.CENTER,
         },

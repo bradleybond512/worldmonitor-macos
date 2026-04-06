@@ -2,9 +2,6 @@ import {
   Viewer,
   IonImageryProvider,
   OpenStreetMapImageryProvider,
-  UrlTemplateImageryProvider,
-  ImageryLayer,
-  GeographicTilingScheme,
   Terrain,
   SceneMode,
   Color,
@@ -79,8 +76,8 @@ export class CesiumGlobe {
     if (scene.moon) scene.moon.show = true;
 
     // ── Globe Lighting ─────────────────────────────────
-    // Day/night cycle with atmospheric scattering
-    globe.enableLighting = true;
+    // Disable day/night cycle — keeps globe evenly lit and sharp
+    globe.enableLighting = false;
     globe.showGroundAtmosphere = true;
 
     // Sky atmosphere — the blue glow around Earth's edge
@@ -107,27 +104,11 @@ export class CesiumGlobe {
     // FXAA anti-aliasing
     scene.postProcessStages.fxaa.enabled = true;
 
-    // Bloom — subtle glow on bright entities only
-    const bloom = scene.postProcessStages.bloom;
-    bloom.enabled = true;
-    const bu = bloom.uniforms as Record<string, unknown>;
-    bu.contrast = 128;
-    bu.brightness = 0.02;
-    bu.glowOnly = false;
-    bu.delta = 1;
-    bu.sigma = 1.5;
-    bu.stepSize = 1;
+    // Bloom — disabled for clarity; enable per-layer if needed
+    scene.postProcessStages.bloom.enabled = false;
 
-    // Ambient occlusion — subtle shadows in terrain crevices
-    const ao = scene.postProcessStages.ambientOcclusion;
-    ao.enabled = true;
-    const au = ao.uniforms as Record<string, unknown>;
-    au.ambientOcclusionOnly = false;
-    au.intensity = 1.5;
-    au.bias = 0.1;
-    au.lengthCap = 0.03;
-    au.stepSize = 1.95;
-    au.blurStepSize = 0.86;
+    // Ambient occlusion — disabled; darkens terrain too much at globe scale
+    scene.postProcessStages.ambientOcclusion.enabled = false;
 
     // HDR for richer lighting range
     scene.highDynamicRange = true;
@@ -151,20 +132,16 @@ export class CesiumGlobe {
         // Fades to 30% on night side so terrain stays visible
         const bingImagery = await IonImageryProvider.fromAssetId(2, {});
         const dayLayer = this.viewer.imageryLayers.addImageryProvider(bingImagery);
-        dayLayer.dayAlpha = 1;
-        dayLayer.nightAlpha = 0.25;
-        dayLayer.brightness = 1.05;
-        dayLayer.contrast = 1.1;
-        dayLayer.saturation = 1.15;
+        dayLayer.alpha = 1;
+        dayLayer.brightness = 1.1;
+        dayLayer.contrast = 1.15;
+        dayLayer.saturation = 1.2;
       } catch {
         this.addFallbackImagery();
       }
     } else {
       this.addFallbackImagery();
     }
-
-    // Night-side city lights — NASA VIIRS Black Marble
-    this.addNightLightsLayer();
 
     // ── Resize Observer ────────────────────────────────
     this.resizeObserver = new ResizeObserver(() => {
@@ -179,34 +156,10 @@ export class CesiumGlobe {
       url: 'https://tile.openstreetmap.org/',
     });
     const layer = this.viewer.imageryLayers.addImageryProvider(osmImagery);
-    layer.dayAlpha = 1;
-    layer.nightAlpha = 0.2;
+    layer.alpha = 1;
+    layer.brightness = 1.1;
   }
 
-  private addNightLightsLayer(): void {
-    if (!this.viewer) return;
-
-    // NASA VIIRS Black Marble (Earth at Night) via GIBS WMTS
-    try {
-      const nightProvider = new UrlTemplateImageryProvider({
-        url: 'https://gibs.earthdata.nasa.gov/wmts/epsg4326/best/VIIRS_Black_Marble/default/2016-01-01/500m/{z}/{reverseY}/{x}.jpg',
-        minimumLevel: 0,
-        maximumLevel: 8,
-        tilingScheme: new GeographicTilingScheme(),
-        credit: 'NASA Black Marble',
-      });
-      const nightLayer = new ImageryLayer(nightProvider, {
-        dayAlpha: 0,
-        nightAlpha: 1,
-        brightness: 2,
-        contrast: 1.4,
-        saturation: 0.6,
-      });
-      this.viewer.imageryLayers.add(nightLayer);
-    } catch {
-      // Night lights are non-critical — globe works fine without them
-    }
-  }
 
   get scene(): Scene | undefined {
     return this.viewer?.scene;

@@ -66,7 +66,7 @@ export const DEFAULT_GODS_EYE_LAYERS: GodsEyeLayers = {
   fires: {
     name: 'Fires',
     category: 'intelligence',
-    enabled: true,
+    enabled: false,
     description: 'NASA FIRMS satellite fire detections',
   },
   volcanoes: {
@@ -121,7 +121,7 @@ export const DEFAULT_GODS_EYE_LAYERS: GodsEyeLayers = {
   cables: {
     name: 'Cables',
     category: 'spatial',
-    enabled: true,
+    enabled: false,
     description: 'Undersea fiber optic cables and landing points',
   },
   waterways: {
