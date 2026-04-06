@@ -11,7 +11,14 @@ import {
   PolylineDashMaterialProperty,
   ColorMaterialProperty,
   Math as CesiumMath,
+  UrlTemplateImageryProvider,
+  type ImageryLayer,
 } from 'cesium';
+
+import { fetchLightningStrikes } from '@/services/lightning';
+import { fetchRedFlagWarnings } from '@/services/red-flag-warnings';
+import { getRadarTileUrl, fetchRadarFrames } from '@/services/rainviewer-radar';
+import { getGoesWmsTileUrl } from '@/services/satellite-weather';
 
 import {
   UNDERSEA_CABLES,
@@ -232,6 +239,7 @@ interface GlobeLayer {
 export class GlobeDataManager {
   private viewer: Viewer;
   private layers = new Map<string, GlobeLayer>();
+  private weatherImageryLayers: ImageryLayer[] = [];
 
   constructor(viewer: Viewer) {
     this.viewer = viewer;
@@ -264,6 +272,12 @@ export class GlobeDataManager {
     this.registerLayer('protests', () => this.loadProtests());
     this.registerLayer('disease', () => this.loadDiseaseOutbreaks());
     this.registerLayer('displacement', () => this.loadDisplacement());
+
+    // Weather layers
+    this.registerLayer('weatherRadar', () => this.loadWeatherRadar());
+    this.registerLayer('weatherSatellite', () => this.loadWeatherSatellite());
+    this.registerLayer('lightningStrikes', () => this.loadLightningStrikes());
+    this.registerLayer('redFlagWarnings', () => this.loadRedFlagWarnings());
 
     for (const name of this.layers.keys()) {
       void this.loadLayer(name);
@@ -1299,6 +1313,98 @@ export class GlobeDataManager {
   }
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // WEATHER LAYERS
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  private async loadWeatherRadar(): Promise<void> {
+    try {
+      const state = await fetchRadarFrames();
+      const tileUrl = getRadarTileUrl(state);
+      if (!tileUrl) return;
+      const provider = new UrlTemplateImageryProvider({ url: tileUrl, maximumLevel: 6 });
+      const imgLayer = this.viewer.imageryLayers.addImageryProvider(provider);
+      imgLayer.alpha = 0.5;
+      this.weatherImageryLayers.push(imgLayer);
+    } catch { /* radar unavailable */ }
+  }
+
+  private loadWeatherSatellite(): void {
+    try {
+      const url = getGoesWmsTileUrl('geocolor');
+      const provider = new UrlTemplateImageryProvider({ url, maximumLevel: 6 });
+      const imgLayer = this.viewer.imageryLayers.addImageryProvider(provider);
+      imgLayer.alpha = 0.4;
+      this.weatherImageryLayers.push(imgLayer);
+    } catch { /* satellite unavailable */ }
+  }
+
+  private async loadLightningStrikes(): Promise<void> {
+    const layer = this.layers.get('lightningStrikes');
+    if (!layer) return;
+
+    try {
+      const strikes = await fetchLightningStrikes();
+      for (const s of strikes.slice(0, 200)) {
+        const ageMin = (Date.now() - s.time) / 60_000;
+        const alpha = Math.max(0.3, 1 - ageMin / 30);
+        let color = Color.YELLOW.withAlpha(alpha);
+        if (s.intensity > 100) color = Color.RED.withAlpha(alpha);
+        else if (s.intensity > 50) color = Color.ORANGE.withAlpha(alpha);
+
+        layer.source.entities.add({
+          position: Cartesian3.fromDegrees(s.lon, s.lat),
+          point: {
+            pixelSize: 4,
+            color,
+            outlineColor: Color.WHITE.withAlpha(alpha * 0.5),
+            outlineWidth: 1,
+            heightReference: HeightReference.CLAMP_TO_GROUND,
+            scaleByDistance: new NearFarScalar(1e4, 2, 1e7, 0.5),
+          },
+        });
+      }
+    } catch { /* lightning unavailable */ }
+  }
+
+  private async loadRedFlagWarnings(): Promise<void> {
+    const layer = this.layers.get('redFlagWarnings');
+    if (!layer) return;
+
+    try {
+      const warnings = await fetchRedFlagWarnings();
+      for (const w of warnings) {
+        if (!w.centroid) continue;
+        layer.source.entities.add({
+          position: Cartesian3.fromDegrees(w.centroid[0], w.centroid[1]),
+          billboard: {
+            image: ICON_FIRE,
+            color: Color.fromCssColorString('#ef4444'),
+            scale: 0.35,
+            heightReference: HeightReference.CLAMP_TO_GROUND,
+            scaleByDistance: new NearFarScalar(1e4, 1.5, 1e7, 0.4),
+            verticalOrigin: VerticalOrigin.CENTER,
+            horizontalOrigin: HorizontalOrigin.CENTER,
+          },
+          label: {
+            text: w.event,
+            font: '10px monospace',
+            fillColor: Color.fromCssColorString('#ef4444'),
+            outlineColor: Color.BLACK,
+            outlineWidth: 2,
+            style: 2,
+            pixelOffset: LABEL_OFFSET,
+            horizontalOrigin: HorizontalOrigin.CENTER,
+            verticalOrigin: VerticalOrigin.BOTTOM,
+            scaleByDistance: new NearFarScalar(1e5, 1, 1.5e7, 0.4),
+            distanceDisplayCondition: new DistanceDisplayCondition(0, 5e6),
+          },
+          description: `${w.event}: ${w.headline}`,
+        });
+      }
+    } catch { /* red flag unavailable */ }
+  }
+
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   // PUBLIC API
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -1337,5 +1443,9 @@ export class GlobeDataManager {
       this.viewer.dataSources.remove(layer.source, true);
     }
     this.layers.clear();
+    for (const imgLayer of this.weatherImageryLayers) {
+      this.viewer.imageryLayers.remove(imgLayer, true);
+    }
+    this.weatherImageryLayers = [];
   }
 }

@@ -192,6 +192,14 @@ const allLayersEnabled: MapLayers = {
   convergenceRings: false,
   threatHeatmap: false,
   sigintConvergence: false,
+  weatherRadar: false,
+  weatherSatellite: false,
+  lightning: false,
+  owmTemperature: false,
+  owmPrecipitation: false,
+  owmClouds: false,
+  owmWind: false,
+  redFlagWarnings: false,
 };
 
 const allLayersDisabled: MapLayers = {
@@ -251,6 +259,14 @@ const allLayersDisabled: MapLayers = {
   convergenceRings: false,
   threatHeatmap: false,
   sigintConvergence: false,
+  weatherRadar: false,
+  weatherSatellite: false,
+  lightning: false,
+  owmTemperature: false,
+  owmPrecipitation: false,
+  owmClouds: false,
+  owmWind: false,
+  redFlagWarnings: false,
 };
 
 const SEEDED_NEWS_LOCATIONS: {

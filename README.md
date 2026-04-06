@@ -28,7 +28,7 @@ Current code-backed snapshot:
 | Generated OpenAPI service specs | `21` | `docs/api/*.openapi.json` |
 | Locales | `19` | `src/services/i18n.ts` |
 | Desktop secret keys | `46` | `src-tauri/src/main.rs` |
-| Default panel inventory | `130 full / 35 tech / 31 finance / 10 happy` | `src/config/panels.ts` |
+| Default panel inventory | `134 full / 35 tech / 31 finance / 10 happy` | `src/config/panels.ts` |
 
 ## Variants
 
@@ -71,6 +71,10 @@ The UI combines MapLibre GL and deck.gl for a globe-style monitoring experience,
 ### 6. God's Eye 3D globe
 
 A full-viewport Cesium.js 3D globe mode with 22 data layers rendered as billboard icons over Bing satellite imagery. Includes military bases, nuclear facilities, earthquakes, conflicts, cyclones, fires, vessels, flights, cyber threats, and more. Activated via the sidebar or keyboard shortcut `G`. Requires a free Cesium Ion token for satellite imagery; falls back to ArcGIS World Imagery without one. See [docs/API_KEYS.md](docs/API_KEYS.md) for setup.
+
+### 7. Comprehensive weather intelligence
+
+Full-stack weather monitoring: 7-day forecasts, global radar composites (RainViewer), lightning detection (Blitzortung), NOAA GOES/Himawari satellite imagery, tide predictions (CO-OPS), pollen/allergy tracking, red flag fire weather warnings, NWS severe weather alerts, tropical cyclone tracking, SPC convective outlooks, and OpenWeatherMap tile overlays for temperature, precipitation, clouds, wind, and pressure. Most sources are free with no API key.
 
 ## Architecture Snapshot
 

@@ -49,6 +49,7 @@ When secrets are missing or disabled, the desktop app degrades feature-by-featur
 - Fire and climate overlays: `NASA_FIRMS_API_KEY` gates FIRMS-backed fire detection.
 - Aviation and live tracking: `WINGBITS_API_KEY`, `AVIATIONSTACK_API`, `ICAO_API_KEY`, `AISSTREAM_API_KEY`, `WS_RELAY_URL`, `VITE_WS_RELAY_URL`, `VITE_OPENSKY_RELAY_URL`, `OPENSKY_CLIENT_ID`, and `OPENSKY_CLIENT_SECRET` gate enrichment and relay-backed transport features.
 - Trade and institutional data: `WTO_API_KEY` gates WTO-backed trade policy enrichment.
+- Weather map tile overlays: `OWM_API_KEY` gates OpenWeatherMap temperature, precipitation, cloud, wind, and pressure tile layers. Free weather features (radar, lightning, satellite imagery, forecasts, tides, pollen, red flag warnings) work without any key.
 
 ## Related Docs
 

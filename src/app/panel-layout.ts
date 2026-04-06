@@ -64,6 +64,10 @@ import { SpaceLaunchesPanel } from '@/components/SpaceLaunchesPanel';
 import { DiseaseOutbreakPanel } from '@/components/DiseaseOutbreakPanel';
 import { HumanitarianCrisisPanel } from '@/components/HumanitarianCrisisPanel';
 import { GlobalWeatherPanel } from '@/components/GlobalWeatherPanel';
+import { ExtendedForecastPanel } from '@/components/ExtendedForecastPanel';
+import { WeatherRadarPanel } from '@/components/WeatherRadarPanel';
+import { TidePredictionsPanel } from '@/components/TidePredictionsPanel';
+import { PollenPanel } from '@/components/PollenPanel';
 import { OpenSanctionsPanel } from '@/components/OpenSanctionsPanel';
 import { EdgarFilingsPanel } from '@/components/EdgarFilingsPanel';
 import { AirQualityPanel } from '@/components/AirQualityPanel';
@@ -1127,6 +1131,13 @@ export class PanelLayoutManager implements AppModule {
       this.ctx.panels['cascade-simulator'] = new CascadeSimulatorPanel();
       this.ctx.panels['emergency-broadcast'] = new EmergencyBroadcastPanel();
       this.ctx.panels['satellite-change'] = new SatelliteChangePanel();
+
+      // Weather upgrade panels
+      this.ctx.panels['extended-forecast'] = new ExtendedForecastPanel();
+      this.ctx.panels['weather-radar'] = new WeatherRadarPanel();
+      this.ctx.panels['tide-predictions'] = new TidePredictionsPanel();
+      this.ctx.panels['pollen'] = new PollenPanel();
+
       this.ctx.panels['stoic-reflections'] = new StoicQuotePanel();
       this.ctx.panels['biblical-encouragement'] = new BiblicalQuotePanel();
       this.ctx.panels['alan-watts-reflections'] = new AlanWattsQuotePanel();

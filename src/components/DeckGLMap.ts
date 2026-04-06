@@ -112,6 +112,11 @@ import type { AirstrikeEvent } from '@/services/airstrikes';
 import type { S2UndergroundEvent } from '@/services/s2-underground';
 import type { TechHubActivity } from '@/services/tech-activity';
 import { getSigintPoints, getSigintClusters, type SigintEvent, type SigintConvergenceCluster } from '@/services/sigint-convergence';
+import { getRadarTileUrl, type RadarState } from '@/services/rainviewer-radar';
+import { strikeColor, strikeOpacity, type LightningStrike } from '@/services/lightning';
+import { getGoesWmsTileUrl } from '@/services/satellite-weather';
+import { getOwmTileUrl, type OwmTileLayer } from '@/services/owm-weather-tiles';
+import type { RedFlagWarning } from '@/services/red-flag-warnings';
 
 export type TimeRange = '1h' | '6h' | '24h' | '48h' | '7d' | 'all';
 export type DeckMapView = 'global' | 'america' | 'mena' | 'eu' | 'asia' | 'latam' | 'africa' | 'oceania';
@@ -491,6 +496,9 @@ export class DeckGLMap {
   private theaterPolygons: TheaterPolygon[] = [];
   private theaterUnsubscribe: (() => void) | null = null;
   private convergenceSeenAlerts = new Set<string>();
+  private radarState: RadarState | null = null;
+  private lightningStrikes: LightningStrike[] = [];
+  private redFlagWarnings: RedFlagWarning[] = [];
   private lastCableHighlightSignature = '';
   private lastCableHealthSignature = '';
   private lastPipelineHighlightSignature = '';
@@ -1271,6 +1279,16 @@ export class DeckGLMap {
     // Weather alerts layer
     if (mapLayers.weather && filteredWeatherAlerts.length > 0) {
       layers.push(this.createWeatherLayer(filteredWeatherAlerts));
+    }
+
+    // Lightning strikes layer (Blitzortung)
+    if (mapLayers.lightning && this.lightningStrikes.length > 0) {
+      layers.push(this.createLightningLayer());
+    }
+
+    // Red flag warnings (NWS fire weather)
+    if (mapLayers.redFlagWarnings && this.redFlagWarnings.length > 0) {
+      layers.push(this.createRedFlagWarningsLayer());
     }
 
     // Internet outages layer + ghost for easier picking
@@ -4249,6 +4267,7 @@ export class DeckGLMap {
     const startTime = performance.now();
     try {
       this.deckOverlay?.setProps({ layers: this.buildLayers() });
+      this.syncWeatherRasterLayers();
     } catch { /* map may be mid-teardown (null.getProjection) */ }
     const elapsed = performance.now() - startTime;
     if (import.meta.env.DEV && elapsed > 16) {
@@ -5624,5 +5643,141 @@ export class DeckGLMap {
       pickable: true,
       autoHighlight: true,
     });
+  }
+
+  // ── Weather Raster Tile Layers (MapLibre GL native) ──────────────
+
+  private syncWeatherRasterLayers(): void {
+    if (!this.maplibreMap) return;
+    const map = this.maplibreMap;
+    const ml = this.state.layers;
+
+    // Weather radar (RainViewer)
+    this.syncRasterTileLayer(map, 'wm-radar', ml.weatherRadar, () => {
+      if (!this.radarState) return null;
+      const url = getRadarTileUrl(this.radarState);
+      return url ? [url] : null;
+    }, 0.6);
+
+    // Satellite imagery (NOAA GOES geocolor)
+    this.syncRasterTileLayer(map, 'wm-satellite', ml.weatherSatellite, () => {
+      return [getGoesWmsTileUrl('geocolor')];
+    }, 0.5);
+
+    // OWM tile layers (require API key)
+    const owmLayers: [string, boolean, OwmTileLayer][] = [
+      ['wm-owm-temp', ml.owmTemperature, 'temp_new'],
+      ['wm-owm-precip', ml.owmPrecipitation, 'precipitation_new'],
+      ['wm-owm-clouds', ml.owmClouds, 'clouds_new'],
+      ['wm-owm-wind', ml.owmWind, 'wind_new'],
+    ];
+    for (const [id, enabled, layer] of owmLayers) {
+      this.syncRasterTileLayer(map, id, enabled, () => {
+        const url = getOwmTileUrl(layer);
+        return url ? [url] : null;
+      }, 0.7);
+    }
+  }
+
+  private syncRasterTileLayer(
+    map: maplibregl.Map,
+    id: string,
+    enabled: boolean,
+    getTiles: () => string[] | null,
+    opacity: number,
+  ): void {
+    const layerId = `${id}-layer`;
+    const sourceId = `${id}-src`;
+
+    if (!enabled) {
+      if (map.getLayer(layerId)) {
+        map.setLayoutProperty(layerId, 'visibility', 'none');
+      }
+      return;
+    }
+
+    const tiles = getTiles();
+    if (!tiles) {
+      if (map.getLayer(layerId)) {
+        map.setLayoutProperty(layerId, 'visibility', 'none');
+      }
+      return;
+    }
+
+    if (!map.getSource(sourceId)) {
+      map.addSource(sourceId, {
+        type: 'raster',
+        tiles,
+        tileSize: 256,
+      });
+    }
+
+    if (!map.getLayer(layerId)) {
+      map.addLayer({
+        id: layerId,
+        type: 'raster',
+        source: sourceId,
+        paint: { 'raster-opacity': opacity },
+      });
+    } else {
+      map.setLayoutProperty(layerId, 'visibility', 'visible');
+    }
+  }
+
+  // ── Lightning Layer (DeckGL ScatterplotLayer) ────────────────────
+
+  private createLightningLayer(): ScatterplotLayer {
+    return new ScatterplotLayer({
+      id: 'lightning-strikes',
+      data: this.lightningStrikes,
+      getPosition: (d: LightningStrike) => [d.lon, d.lat],
+      getRadius: 8000,
+      getFillColor: (d: LightningStrike) => {
+        const rgb = strikeColor(d.intensity);
+        const a = Math.round(strikeOpacity(d.time) * 255);
+        return [...rgb, a] as [number, number, number, number];
+      },
+      radiusUnits: 'meters' as const,
+      radiusMinPixels: 2,
+      radiusMaxPixels: 8,
+      pickable: true,
+    });
+  }
+
+  // ── Red Flag Warnings Layer (DeckGL ScatterplotLayer) ────────────
+
+  private createRedFlagWarningsLayer(): ScatterplotLayer {
+    const data = this.redFlagWarnings.filter(w => w.centroid);
+    return new ScatterplotLayer({
+      id: 'red-flag-warnings',
+      data,
+      getPosition: (d: RedFlagWarning) => d.centroid as [number, number],
+      getRadius: 30_000,
+      getFillColor: [239, 68, 68, 160],
+      getLineColor: [239, 68, 68, 255],
+      stroked: true,
+      filled: true,
+      lineWidthMinPixels: 2,
+      radiusUnits: 'meters' as const,
+      radiusMinPixels: 6,
+      pickable: true,
+    });
+  }
+
+  // ── Weather Data Setters ─────────────────────────────────────────
+
+  public setRadarState(state: RadarState): void {
+    this.radarState = state;
+    this.rafUpdateLayers();
+  }
+
+  public setLightningStrikes(strikes: LightningStrike[]): void {
+    this.lightningStrikes = strikes;
+    this.rafUpdateLayers();
+  }
+
+  public setRedFlagWarnings(warnings: RedFlagWarning[]): void {
+    this.redFlagWarnings = warnings;
+    this.rafUpdateLayers();
   }
 }

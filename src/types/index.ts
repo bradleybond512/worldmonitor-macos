@@ -599,6 +599,15 @@ export interface MapLayers {
   threatHeatmap: boolean;
   // Unified SIGINT layer (GPS jamming + BGP anomalies + cable outages)
   sigintConvergence: boolean;
+  // Weather overlay layers
+  weatherRadar: boolean;
+  weatherSatellite: boolean;
+  lightning: boolean;
+  owmTemperature: boolean;
+  owmPrecipitation: boolean;
+  owmClouds: boolean;
+  owmWind: boolean;
+  redFlagWarnings: boolean;
 }
 
 export interface AIDataCenter {

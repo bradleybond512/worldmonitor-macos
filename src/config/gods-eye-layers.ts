@@ -209,6 +209,31 @@ export const DEFAULT_GODS_EYE_LAYERS: GodsEyeLayers = {
     enabled: false,
     description: 'Glow effect on bright elements',
   },
+  // ── Weather Overlay Layers ──
+  weatherRadar: {
+    name: 'Radar',
+    category: 'intelligence',
+    enabled: false,
+    description: 'RainViewer global weather radar composite',
+  },
+  weatherSatellite: {
+    name: 'Satellite Wx',
+    category: 'intelligence',
+    enabled: false,
+    description: 'NOAA GOES/Himawari satellite weather imagery',
+  },
+  lightningStrikes: {
+    name: 'Lightning',
+    category: 'intelligence',
+    enabled: false,
+    description: 'Blitzortung real-time lightning strike detection',
+  },
+  redFlagWarnings: {
+    name: 'Fire Weather',
+    category: 'intelligence',
+    enabled: true,
+    description: 'NWS Red Flag Warnings and fire weather watches',
+  },
 };
 
 const STORAGE_KEY = 'worldmonitor-gods-eye-layers';

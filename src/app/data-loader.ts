@@ -291,6 +291,16 @@ import {
 import type { ResourceAlertDetail } from '@/services/alert-normalizer';
 import type { BreakingAlert } from '@/services/breaking-news-alerts';
 import { fetchFloodGauges } from '@/services/flood-gauges';
+import { fetchExtendedForecast } from '@/services/extended-forecast';
+import { fetchRadarFrames } from '@/services/rainviewer-radar';
+import { fetchTidePredictions, TIDE_STATIONS } from '@/services/tide-predictions';
+import { fetchPollenData } from '@/services/pollen';
+import { fetchRedFlagWarnings, fetchFireWeatherOutlook } from '@/services/red-flag-warnings';
+import { fetchLightningStrikes } from '@/services/lightning';
+import type { ExtendedForecastPanel } from '@/components/ExtendedForecastPanel';
+import type { WeatherRadarPanel } from '@/components/WeatherRadarPanel';
+import type { TidePredictionsPanel } from '@/components/TidePredictionsPanel';
+import type { PollenPanel } from '@/components/PollenPanel';
 import { fetchDamSafetyAlerts } from '@/services/dam-safety';
 import { fetchPowerGridAlerts } from '@/services/power-grid-alerts';
 import { fetchGreyNoise, fetchOtxPulses, fetchAbuseIpDb, fetchUrlscanFeed } from '@/services/osint';
@@ -586,6 +596,12 @@ export class DataLoaderManager implements AppModule {
     if (SITE_VARIANT === 'full') tasks.push({ name: 'combatantCommands', task: runGuarded('combatantCommands', () => this.loadCombatantCommands()) });
     if (SITE_VARIANT === 'full') tasks.push({ name: 'foreignMilNews', task: runGuarded('foreignMilNews', () => this.loadForeignMilNews()) });
     if (SITE_VARIANT === 'full') tasks.push({ name: 'spcMesoscale', task: runGuarded('spcMesoscale', () => this.loadSpcMesoscale()) });
+    if (SITE_VARIANT === 'full') tasks.push({ name: 'extendedForecast', task: runGuarded('extendedForecast', () => this.loadExtendedForecast()) });
+    if (SITE_VARIANT === 'full') tasks.push({ name: 'weatherRadar', task: runGuarded('weatherRadar', () => this.loadWeatherRadar()) });
+    if (SITE_VARIANT === 'full') tasks.push({ name: 'tidePredictions', task: runGuarded('tidePredictions', () => this.loadTidePredictions()) });
+    if (SITE_VARIANT === 'full') tasks.push({ name: 'pollenData', task: runGuarded('pollenData', () => this.loadPollenData()) });
+    if (SITE_VARIANT === 'full') tasks.push({ name: 'lightning', task: runGuarded('lightning', () => this.loadLightning()) });
+    if (SITE_VARIANT === 'full') tasks.push({ name: 'redFlagWarnings', task: runGuarded('redFlagWarnings', () => this.loadRedFlagWarnings()) });
     if (SITE_VARIANT !== 'happy') tasks.push({ name: 'threat-intel-hub', task: runGuarded('threat-intel-hub', () => this.loadThreatIntelHub()) });
     if (SITE_VARIANT !== 'happy') tasks.push({ name: 'geo-intel', task: runGuarded('geo-intel', () => this.loadGeoIntel()) });
     if (SITE_VARIANT !== 'happy') tasks.push({ name: 'dark-web', task: runGuarded('dark-web', () => this.loadDarkWeb()) });
@@ -3442,6 +3458,65 @@ export class DataLoaderManager implements AppModule {
       });
     } catch (error) {
       console.error('[GeoIntel] load error:', error);
+    }
+  }
+
+  async loadExtendedForecast(): Promise<void> {
+    try {
+      const forecast = await fetchExtendedForecast(40.71, -74.01, 'New York');
+      (this.ctx.panels['extended-forecast'] as ExtendedForecastPanel | undefined)?.update(forecast);
+    } catch (error) {
+      console.warn('[extended-forecast] fetch failed', error);
+    }
+  }
+
+  async loadWeatherRadar(): Promise<void> {
+    try {
+      const state = await fetchRadarFrames();
+      (this.ctx.panels['weather-radar'] as WeatherRadarPanel | undefined)?.update(state);
+      this.ctx.map?.setRadarState(state);
+    } catch (error) {
+      console.warn('[weather-radar] fetch failed', error);
+    }
+  }
+
+  async loadTidePredictions(): Promise<void> {
+    try {
+      const defaultStation = TIDE_STATIONS[0]!;
+      const data = await fetchTidePredictions(defaultStation.id);
+      (this.ctx.panels['tide-predictions'] as TidePredictionsPanel | undefined)?.update(data);
+    } catch (error) {
+      console.warn('[tide-predictions] fetch failed', error);
+    }
+  }
+
+  async loadPollenData(): Promise<void> {
+    try {
+      const readings = await fetchPollenData();
+      (this.ctx.panels['pollen'] as PollenPanel | undefined)?.update(readings);
+    } catch (error) {
+      console.warn('[pollen] fetch failed', error);
+    }
+  }
+
+  async loadLightning(): Promise<void> {
+    try {
+      const strikes = await fetchLightningStrikes();
+      this.ctx.map?.setLightningStrikes(strikes);
+    } catch (error) {
+      console.warn('[lightning] fetch failed', error);
+    }
+  }
+
+  async loadRedFlagWarnings(): Promise<void> {
+    try {
+      const [warnings] = await Promise.all([
+        fetchRedFlagWarnings(),
+        fetchFireWeatherOutlook(),
+      ]);
+      this.ctx.map?.setRedFlagWarnings(warnings);
+    } catch (error) {
+      console.warn('[red-flag-warnings] fetch failed', error);
     }
   }
 

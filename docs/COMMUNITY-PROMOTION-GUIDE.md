@@ -8,7 +8,7 @@ Thank you for helping spread the word about World Monitor! This guide provides t
 
 **One-line pitch**: A free, open-source, real-time global intelligence dashboard — like Bloomberg Terminal meets OSINT, for everyone.
 
-**Longer description**: World Monitor aggregates 150+ news feeds, military tracking, financial markets, conflict data, protest monitoring, satellite imagery, and AI-powered analysis into a single unified dashboard with an interactive globe. Available as a web app, Tauri desktop build, and installable PWA.
+**Longer description**: World Monitor aggregates 150+ news feeds, military tracking, financial markets, conflict data, protest monitoring, satellite imagery, comprehensive weather intelligence, and AI-powered analysis into a single unified dashboard with an interactive globe. Available as a web app, Tauri desktop build, and installable PWA.
 
 ---
 
