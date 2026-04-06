@@ -121,8 +121,7 @@ export class GodsEyeView {
       }
     }, 100);
 
-    // Start idle orbit after 8 seconds
-    this.startIdleOrbitTimer();
+    // Auto-orbit disabled — was disruptive during use
   }
 
   exit(): void {

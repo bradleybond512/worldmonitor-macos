@@ -1,7 +1,7 @@
 import {
   Viewer,
   IonImageryProvider,
-  OpenStreetMapImageryProvider,
+  UrlTemplateImageryProvider,
   Terrain,
   SceneMode,
   Color,
@@ -152,12 +152,17 @@ export class CesiumGlobe {
 
   private addFallbackImagery(): void {
     if (!this.viewer) return;
-    const osmImagery = new OpenStreetMapImageryProvider({
-      url: 'https://tile.openstreetmap.org/',
+    // ArcGIS World Imagery — free satellite tiles, no API key needed
+    const satImagery = new UrlTemplateImageryProvider({
+      url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+      credit: 'Esri, Maxar, Earthstar Geographics',
+      maximumLevel: 19,
     });
-    const layer = this.viewer.imageryLayers.addImageryProvider(osmImagery);
+    const layer = this.viewer.imageryLayers.addImageryProvider(satImagery);
     layer.alpha = 1;
     layer.brightness = 1.1;
+    layer.contrast = 1.1;
+    layer.saturation = 1.15;
   }
 
 
