@@ -1,5 +1,6 @@
 import { type Camera } from 'cesium';
 import { CesiumGlobe } from '@/components/CesiumGlobe';
+import { GlobeDataManager } from '@/components/GlobeDataManager';
 
 function zoomCamera(camera: Camera | undefined, delta: number): void {
   if (!camera) return;
@@ -23,6 +24,7 @@ function addListener<K extends string>(
 export class GodsEyeView {
   private container: HTMLElement;
   private globe: CesiumGlobe | null = null;
+  private dataManager: GlobeDataManager | null = null;
   private active = false;
   private ionToken: string | undefined;
   private cleanupHandlers: (() => void)[] = [];
@@ -63,6 +65,13 @@ export class GodsEyeView {
     }
 
     this.attachZoomHandlers();
+
+    // Load data layers onto the globe (non-blocking — layers appear as they load)
+    const viewer = this.globe.cesiumViewer;
+    if (viewer) {
+      this.dataManager = new GlobeDataManager(viewer);
+      this.dataManager.initialize();
+    }
   }
 
   exit(): void {
@@ -76,6 +85,8 @@ export class GodsEyeView {
     document.body.classList.remove('gods-eye-lock');
 
     setTimeout(() => {
+      this.dataManager?.destroy();
+      this.dataManager = null;
       this.globe?.destroy();
       this.globe = null;
     }, 600);
