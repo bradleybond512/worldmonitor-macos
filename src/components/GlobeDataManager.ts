@@ -15,6 +15,7 @@ import {
   type ImageryLayer,
 } from 'cesium';
 
+import { BuildingTileManager } from '@/services/building-tiles';
 import { fetchLightningStrikes } from '@/services/lightning';
 import { fetchRedFlagWarnings } from '@/services/red-flag-warnings';
 import { getRadarTileUrl, fetchRadarFrames } from '@/services/rainviewer-radar';
@@ -240,6 +241,7 @@ export class GlobeDataManager {
   private viewer: Viewer;
   private layers = new Map<string, GlobeLayer>();
   private weatherImageryLayers: ImageryLayer[] = [];
+  private buildingManager: BuildingTileManager | null = null;
 
   constructor(viewer: Viewer) {
     this.viewer = viewer;
@@ -278,6 +280,10 @@ export class GlobeDataManager {
     this.registerLayer('weatherSatellite', () => this.loadWeatherSatellite());
     this.registerLayer('lightningStrikes', () => this.loadLightningStrikes());
     this.registerLayer('redFlagWarnings', () => this.loadRedFlagWarnings());
+
+    // 3D Building tiles (managed separately — uses Cesium primitives, not data sources)
+    this.buildingManager = new BuildingTileManager(this.viewer);
+    void this.buildingManager.initialize();
 
     for (const name of this.layers.keys()) {
       void this.loadLayer(name);
@@ -1442,10 +1448,16 @@ export class GlobeDataManager {
     for (const [, layer] of this.layers) {
       this.viewer.dataSources.remove(layer.source, true);
     }
+    this.buildingManager?.destroy();
+    this.buildingManager = null;
     this.layers.clear();
     for (const imgLayer of this.weatherImageryLayers) {
       this.viewer.imageryLayers.remove(imgLayer, true);
     }
     this.weatherImageryLayers = [];
+  }
+
+  getBuildingTier(): string {
+    return this.buildingManager?.providerName ?? 'Not loaded';
   }
 }
