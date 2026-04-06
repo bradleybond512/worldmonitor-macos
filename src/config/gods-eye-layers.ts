@@ -173,6 +173,12 @@ export const DEFAULT_GODS_EYE_LAYERS: GodsEyeLayers = {
     enabled: false,
     description: 'Google Photorealistic 3D Tiles / OSM Buildings',
   },
+  aircraft3d: {
+    name: '3D Aircraft',
+    category: 'spatial',
+    enabled: false,
+    description: 'Detailed glTF aircraft models at real altitude with heading',
+  },
   rfCoverage: {
     name: 'RF/SIGINT',
     category: 'intelligence',
