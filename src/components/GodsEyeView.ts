@@ -8,6 +8,9 @@ import {
 import { CesiumGlobe } from '@/components/CesiumGlobe';
 import { GlobeDataManager } from '@/components/GlobeDataManager';
 import { GlobeHUD } from '@/components/GlobeHUD';
+import { AutoFollowEngine } from '@/components/gods-eye/AutoFollowEngine';
+import type { CustomDataSource } from 'cesium';
+import { getMode, type AppMode, type ModeChangedDetail } from '@/services/mode-manager';
 
 // ── Theater camera presets (lat, lon, altitude meters, pitch degrees) ──
 const THEATERS = {
@@ -43,6 +46,7 @@ export class GodsEyeView {
   private globe: CesiumGlobe | null = null;
   private dataManager: GlobeDataManager | null = null;
   private hud: GlobeHUD | null = null;
+  private autoFollow: AutoFollowEngine | null = null;
   private hudTickId: number | null = null;
   private orbitTickId: number | null = null;
   private idleTimer: number | null = null;
@@ -51,6 +55,7 @@ export class GodsEyeView {
   private userInteracting = false;
   private ionToken: string | undefined;
   private cleanupHandlers: (() => void)[] = [];
+  private currentMode: AppMode = 'peace';
 
   constructor(ionToken?: string) {
     this.ionToken = ionToken;
@@ -98,12 +103,30 @@ export class GodsEyeView {
       this.dataManager.initialize();
     }
 
+    // Auto-follow engine
+    if (viewer) {
+      this.autoFollow = new AutoFollowEngine(
+        viewer,
+        () => this.dataManager?.getDataSources() ?? new Map<string, CustomDataSource>(),
+      );
+      this.autoFollow.setMode(this.currentMode);
+      this.autoFollow.setOnTargetChange((target, index, total) => {
+        this.hud?.updateAutoFollowState(target, index, total);
+      });
+    }
+
     // HUD overlay
     this.hud = new GlobeHUD(this.container);
     this.hud.setOnExit(() => this.exit());
     this.hud.setOnLayerToggle((key, enabled) => {
+      if (key === 'autoFollow') {
+        if (enabled) this.autoFollow?.start();
+        else this.autoFollow?.stop();
+        return;
+      }
       this.dataManager?.setLayerVisible(key, enabled);
     });
+    this.hud.setOnAutoFollowSkip(() => this.autoFollow?.skipToNext());
 
     // Update HUD at ~10fps
     this.hudTickId = window.setInterval(() => {
@@ -121,7 +144,12 @@ export class GodsEyeView {
       }
     }, 100);
 
-    // Auto-orbit disabled — was disruptive during use
+    // Mode tracking
+    this.currentMode = getMode();
+    this.applyModeTheme(this.currentMode);
+    const handler = this.handleModeChange.bind(this);
+    document.addEventListener('wm:mode-changed', handler);
+    this.cleanupHandlers.push(() => document.removeEventListener('wm:mode-changed', handler));
   }
 
   exit(): void {
@@ -137,6 +165,9 @@ export class GodsEyeView {
     if (this.hudTickId != null) { clearInterval(this.hudTickId); this.hudTickId = null; }
     if (this.orbitTickId != null) { cancelAnimationFrame(this.orbitTickId); this.orbitTickId = null; }
     if (this.idleTimer != null) { clearTimeout(this.idleTimer); this.idleTimer = null; }
+
+    this.autoFollow?.destroy();
+    this.autoFollow = null;
 
     this.eventHandler?.destroy();
     this.eventHandler = null;
@@ -162,6 +193,22 @@ export class GodsEyeView {
   destroy(): void {
     this.exit();
     this.container.remove();
+  }
+
+  // ── Mode theming ─────────────────────────────────────
+
+  private handleModeChange(e: Event): void {
+    const detail = (e as CustomEvent<ModeChangedDetail>).detail;
+    this.currentMode = detail.mode;
+    this.autoFollow?.setMode(detail.mode);
+    this.applyModeTheme(detail.mode);
+  }
+
+  private applyModeTheme(mode: AppMode): void {
+    const modeClasses = ['ge-mode-peace', 'ge-mode-war', 'ge-mode-disaster', 'ge-mode-finance', 'ge-mode-ghost'];
+    for (const cls of modeClasses) this.container.classList.remove(cls);
+    this.container.classList.add(`ge-mode-${mode}`);
+    this.hud?.setMode(mode);
   }
 
   // ── Auto-orbit ───────────────────────────────────────

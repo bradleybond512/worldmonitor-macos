@@ -2,14 +2,17 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 
 describe('gods-eye-layers', () => {
-  it('exports default layer state with all layers disabled', async () => {
+  it('exports default layer state with aesthetic layers disabled', async () => {
     const { DEFAULT_GODS_EYE_LAYERS } = await import(
       '../src/config/gods-eye-layers.ts'
     );
-    const allDisabled = Object.values(DEFAULT_GODS_EYE_LAYERS).every(
-      (layer) => !layer.enabled,
+    // Aesthetic layers must default to disabled; data/intelligence layers may be enabled
+    const aestheticLayers = Object.values(DEFAULT_GODS_EYE_LAYERS).filter(
+      (layer) => layer.category === 'aesthetic',
     );
-    assert.equal(allDisabled, true, 'All layers should default to disabled');
+    const allAestheticDisabled = aestheticLayers.every((layer) => !layer.enabled);
+    assert.equal(allAestheticDisabled, true, 'Aesthetic layers should default to disabled');
+    assert.ok(aestheticLayers.length >= 3, 'Should have at least 3 aesthetic layers');
   });
 
   it('every layer has required metadata fields', async () => {
@@ -23,14 +26,16 @@ describe('gods-eye-layers', () => {
     }
   });
 
-  it('has layers for all 8 planned features', async () => {
+  it('has layers for all planned features', async () => {
     const { DEFAULT_GODS_EYE_LAYERS } = await import(
       '../src/config/gods-eye-layers.ts'
     );
     const keys = Object.keys(DEFAULT_GODS_EYE_LAYERS);
     const required = [
-      'satellites', 'terrain', 'buildings', 'imagery',
-      'hud', 'entityGraph', 'rfCoverage', 'timeline',
+      'satellites', 'terrain', 'buildings',
+      'entityGraph', 'rfCoverage', 'timeline',
+      'earthquakes', 'gdacs', 'conflicts', 'autoFollow',
+      'atmosphere', 'scanlines', 'bloom',
     ];
     for (const r of required) {
       assert.ok(keys.includes(r), `Missing required layer: ${r}`);

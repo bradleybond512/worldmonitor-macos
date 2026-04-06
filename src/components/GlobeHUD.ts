@@ -1,4 +1,6 @@
 import { loadGodsEyeLayers, saveGodsEyeLayers, type GodsEyeLayers } from '@/config/gods-eye-layers';
+import type { AppMode } from '@/services/mode-manager';
+import type { FollowTarget } from '@/components/gods-eye/AutoFollowEngine';
 
 export interface HUDState {
   cameraAltitude: number;
@@ -8,6 +10,14 @@ export interface HUDState {
   activeHotspots: number;
   threatLevel: string;
 }
+
+const MODE_LABELS: Record<AppMode, { label: string; cls: string }> = {
+  peace: { label: 'PEACE', cls: 'ge-mode-badge-peace' },
+  war: { label: 'WAR', cls: 'ge-mode-badge-war' },
+  disaster: { label: 'DISASTER', cls: 'ge-mode-badge-disaster' },
+  finance: { label: 'FINANCE', cls: 'ge-mode-badge-finance' },
+  ghost: { label: 'GHOST', cls: 'ge-mode-badge-ghost' },
+};
 
 function threatFromHotspots(count: number): { label: string; cls: string } {
   if (count > 500) return { label: 'CRITICAL', cls: 'ge-threat-critical' };
@@ -36,6 +46,7 @@ export class GlobeHUD {
   private layers: GodsEyeLayers;
   private onLayerToggle: ((layerKey: string, enabled: boolean) => void) | null = null;
   private onExit: (() => void) | null = null;
+  private onAutoFollowSkip: (() => void) | null = null;
   private clockId: number | null = null;
 
   // Cached DOM refs
@@ -44,6 +55,11 @@ export class GlobeHUD {
   private altEl: HTMLElement | null = null;
   private coordsEl: HTMLElement | null = null;
   private clockEl: HTMLElement | null = null;
+  private modeBadgeEl: HTMLElement | null = null;
+  private autoFollowCard: HTMLElement | null = null;
+  private autoFollowTarget: HTMLElement | null = null;
+  private autoFollowCounter: HTMLElement | null = null;
+  private autoFollowSkipBtn: HTMLElement | null = null;
   private layerCountEls = new Map<string, HTMLElement>();
 
   constructor(container: HTMLElement) {
@@ -62,6 +78,8 @@ export class GlobeHUD {
     const card = this.card('ge-hud-threat-card');
     this.clockEl = this.el('div', 'ge-hud-clock');
     card.append(this.clockEl);
+    this.modeBadgeEl = this.el('div', 'ge-mode-badge ge-mode-badge-peace', 'PEACE');
+    card.append(this.modeBadgeEl);
     const threatLabel = this.el('div', 'ge-hud-micro-label', 'THREAT ASSESSMENT');
     card.append(threatLabel);
     this.threatEl = this.el('div', 'ge-hud-threat-value ge-threat-nominal', 'NOMINAL');
@@ -110,6 +128,24 @@ export class GlobeHUD {
     this.buildLayerButtons(layerBar);
     bottomCenter.append(layerBar);
     this.element.append(bottomCenter);
+
+    // ── Bottom-left: Auto-follow status ──
+    const bottomLeft = this.pos('bottom:16px;left:16px;pointer-events:auto;');
+    this.autoFollowCard = this.card('ge-autofollow-card ge-hidden');
+    const afHeader = this.el('div', 'ge-autofollow-header');
+    const afLabel = this.el('span', 'ge-hud-micro-label', 'AUTO-FOLLOW');
+    this.autoFollowCounter = this.el('span', 'ge-autofollow-counter', '0/0');
+    afHeader.append(afLabel, this.autoFollowCounter);
+    this.autoFollowCard.append(afHeader);
+    this.autoFollowTarget = this.el('div', 'ge-autofollow-target', 'Scanning...');
+    this.autoFollowCard.append(this.autoFollowTarget);
+    this.autoFollowSkipBtn = document.createElement('button');
+    this.autoFollowSkipBtn.className = 'ge-autofollow-skip';
+    this.autoFollowSkipBtn.textContent = 'SKIP \u25B6';
+    this.autoFollowSkipBtn.addEventListener('click', () => this.onAutoFollowSkip?.());
+    this.autoFollowCard.append(this.autoFollowSkipBtn);
+    bottomLeft.append(this.autoFollowCard);
+    this.element.append(bottomLeft);
 
     // ── Overlays ──
     const scanlines = document.createElement('div');
@@ -218,8 +254,36 @@ export class GlobeHUD {
     }
   }
 
+  setMode(mode: AppMode): void {
+    if (!this.modeBadgeEl) return;
+    const info = MODE_LABELS[mode] ?? MODE_LABELS.peace;
+    this.modeBadgeEl.textContent = info.label;
+    this.modeBadgeEl.className = `ge-mode-badge ${info.cls}`;
+  }
+
+  updateAutoFollowState(target: FollowTarget | null, index: number, total: number): void {
+    if (!this.autoFollowCard) return;
+    if (!target) {
+      this.autoFollowCard.classList.add('ge-hidden');
+      return;
+    }
+    this.autoFollowCard.classList.remove('ge-hidden');
+    if (this.autoFollowTarget) {
+      // Truncate long names
+      const name = target.name.length > 60 ? target.name.slice(0, 57) + '...' : target.name;
+      this.autoFollowTarget.textContent = name;
+    }
+    if (this.autoFollowCounter) {
+      this.autoFollowCounter.textContent = `${index + 1}/${total}`;
+    }
+  }
+
   setOnLayerToggle(cb: (layerKey: string, enabled: boolean) => void): void {
     this.onLayerToggle = cb;
+  }
+
+  setOnAutoFollowSkip(cb: () => void): void {
+    this.onAutoFollowSkip = cb;
   }
 
   setOnExit(cb: () => void): void {

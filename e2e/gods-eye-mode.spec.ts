@@ -47,4 +47,29 @@ test.describe("God's Eye Mode", () => {
     const count = await layerButtons.count();
     expect(count).toBeGreaterThanOrEqual(5);
   });
+
+  test('mode badge is visible and shows PEACE by default', async ({ page }) => {
+    await page.click('#godsEyeBtn');
+    await page.waitForSelector('.gods-eye-active', { timeout: 5000 });
+
+    const badge = page.locator('.ge-mode-badge');
+    await expect(badge).toBeVisible();
+    await expect(badge).toHaveText('PEACE');
+  });
+
+  test('auto-follow layer button exists', async ({ page }) => {
+    await page.click('#godsEyeBtn');
+    await page.waitForSelector('.gods-eye-active', { timeout: 5000 });
+
+    const afBtn = page.locator('.ge-layer-btn[data-layer="autoFollow"]');
+    await expect(afBtn).toBeVisible();
+  });
+
+  test('auto-follow card is hidden by default', async ({ page }) => {
+    await page.click('#godsEyeBtn');
+    await page.waitForSelector('.gods-eye-active', { timeout: 5000 });
+
+    const card = page.locator('.ge-autofollow-card');
+    await expect(card).toHaveClass(/ge-hidden/);
+  });
 });

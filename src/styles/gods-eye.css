@@ -380,6 +380,147 @@ body.gods-eye-lock {
   to { opacity: 1; }
 }
 
+/* ── Mode badge ─────────────────────────────────── */
+.ge-mode-badge {
+  display: inline-block;
+  font-family: var(--ge-font);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  padding: 3px 10px;
+  border-radius: 6px;
+  margin-bottom: 8px;
+  transition: all 0.4s ease;
+}
+
+.ge-mode-badge-peace {
+  color: rgba(var(--ge-green), 1);
+  background: rgba(var(--ge-green), 0.1);
+  border: 1px solid rgba(var(--ge-green), 0.25);
+}
+
+.ge-mode-badge-war {
+  color: rgba(var(--ge-red), 1);
+  background: rgba(var(--ge-red), 0.12);
+  border: 1px solid rgba(var(--ge-red), 0.3);
+  animation: ge-pulse-glow 1.5s ease-in-out infinite;
+}
+
+.ge-mode-badge-disaster {
+  color: rgba(var(--ge-amber), 1);
+  background: rgba(var(--ge-amber), 0.12);
+  border: 1px solid rgba(var(--ge-amber), 0.3);
+  animation: ge-pulse-glow 2s ease-in-out infinite;
+}
+
+.ge-mode-badge-finance {
+  color: rgba(var(--ge-cyan), 1);
+  background: rgba(var(--ge-cyan), 0.1);
+  border: 1px solid rgba(var(--ge-cyan), 0.25);
+}
+
+.ge-mode-badge-ghost {
+  color: rgba(180, 120, 200, 1);
+  background: rgba(180, 120, 200, 0.1);
+  border: 1px solid rgba(180, 120, 200, 0.25);
+}
+
+/* ── Mode-aware container tinting ──────────────── */
+.gods-eye-container.ge-mode-war .ge-hud-card {
+  border-color: rgba(var(--ge-red), 0.2);
+  box-shadow: 0 0 20px rgba(var(--ge-red), 0.08), 0 0 60px rgba(var(--ge-red), 0.03);
+}
+
+.gods-eye-container.ge-mode-disaster .ge-hud-card {
+  border-color: rgba(var(--ge-amber), 0.2);
+  box-shadow: 0 0 20px rgba(var(--ge-amber), 0.08), 0 0 60px rgba(var(--ge-amber), 0.03);
+}
+
+.gods-eye-container.ge-mode-finance .ge-hud-card {
+  border-color: rgba(var(--ge-cyan), 0.2);
+  box-shadow: 0 0 20px rgba(var(--ge-cyan), 0.08), 0 0 60px rgba(var(--ge-cyan), 0.03);
+}
+
+.gods-eye-container.ge-mode-ghost .ge-hud-card {
+  border-color: rgba(180, 120, 200, 0.15);
+  box-shadow: 0 0 20px rgba(180, 120, 200, 0.06);
+}
+
+.gods-eye-container.ge-mode-war .ge-vignette {
+  background: radial-gradient(
+    ellipse at center,
+    transparent 55%,
+    rgba(200, 40, 40, 0.08) 85%,
+    rgba(200, 40, 40, 0.2) 100%
+  );
+}
+
+.gods-eye-container.ge-mode-disaster .ge-vignette {
+  background: radial-gradient(
+    ellipse at center,
+    transparent 55%,
+    rgba(200, 150, 40, 0.08) 85%,
+    rgba(200, 150, 40, 0.2) 100%
+  );
+}
+
+/* ── Auto-follow card ──────────────────────────── */
+.ge-autofollow-card {
+  min-width: 220px;
+  max-width: 300px;
+  animation: ge-card-in 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.ge-autofollow-card.ge-hidden {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(8px);
+}
+
+.ge-autofollow-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.ge-autofollow-counter {
+  font-family: var(--ge-mono);
+  font-size: 10px;
+  font-weight: 600;
+  color: rgba(var(--ge-cyan), 0.8);
+}
+
+.ge-autofollow-target {
+  font-family: var(--ge-mono);
+  font-size: 10px;
+  color: rgba(var(--ge-white), 0.7);
+  line-height: 1.4;
+  margin-bottom: 8px;
+  word-break: break-word;
+}
+
+.ge-autofollow-skip {
+  font-family: var(--ge-font);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 1.5px;
+  color: rgba(var(--ge-blue), 0.7);
+  background: rgba(var(--ge-blue), 0.06);
+  border: 1px solid rgba(var(--ge-blue), 0.15);
+  border-radius: 6px;
+  padding: 4px 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.ge-autofollow-skip:hover {
+  color: rgba(var(--ge-blue), 1);
+  background: rgba(var(--ge-blue), 0.12);
+  border-color: rgba(var(--ge-blue), 0.3);
+}
+
 /* ── Cesium widget cleanup ───────────────────────── */
 .gods-eye-container .cesium-viewer,
 .gods-eye-container .cesium-viewer-cesiumWidgetContainer,
