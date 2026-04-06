@@ -421,14 +421,7 @@ export class App {
 
     // God's Eye toggle (keyboard shortcut + sidebar button dispatch this)
     document.addEventListener('wm:toggle-gods-eye', () => {
-      console.warn('[GodsEye] event received, calling toggleGodsEye');
-      document.title = '[GE] loading…';
-      this.toggleGodsEye()
-        .then(() => { document.title = '[GE] active'; })
-        .catch((error) => {
-          console.error('[GodsEye] toggle failed:', error);
-          document.title = `[GE] ERROR: ${String(error).slice(0, 60)}`;
-        });
+      this.toggleGodsEye().catch(() => {/* error handled in GodsEyeView */});
     });
 
     // Phase 5: Event listeners + URL sync

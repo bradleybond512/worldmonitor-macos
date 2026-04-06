@@ -1371,9 +1371,12 @@ export class PanelLayoutManager implements AppModule {
     document.getElementById('ghostModeBtn')?.addEventListener('click', () => {
       toggleGhostMode();
     });
-    // God's Eye button
-    document.getElementById('godsEyeBtn')?.addEventListener('click', () => {
-      document.dispatchEvent(new CustomEvent('wm:toggle-gods-eye'));
+    // God's Eye button — use delegation to survive any DOM rebuilds
+    document.addEventListener('click', (e) => {
+      const target = (e.target as HTMLElement).closest('#godsEyeBtn');
+      if (target) {
+        document.dispatchEvent(new CustomEvent('wm:toggle-gods-eye'));
+      }
     });
     document.addEventListener('wm:toggle-ghost-mode', () => {
       toggleGhostMode();

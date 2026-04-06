@@ -35,6 +35,8 @@ export class CesiumGlobe {
       sceneMode: SceneMode.SCENE3D,
       animation: false,
       baseLayerPicker: false,
+      baseLayer: false,
+      terrain: undefined,
       fullscreenButton: false,
       geocoder: false,
       homeButton: false,
@@ -62,12 +64,19 @@ export class CesiumGlobe {
     this.viewer.scene.backgroundColor = Color.fromCssColorString('#0a0a0f');
     this.viewer.scene.globe.baseColor = Color.fromCssColorString('#0d1b2a');
 
-    // Replace default imagery with dark-styled or OSM layer
+    // Replace default imagery with dark-styled Ion layer, falling back to OSM
     this.viewer.imageryLayers.removeAll();
+    let usedIon = false;
     if (this.options.ionToken) {
-      const darkImagery = await IonImageryProvider.fromAssetId(3845, {});
-      this.viewer.imageryLayers.addImageryProvider(darkImagery);
-    } else {
+      try {
+        const darkImagery = await IonImageryProvider.fromAssetId(3845, {});
+        this.viewer.imageryLayers.addImageryProvider(darkImagery);
+        usedIon = true;
+      } catch {
+        // Ion token may lack access to asset 3845 — fall through to OSM
+      }
+    }
+    if (!usedIon) {
       const osmImagery = new OpenStreetMapImageryProvider({
         url: 'https://tile.openstreetmap.org/',
       });

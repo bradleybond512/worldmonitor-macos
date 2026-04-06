@@ -28,21 +28,19 @@ export class GodsEyeView {
     this.active = true;
 
     try {
-      // Initialize Cesium globe
       this.globe = new CesiumGlobe({
         container: this.container,
         ionToken: this.ionToken,
       });
       await this.globe.initialize();
 
-      // Initialize Three.js overlay
       this.threeOverlay = new ThreeOverlay({
         container: this.container,
         enableBloom: true,
       });
       this.threeOverlay.initialize();
     } catch (error) {
-      // eslint-disable-next-line no-console -- surface GPU crash diagnostics
+      // eslint-disable-next-line no-console -- surface GPU/WebGL crash diagnostics
       console.error('[GodsEyeView] WebGL initialization failed:', error);
       this.globe?.destroy();
       this.globe = null;
