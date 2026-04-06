@@ -13,9 +13,13 @@ import {
   Math as CesiumMath,
   UrlTemplateImageryProvider,
   type ImageryLayer,
+  PointPrimitiveCollection,
+  PolylineCollection,
 } from 'cesium';
 
 import { BuildingTileManager } from '@/services/building-tiles';
+import { fetchSatelliteCatalog, filterNotable, type SatelliteTLE } from '@/services/satellite-catalog';
+import { satellitePropagator, type SatellitePosition } from '@/services/satellite-propagator';
 import { fetchLightningStrikes } from '@/services/lightning';
 import { fetchRedFlagWarnings } from '@/services/red-flag-warnings';
 import { getRadarTileUrl, fetchRadarFrames } from '@/services/rainviewer-radar';
@@ -242,6 +246,10 @@ export class GlobeDataManager {
   private layers = new Map<string, GlobeLayer>();
   private weatherImageryLayers: ImageryLayer[] = [];
   private buildingManager: BuildingTileManager | null = null;
+  private satellitePoints: InstanceType<typeof PointPrimitiveCollection> | null = null;
+  private orbitLines: InstanceType<typeof PolylineCollection> | null = null;
+  private satelliteCatalog: SatelliteTLE[] = [];
+  private unsubPositions: (() => void) | null = null;
 
   constructor(viewer: Viewer) {
     this.viewer = viewer;
@@ -284,6 +292,9 @@ export class GlobeDataManager {
     // 3D Building tiles (managed separately — uses Cesium primitives, not data sources)
     this.buildingManager = new BuildingTileManager(this.viewer);
     void this.buildingManager.initialize();
+
+    // Satellites (managed via PointPrimitiveCollection for performance, not data sources)
+    void this.initSatellites();
 
     for (const name of this.layers.keys()) {
       void this.loadLayer(name);
@@ -1444,12 +1455,64 @@ export class GlobeDataManager {
     return result;
   }
 
+  private async initSatellites(): Promise<void> {
+    try {
+      this.satelliteCatalog = await fetchSatelliteCatalog();
+      if (this.satelliteCatalog.length === 0) return;
+
+      this.satellitePoints = new PointPrimitiveCollection();
+      this.viewer.scene.primitives.add(this.satellitePoints);
+
+      this.orbitLines = new PolylineCollection();
+      this.viewer.scene.primitives.add(this.orbitLines);
+
+      satellitePropagator.start(this.satelliteCatalog);
+
+      this.unsubPositions = satellitePropagator.onPositions((positions) => {
+        this.updateSatellitePositions(positions);
+      });
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.warn('[GlobeDataManager] Satellite init failed:', error);
+    }
+  }
+
+  private updateSatellitePositions(positions: SatellitePosition[]): void {
+    if (!this.satellitePoints) return;
+    this.satellitePoints.removeAll();
+
+    const notableIds = new Set(filterNotable(this.satelliteCatalog).map(s => s.noradId));
+
+    for (const pos of positions) {
+      const isNotable = notableIds.has(pos.noradId);
+      const cat = this.satelliteCatalog.find(s => s.noradId === pos.noradId);
+      const rgb = cat?.annotation?.color ?? [150, 150, 150];
+
+      this.satellitePoints.add({
+        position: Cartesian3.fromDegrees(pos.lon, pos.lat, pos.altKm * 1000),
+        pixelSize: isNotable ? 4 : 1.5,
+        color: Color.fromBytes(rgb[0], rgb[1], rgb[2], isNotable ? 255 : 80),
+      });
+    }
+  }
+
   destroy(): void {
     for (const [, layer] of this.layers) {
       this.viewer.dataSources.remove(layer.source, true);
     }
     this.buildingManager?.destroy();
     this.buildingManager = null;
+    this.unsubPositions?.();
+    this.unsubPositions = null;
+    satellitePropagator.stop();
+    if (this.satellitePoints) {
+      this.viewer.scene.primitives.remove(this.satellitePoints);
+      this.satellitePoints = null;
+    }
+    if (this.orbitLines) {
+      this.viewer.scene.primitives.remove(this.orbitLines);
+      this.orbitLines = null;
+    }
     this.layers.clear();
     for (const imgLayer of this.weatherImageryLayers) {
       this.viewer.imageryLayers.remove(imgLayer, true);
