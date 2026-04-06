@@ -43,9 +43,9 @@ Click any country on the map for a full-page intelligence brief: instability sco
 
 **Show**: Click a country (e.g., Japan, Ukraine, or Iran) → full dossier page.
 
-### 4. 18 Languages Support
+### 4. 19 Languages Support
 
-Full UI in 18 languages, including Japanese, Korean, Greek, Thai, and Vietnamese. Regional news feeds auto-adapt, and language bundles are lazy-loaded for fast performance.
+Full UI in 19 languages, including Japanese, Korean, Greek, Thai, and Vietnamese. Regional news feeds auto-adapt, and language bundles are lazy-loaded for fast performance.
 
 **Show**: Switch language to Japanese in the settings. Note how feeds change.
 

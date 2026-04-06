@@ -26,8 +26,8 @@ Current code-backed snapshot:
 | Web variants | `4` | `src/config/variant.ts`, `src/config/panels.ts` |
 | Desktop build targets | `3` | `package.json`, `src-tauri/*.json` |
 | Generated OpenAPI service specs | `21` | `docs/api/*.openapi.json` |
-| Locales | `18` | `src/services/i18n.ts` |
-| Desktop secret keys | `25` | `src-tauri/src/main.rs` |
+| Locales | `19` | `src/services/i18n.ts` |
+| Desktop secret keys | `46` | `src-tauri/src/main.rs` |
 | Default panel inventory | `130 full / 35 tech / 31 finance / 10 happy` | `src/config/panels.ts` |
 
 ## Variants
@@ -68,11 +68,15 @@ Summarization is not hard-coded to one provider. The system can use Ollama, Groq
 
 The UI combines MapLibre GL and deck.gl for a globe-style monitoring experience, then layers product-specific overlays for conflicts, cables, ports, outages, markets, datacenters, and more. The goal is not just visual density; it is useful correlation between feeds, location, and operator context.
 
+### 6. God's Eye 3D globe
+
+A full-viewport Cesium.js 3D globe mode with 22 data layers rendered as billboard icons over Bing satellite imagery. Includes military bases, nuclear facilities, earthquakes, conflicts, cyclones, fires, vessels, flights, cyber threats, and more. Activated via the sidebar or keyboard shortcut `G`. Requires a free Cesium Ion token for satellite imagery; falls back to ArcGIS World Imagery without one. See [docs/API_KEYS.md](docs/API_KEYS.md) for setup.
+
 ## Architecture Snapshot
 
 | Layer | Stack |
 | --- | --- |
-| Frontend | TypeScript, Vite, i18next, MapLibre GL, deck.gl, D3 |
+| Frontend | TypeScript, Vite, i18next, MapLibre GL, deck.gl, Cesium.js, D3 |
 | Contracts | Buf, Protobuf, Sebuf, generated TypeScript clients and handlers |
 | Web backend | Vercel routes in `api/` plus generated RPC gateway |
 | Desktop | Tauri v2, Rust shell, Node.js sidecar, OS keychain integration |
@@ -124,6 +128,7 @@ If you want the fastest path through the repo:
 | --- | --- |
 | [docs/DOCUMENTATION.md](docs/DOCUMENTATION.md) | Curated map of the repository docs |
 | [docs/API_KEY_DEPLOYMENT.md](docs/API_KEY_DEPLOYMENT.md) | Cloud/API trust boundary and origin rules |
+| [docs/API_KEYS.md](docs/API_KEYS.md) | All 46 API keys with signup links and free/paid status |
 | [docs/DESKTOP_CONFIGURATION.md](docs/DESKTOP_CONFIGURATION.md) | Desktop runtime capabilities and secret model |
 | [docs/RELEASE_PACKAGING.md](docs/RELEASE_PACKAGING.md) | Packaging and release workflow |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Contributor workflow and extension points |
@@ -138,6 +143,7 @@ If you want the fastest path through the repo:
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Contributor workflow, checks, and PR expectations |
 | [SECURITY.md](SECURITY.md) | Vulnerability reporting and security scope |
 | [docs/ADDING_ENDPOINTS.md](docs/ADDING_ENDPOINTS.md) | Proto and Sebuf workflow for new RPC endpoints |
+| [docs/API_KEYS.md](docs/API_KEYS.md) | All 46 API keys — categories, signup URLs, free/paid status |
 | [docs/DESKTOP_CONFIGURATION.md](docs/DESKTOP_CONFIGURATION.md) | Desktop secret keys, feature availability, and fallback behavior |
 | [docs/API_KEY_DEPLOYMENT.md](docs/API_KEY_DEPLOYMENT.md) | Cloud API access rules and origin/key requirements |
 | [docs/RELAY_PARAMETERS.md](docs/RELAY_PARAMETERS.md) | Relay and transport environment variables |

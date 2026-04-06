@@ -4,35 +4,21 @@ World Monitor desktop uses a runtime configuration schema with per-feature toggl
 
 ## Supported Secret Keys
 
-The desktop vault schema is defined by Rust `SUPPORTED_SECRET_KEYS` in `src-tauri/src/main.rs`. It currently supports these 25 keys:
+The desktop vault schema is defined by Rust `SUPPORTED_SECRET_KEYS` in `src-tauri/src/main.rs`. It currently supports 46 keys. For a complete list with signup URLs and free/paid status, see [API_KEYS.md](API_KEYS.md).
 
-- `GROQ_API_KEY`
-- `OPENROUTER_API_KEY`
-- `FRED_API_KEY`
-- `EIA_API_KEY`
-- `CLOUDFLARE_API_TOKEN`
-- `ACLED_ACCESS_TOKEN`
-- `ACLED_EMAIL`
-- `URLHAUS_AUTH_KEY`
-- `OTX_API_KEY`
-- `ABUSEIPDB_API_KEY`
-- `WINGBITS_API_KEY`
-- `WS_RELAY_URL`
-- `VITE_OPENSKY_RELAY_URL`
-- `OPENSKY_CLIENT_ID`
-- `OPENSKY_CLIENT_SECRET`
-- `AISSTREAM_API_KEY`
-- `VITE_WS_RELAY_URL`
-- `FINNHUB_API_KEY`
-- `NASA_FIRMS_API_KEY`
-- `OLLAMA_API_URL`
-- `OLLAMA_MODEL`
-- `WTO_API_KEY`
-- `AVIATIONSTACK_API`
-- `ICAO_API_KEY`
-- `THREATFOX_API_KEY`
+**AI & Cloud:** `ANTHROPIC_API_KEY`, `GROQ_API_KEY`, `OPENROUTER_API_KEY`, `OLLAMA_API_URL`, `OLLAMA_MODEL`, `WORLDMONITOR_API_KEY`
 
-Note: `UC_DP_KEY` still exists in the TypeScript `RuntimeSecretKey` union, but it is not part of the desktop Rust keychain or sidecar allowlist.
+**Intelligence & Tracking:** `ACLED_ACCESS_TOKEN`, `ACLED_EMAIL`, `ACLED_REFRESH_TOKEN`, `OPENSKY_CLIENT_ID`, `OPENSKY_CLIENT_SECRET`, `VITE_OPENSKY_RELAY_URL`, `AISSTREAM_API_KEY`, `WINGBITS_API_KEY`, `NASA_FIRMS_API_KEY`, `AVIATIONSTACK_API`, `ICAO_API_KEY`, `WS_RELAY_URL`, `VITE_WS_RELAY_URL`
+
+**Cyber:** `THREATFOX_API_KEY`, `URLHAUS_AUTH_KEY`, `OTX_API_KEY`, `ABUSEIPDB_API_KEY`, `VIRUSTOTAL_API_KEY`, `SHODAN_API_KEY`, `URLSCAN_API_KEY`, `BITCOINABUSE_API_KEY`, `VULNERS_API_KEY`, `PULSEDIVE_API_KEY`, `GREYNOISE_API_KEY`, `HIBP_API_KEY`
+
+**Markets & Economics:** `FINNHUB_API_KEY`, `FMP_API_KEY`, `FRED_API_KEY`, `EIA_API_KEY`, `WTO_API_KEY`
+
+**News:** `NEWSAPI_KEY`, `NEWSDATA_API_KEY`, `MEDIASTACK_API_KEY`
+
+**Geo & Infrastructure:** `GEONAMES_USERNAME`, `IPINFO_TOKEN`, `BGPVIEW_API_KEY`, `CLOUDFLARE_API_TOKEN`, `NASA_API_KEY`, `UC_DP_KEY`
+
+**Mapping:** `CESIUM_ION_TOKEN`, `OWM_API_KEY`
 
 ## Feature Availability Model
 
@@ -66,6 +52,7 @@ When secrets are missing or disabled, the desktop app degrades feature-by-featur
 
 ## Related Docs
 
+- [API_KEYS.md](API_KEYS.md)
 - [API_KEY_DEPLOYMENT.md](API_KEY_DEPLOYMENT.md)
 - [RELAY_PARAMETERS.md](RELAY_PARAMETERS.md)
 - [RELEASE_PACKAGING.md](RELEASE_PACKAGING.md)

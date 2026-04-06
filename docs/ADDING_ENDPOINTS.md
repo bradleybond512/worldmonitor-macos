@@ -153,7 +153,7 @@ export const seismologyHandler: SeismologyServiceHandler = {
 npx tsc --noEmit   # should pass with zero errors
 ```
 
-The route is already live. `createSeismologyServiceRoutes()` picks up the new RPC automatically — no changes needed to `api/[[...path]].ts` or `vite.config.ts`.
+The route is already live. `createSeismologyServiceRoutes()` picks up the new RPC automatically — no changes needed to the API gateway or `vite.config.ts`.
 
 ### 7. Check the generated docs
 
@@ -300,7 +300,7 @@ export const sanctionsHandler: SanctionsServiceHandler = {
 
 ### 7. Register the service in the gateway
 
-Edit `api/[[...path]].js` — add the import and mount the routes:
+Routes are auto-discovered via the `api/[domain]/v1/` folder structure. Add the import and mount the routes in the domain's handler file:
 
 ```typescript
 import { createSanctionsServiceRoutes } from '../src/generated/server/worldmonitor/sanctions/v1/service_server';
