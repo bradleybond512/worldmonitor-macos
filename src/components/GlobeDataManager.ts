@@ -1332,6 +1332,35 @@ export class GlobeDataManager {
     return result;
   }
 
+  /**
+   * Filter visible entities by time window.
+   * @param hours — show only entities from the last N hours. 0 = show all.
+   */
+  filterByTime(hours: number): void {
+    const showAll = hours === 0;
+    const cutoff = showAll ? '' : new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
+    const dynamicLayers = new Set([
+      'earthquakes', 'gdacs', 'conflicts', 'airstrikes', 'volcanoes', 'cyclones',
+      'fires', 'flights', 'vessels', 'darkVessels', 'cyber', 'protests',
+      'gpsJamming', 'satChange', 'disease',
+    ]);
+
+    for (const [name, layer] of this.layers) {
+      const isDynamic = dynamicLayers.has(name);
+      for (const entity of layer.source.entities.values) {
+        entity.show = showAll || !isDynamic || this.entityPassesTimeFilter(entity, cutoff);
+      }
+    }
+  }
+
+  private entityPassesTimeFilter(entity: import('cesium').Entity, cutoff: string): boolean {
+    const availability = entity.availability;
+    if (!availability || availability.length === 0) return true;
+    const interval = availability.get(0);
+    if (!interval?.stop) return true;
+    return interval.stop.toString() > cutoff;
+  }
+
   destroy(): void {
     for (const [, layer] of this.layers) {
       this.viewer.dataSources.remove(layer.source, true);

@@ -38,6 +38,8 @@ const THEATER_HINTS = [
   ['4', 'Arctic'],
   ['5', 'Africa'],
   ['6', 'Americas'],
+  ['N', 'Next Target'],
+  ['P', 'Screenshot'],
   ['ESC', 'Exit'],
 ] as const;
 
@@ -47,6 +49,7 @@ export class GlobeHUD {
   private onLayerToggle: ((layerKey: string, enabled: boolean) => void) | null = null;
   private onExit: (() => void) | null = null;
   private onAutoFollowSkip: (() => void) | null = null;
+  private onScreenshot: (() => void) | null = null;
   private clockId: number | null = null;
 
   // Cached DOM refs
@@ -105,6 +108,14 @@ export class GlobeHUD {
     exitBtn.append(exitIcon, document.createTextNode(' EXIT'));
     exitBtn.addEventListener('click', () => this.onExit?.());
     topRight.append(exitBtn);
+
+    // Screenshot button
+    const screenshotBtn = document.createElement('button');
+    screenshotBtn.className = 'ge-screenshot-btn';
+    screenshotBtn.title = 'Capture screenshot (P)';
+    screenshotBtn.textContent = '\u{1F4F7}';
+    screenshotBtn.addEventListener('click', () => this.onScreenshot?.());
+    topRight.append(screenshotBtn);
 
     // Theater preset hints
     const hints = this.card('ge-hud-hints');
@@ -284,6 +295,10 @@ export class GlobeHUD {
 
   setOnAutoFollowSkip(cb: () => void): void {
     this.onAutoFollowSkip = cb;
+  }
+
+  setOnScreenshot(cb: () => void): void {
+    this.onScreenshot = cb;
   }
 
   setOnExit(cb: () => void): void {

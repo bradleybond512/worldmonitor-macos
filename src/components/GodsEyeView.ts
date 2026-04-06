@@ -4,12 +4,16 @@ import {
   Cartesian3,
   ScreenSpaceEventHandler,
   ScreenSpaceEventType,
+  defined,
 } from 'cesium';
 import { CesiumGlobe } from '@/components/CesiumGlobe';
 import { GlobeDataManager } from '@/components/GlobeDataManager';
 import { GlobeHUD } from '@/components/GlobeHUD';
 import { AutoFollowEngine } from '@/components/gods-eye/AutoFollowEngine';
-import type { CustomDataSource } from 'cesium';
+import { EntityPopover } from '@/components/gods-eye/EntityPopover';
+import { TimelineScrubber } from '@/components/gods-eye/TimelineScrubber';
+import { Minimap } from '@/components/gods-eye/Minimap';
+import type { CustomDataSource, Entity } from 'cesium';
 import { getMode, type AppMode, type ModeChangedDetail } from '@/services/mode-manager';
 
 // ── Theater camera presets (lat, lon, altitude meters, pitch degrees) ──
@@ -31,6 +35,12 @@ const THEATER_KEYS: Record<string, keyof typeof THEATERS> = {
   '6': 'americas',
 };
 
+/** Mode → best-fit theater for auto-selection on mode change. */
+const MODE_THEATERS: Partial<Record<AppMode, keyof typeof THEATERS>> = {
+  war: 'middleEast',
+  disaster: 'pacific',
+};
+
 function addListener<K extends string>(
   el: EventTarget,
   event: K,
@@ -41,12 +51,22 @@ function addListener<K extends string>(
   return () => el.removeEventListener(event, handler, opts);
 }
 
+export interface GlobeFlyToDetail {
+  lat: number;
+  lon: number;
+  alt?: number;
+  label?: string;
+}
+
 export class GodsEyeView {
   private container: HTMLElement;
   private globe: CesiumGlobe | null = null;
   private dataManager: GlobeDataManager | null = null;
   private hud: GlobeHUD | null = null;
   private autoFollow: AutoFollowEngine | null = null;
+  private entityPopover: EntityPopover | null = null;
+  private timeline: TimelineScrubber | null = null;
+  private minimap: Minimap | null = null;
   private hudTickId: number | null = null;
   private orbitTickId: number | null = null;
   private idleTimer: number | null = null;
@@ -94,7 +114,6 @@ export class GodsEyeView {
 
     this.attachZoomHandlers();
     this.attachKeyboardHandlers();
-    this.attachClickToFly();
 
     // Load data layers onto the globe
     const viewer = this.globe.cesiumViewer;
@@ -115,6 +134,21 @@ export class GodsEyeView {
       });
     }
 
+    // Entity info popover (click marker → detail card)
+    if (viewer) {
+      this.entityPopover = new EntityPopover(this.container, viewer);
+      this.attachEntityClickHandler();
+    }
+
+    // Timeline scrubber
+    this.timeline = new TimelineScrubber(this.container);
+    this.timeline.setOnChange((hours) => {
+      this.dataManager?.filterByTime(hours);
+    });
+
+    // Minimap
+    this.minimap = new Minimap(this.container);
+
     // HUD overlay
     this.hud = new GlobeHUD(this.container);
     this.hud.setOnExit(() => this.exit());
@@ -124,32 +158,49 @@ export class GodsEyeView {
         else this.autoFollow?.stop();
         return;
       }
+      if (key === 'atmosphere') {
+        this.toggleAtmosphere(enabled);
+        return;
+      }
+      if (key === 'bloom') {
+        this.toggleBloom(enabled);
+        return;
+      }
       this.dataManager?.setLayerVisible(key, enabled);
     });
     this.hud.setOnAutoFollowSkip(() => this.autoFollow?.skipToNext());
+    this.hud.setOnScreenshot(() => this.captureScreenshot());
 
     // Update HUD at ~10fps
     this.hudTickId = window.setInterval(() => {
       const camera = this.globe?.camera;
       if (!camera || !this.hud) return;
       const carto = camera.positionCartographic;
+      const lat = CesiumMath.toDegrees(carto.latitude);
+      const lon = CesiumMath.toDegrees(carto.longitude);
       this.hud.updateState({
         cameraAltitude: carto.height,
-        cameraLat: CesiumMath.toDegrees(carto.latitude),
-        cameraLon: CesiumMath.toDegrees(carto.longitude),
+        cameraLat: lat,
+        cameraLon: lon,
         activeHotspots: this.dataManager?.getEntityCount() ?? 0,
       });
       if (this.dataManager) {
         this.hud.updateLayerCounts(this.dataManager.getLayerCounts());
       }
+      this.minimap?.update(lat, lon);
     }, 100);
 
     // Mode tracking
     this.currentMode = getMode();
     this.applyModeTheme(this.currentMode);
-    const handler = this.handleModeChange.bind(this);
-    document.addEventListener('wm:mode-changed', handler);
-    this.cleanupHandlers.push(() => document.removeEventListener('wm:mode-changed', handler));
+    const modeChangeHandler = this.handleModeChange.bind(this);
+    document.addEventListener('wm:mode-changed', modeChangeHandler);
+    this.cleanupHandlers.push(() => document.removeEventListener('wm:mode-changed', modeChangeHandler));
+
+    // Listen for fly-to events from main app
+    const flyToHandler = this.handleFlyToEvent.bind(this);
+    document.addEventListener('wm:globe-fly-to', flyToHandler);
+    this.cleanupHandlers.push(() => document.removeEventListener('wm:globe-fly-to', flyToHandler));
   }
 
   exit(): void {
@@ -175,6 +226,12 @@ export class GodsEyeView {
     setTimeout(() => {
       this.hud?.destroy();
       this.hud = null;
+      this.entityPopover?.destroy();
+      this.entityPopover = null;
+      this.timeline?.destroy();
+      this.timeline = null;
+      this.minimap?.destroy();
+      this.minimap = null;
       this.dataManager?.destroy();
       this.dataManager = null;
       this.globe?.destroy();
@@ -190,6 +247,20 @@ export class GodsEyeView {
     }
   }
 
+  /** Open God's Eye and fly to a specific location. */
+  async flyTo(lat: number, lon: number, alt = 2_000_000): Promise<void> {
+    if (!this.active) {
+      await this.enter();
+    }
+    // Wait a moment for Cesium to initialize
+    setTimeout(() => {
+      this.globe?.cesiumViewer?.camera.flyTo({
+        destination: Cartesian3.fromDegrees(lon, lat, alt),
+        duration: 2.5,
+      });
+    }, this.active ? 0 : 1500);
+  }
+
   destroy(): void {
     this.exit();
     this.container.remove();
@@ -199,9 +270,16 @@ export class GodsEyeView {
 
   private handleModeChange(e: Event): void {
     const detail = (e as CustomEvent<ModeChangedDetail>).detail;
+    const prev = this.currentMode;
     this.currentMode = detail.mode;
     this.autoFollow?.setMode(detail.mode);
     this.applyModeTheme(detail.mode);
+
+    // Auto-fly to relevant theater on mode escalation
+    if (detail.auto && prev === 'peace' && this.active) {
+      const theater = MODE_THEATERS[detail.mode];
+      if (theater) this.flyToTheater(theater);
+    }
   }
 
   private applyModeTheme(mode: AppMode): void {
@@ -209,6 +287,86 @@ export class GodsEyeView {
     for (const cls of modeClasses) this.container.classList.remove(cls);
     this.container.classList.add(`ge-mode-${mode}`);
     this.hud?.setMode(mode);
+  }
+
+  // ── Fly-to from main app ────────────────────────────
+
+  private handleFlyToEvent(e: Event): void {
+    const detail = (e as CustomEvent<GlobeFlyToDetail>).detail;
+    void this.flyTo(detail.lat, detail.lon, detail.alt);
+  }
+
+  // ── Entity info popover ──────────────────────────────
+
+  private attachEntityClickHandler(): void {
+    const viewer = this.globe?.cesiumViewer;
+    if (!viewer) return;
+
+    this.eventHandler = new ScreenSpaceEventHandler(viewer.canvas);
+    this.eventHandler.setInputAction((click: { position: Cartesian2 }) => {
+      const picked = viewer.scene.pick(click.position) as
+        { id?: Entity } | undefined;
+
+      if (picked?.id && defined(picked.id)) {
+        this.onUserInteraction();
+        const entity = picked.id;
+
+        // Show popover with entity details
+        this.entityPopover?.show(entity, click.position.x, click.position.y);
+
+        // Also fly to the entity
+        const pos = entity.position?.getValue(viewer.clock.currentTime);
+        if (pos) {
+          const carto = viewer.scene.globe.ellipsoid.cartesianToCartographic(pos);
+          viewer.camera.flyTo({
+            destination: Cartesian3.fromRadians(
+              carto.longitude,
+              carto.latitude,
+              Math.max(carto.height + 500_000, 800_000),
+            ),
+            duration: 2,
+          });
+        }
+      } else {
+        // Clicked empty space — dismiss popover
+        this.entityPopover?.dismiss();
+      }
+    }, ScreenSpaceEventType.LEFT_CLICK);
+  }
+
+  // ── Atmosphere / Bloom toggles ───────────────────────
+
+  private toggleAtmosphere(enabled: boolean): void {
+    const scene = this.globe?.scene;
+    if (!scene) return;
+    if (scene.skyAtmosphere) scene.skyAtmosphere.show = enabled;
+    scene.globe.showGroundAtmosphere = enabled;
+  }
+
+  private toggleBloom(enabled: boolean): void {
+    const scene = this.globe?.scene;
+    if (!scene) return;
+    scene.postProcessStages.bloom.enabled = enabled;
+  }
+
+  // ── Screenshot capture ───────────────────────────────
+
+  private captureScreenshot(): void {
+    const canvas = this.globe?.canvas;
+    if (!canvas) return;
+
+    // Force render to capture current frame
+    this.globe?.cesiumViewer?.render();
+
+    canvas.toBlob((blob) => {
+      if (!blob) return;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `gods-eye-${new Date().toISOString().slice(0, 19).split(':').join('-')}.png`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }, 'image/png');
   }
 
   // ── Auto-orbit ───────────────────────────────────────
@@ -238,7 +396,6 @@ export class GodsEyeView {
       if (!this.active || this.userInteracting) { this.orbitTickId = null; return; }
       const dt = (now - lastTime) / 1000;
       lastTime = now;
-      // Rotate ~2 degrees per second
       camera.rotateRight(CesiumMath.toRadians(2 * dt));
       this.orbitTickId = requestAnimationFrame(tick);
     };
@@ -251,34 +408,6 @@ export class GodsEyeView {
     this.startIdleOrbitTimer();
   }
 
-  // ── Click to fly ─────────────────────────────────────
-
-  private attachClickToFly(): void {
-    const viewer = this.globe?.cesiumViewer;
-    if (!viewer) return;
-
-    this.eventHandler = new ScreenSpaceEventHandler(viewer.canvas);
-    this.eventHandler.setInputAction((click: { position: Cartesian2 }) => {
-      const picked = viewer.scene.pick(click.position) as
-        { id?: { position?: { getValue: (t: unknown) => Cartesian3 | undefined } } } | undefined;
-      if (picked?.id?.position) {
-        this.onUserInteraction();
-        const pos = picked.id.position.getValue(viewer.clock.currentTime);
-        if (pos) {
-          const carto = viewer.scene.globe.ellipsoid.cartesianToCartographic(pos);
-          viewer.camera.flyTo({
-            destination: Cartesian3.fromRadians(
-              carto.longitude,
-              carto.latitude,
-              Math.max(carto.height + 500_000, 800_000),
-            ),
-            duration: 2,
-          });
-        }
-      }
-    }, ScreenSpaceEventType.LEFT_CLICK);
-  }
-
   // ── Keyboard ─────────────────────────────────────────
 
   private attachKeyboardHandlers(): void {
@@ -287,7 +416,6 @@ export class GodsEyeView {
         if (!this.active) return;
         const ke = e as KeyboardEvent;
 
-        // ESC exits God's Eye
         if (ke.key === 'Escape') {
           this.exit();
           return;
@@ -298,6 +426,18 @@ export class GodsEyeView {
         if (theater) {
           this.onUserInteraction();
           this.flyToTheater(theater);
+          return;
+        }
+
+        // N = skip to next auto-follow target
+        if (ke.key === 'n' || ke.key === 'N') {
+          this.autoFollow?.skipToNext();
+          return;
+        }
+
+        // P = take screenshot (Print)
+        if (ke.key === 'p' || ke.key === 'P') {
+          this.captureScreenshot();
           return;
         }
 
@@ -335,7 +475,6 @@ export class GodsEyeView {
 
   private attachZoomHandlers(): void {
     this.cleanupHandlers.push(
-      // 1. wheel on document (capture phase)
       addListener(document, 'wheel', (e: Event) => {
         if (!this.active) return;
         const we = e as WheelEvent;
@@ -349,7 +488,6 @@ export class GodsEyeView {
         else if (delta < 0) camera.zoomIn(-delta);
       }, { passive: false, capture: true }),
 
-      // 2. wheel on container (bubble)
       addListener(this.container, 'wheel', (e: Event) => {
         const we = e as WheelEvent;
         we.preventDefault();
@@ -360,7 +498,6 @@ export class GodsEyeView {
         else if (we.deltaY < 0) camera.zoomIn(-we.deltaY * 500);
       }, { passive: false }),
 
-      // 3. Legacy mousewheel
       addListener(this.container, 'mousewheel', (e: Event) => {
         e.preventDefault();
         this.onUserInteraction();
@@ -371,7 +508,6 @@ export class GodsEyeView {
         else if (delta < 0) camera.zoomIn(-delta);
       }, { passive: false }),
 
-      // 4. Safari gesturechange — trackpad pinch
       addListener(this.container, 'gesturestart', (e: Event) => {
         e.preventDefault();
       }),
@@ -387,7 +523,6 @@ export class GodsEyeView {
         else if (ge.scale < 1) camera.zoomOut(alt * (1 - ge.scale) * 3);
       }),
 
-      // 5. Mouse drag / touch — mark as user interaction
       addListener(this.container, 'mousedown', () => this.onUserInteraction()),
       addListener(this.container, 'touchstart', () => this.onUserInteraction()),
     );

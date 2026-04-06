@@ -496,6 +496,17 @@ export class App {
     this.godsEyeView.toggle();
   }
 
+  /** Open God's Eye and fly to a specific location. Dispatched via wm:globe-fly-to. */
+  async flyToOnGlobe(lat: number, lon: number, alt?: number): Promise<void> {
+    if (!this.godsEyeView) {
+      (window as unknown as Record<string, unknown>).CESIUM_BASE_URL = '/cesium';
+      const { GodsEyeView } = await import('@/components/GodsEyeView');
+      const ionToken = getRuntimeConfigSnapshot().secrets.CESIUM_ION_TOKEN?.value;
+      this.godsEyeView = new GodsEyeView(ionToken);
+    }
+    await this.godsEyeView.flyTo(lat, lon, alt);
+  }
+
   private handleDeepLinks(): void {
     const url = new URL(window.location.href);
     const MAX_DEEP_LINK_RETRIES = 60;
