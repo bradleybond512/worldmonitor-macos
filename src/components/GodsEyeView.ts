@@ -11,6 +11,10 @@ export class GodsEyeView {
     this.container = document.createElement('div');
     this.container.className = 'gods-eye-container';
     document.body.append(this.container);
+
+    // Prevent WKWebView from consuming trackpad scroll for elastic bounce —
+    // lets Cesium receive wheel events for zoom
+    this.container.addEventListener('wheel', (e) => e.preventDefault(), { passive: false });
   }
 
   get isActive(): boolean {
