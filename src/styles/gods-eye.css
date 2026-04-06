@@ -315,9 +315,9 @@ body.gods-eye-lock {
   background: repeating-linear-gradient(
     0deg,
     transparent,
-    transparent 2px,
-    rgba(0, 0, 0, 0.03) 2px,
-    rgba(0, 0, 0, 0.03) 4px
+    transparent 3px,
+    rgba(0, 0, 0, 0.015) 3px,
+    rgba(0, 0, 0, 0.015) 6px
   );
   z-index: 20;
   opacity: 0;
@@ -331,9 +331,9 @@ body.gods-eye-lock {
   pointer-events: none;
   background: radial-gradient(
     ellipse at center,
-    transparent 50%,
-    rgba(0, 0, 0, 0.35) 85%,
-    rgba(0, 0, 0, 0.65) 100%
+    transparent 55%,
+    rgba(0, 0, 0, 0.2) 85%,
+    rgba(0, 0, 0, 0.45) 100%
   );
   z-index: 19;
   opacity: 0;

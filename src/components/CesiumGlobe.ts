@@ -107,23 +107,23 @@ export class CesiumGlobe {
     // FXAA anti-aliasing
     scene.postProcessStages.fxaa.enabled = true;
 
-    // Bloom — glow on bright entities (fire, nuclear, sun)
+    // Bloom — subtle glow on bright entities only
     const bloom = scene.postProcessStages.bloom;
     bloom.enabled = true;
     const bu = bloom.uniforms as Record<string, unknown>;
-    bu.contrast = 119;
-    bu.brightness = -0.2;
+    bu.contrast = 128;
+    bu.brightness = 0.02;
     bu.glowOnly = false;
     bu.delta = 1;
-    bu.sigma = 3.78;
-    bu.stepSize = 5;
+    bu.sigma = 1.5;
+    bu.stepSize = 1;
 
     // Ambient occlusion — subtle shadows in terrain crevices
     const ao = scene.postProcessStages.ambientOcclusion;
     ao.enabled = true;
     const au = ao.uniforms as Record<string, unknown>;
     au.ambientOcclusionOnly = false;
-    au.intensity = 2.5;
+    au.intensity = 1.5;
     au.bias = 0.1;
     au.lengthCap = 0.03;
     au.stepSize = 1.95;
