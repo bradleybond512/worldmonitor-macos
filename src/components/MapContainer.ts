@@ -107,13 +107,13 @@ export class MapContainer {
   private shouldUseDeckGL(): boolean {
     if (!this.hasWebGLSupport()) return false;
     if (!this.isMobile) return true;
-    const mem = (navigator as any).deviceMemory;
+    const mem = (navigator as unknown as { deviceMemory?: number }).deviceMemory;
     if (mem !== undefined && mem < 3) return false;
     return true;
   }
 
   private initSvgMap(logMessage: string): void {
-    console.log(logMessage);
+    console.log(logMessage); // eslint-disable-line no-console
     this.useDeckGL = false;
     this.deckGLMap = null;
     this.container.classList.remove('deckgl-mode');
@@ -126,7 +126,7 @@ export class MapContainer {
 
   private init(): void {
     if (this.useDeckGL) {
-      console.log('[MapContainer] Initializing deck.gl map (desktop mode)');
+      console.log('[MapContainer] Initializing deck.gl map (desktop mode)'); // eslint-disable-line no-console
       try {
         this.container.classList.add('deckgl-mode');
         this.deckGLMap = new DeckGLMap(this.container, {
@@ -134,7 +134,7 @@ export class MapContainer {
           view: this.initialState.view as DeckMapView,
         });
       } catch (error) {
-        console.warn('[MapContainer] DeckGL initialization failed, falling back to SVG map', error);
+        console.warn('[MapContainer] DeckGL initialization failed, falling back to SVG map', error); // eslint-disable-line no-console
         this.initSvgMap('[MapContainer] Initializing SVG map (DeckGL fallback mode)');
       }
     } else {
@@ -465,6 +465,24 @@ export class MapContainer {
       this.deckGLMap?.setFAACameras(cameras);
     }
     // SVG map does not support FAA camera layer
+  }
+
+  public setRadarState(state: import('@/services/rainviewer-radar').RadarState): void {
+    if (this.useDeckGL) {
+      this.deckGLMap?.setRadarState(state);
+    }
+  }
+
+  public setLightningStrikes(strikes: import('@/services/lightning').LightningStrike[]): void {
+    if (this.useDeckGL) {
+      this.deckGLMap?.setLightningStrikes(strikes);
+    }
+  }
+
+  public setRedFlagWarnings(warnings: import('@/services/red-flag-warnings').RedFlagWarning[]): void {
+    if (this.useDeckGL) {
+      this.deckGLMap?.setRedFlagWarnings(warnings);
+    }
   }
 
   public setDiseaseIntel(data: DiseaseIntelData): void {
