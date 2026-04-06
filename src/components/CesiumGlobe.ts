@@ -54,7 +54,6 @@ export class CesiumGlobe {
           antialias: false,
           powerPreference: 'default',
         },
-        requestWebgl1: true,
       },
       msaaSamples: 1,
       useBrowserRecommendedResolution: true,
