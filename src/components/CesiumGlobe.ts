@@ -119,6 +119,10 @@ export class CesiumGlobe {
     return this.viewer ?? undefined;
   }
 
+  get canvas(): HTMLCanvasElement | undefined {
+    return this.viewer?.canvas;
+  }
+
   destroy(): void {
     this.resizeObserver?.disconnect();
     this.resizeObserver = null;
