@@ -570,6 +570,15 @@ body.gods-eye-lock {
   line-height: 1.3;
 }
 
+.ge-alert-row.ge-hud-alert-clickable {
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.ge-alert-row.ge-hud-alert-clickable:hover {
+  background: rgba(var(--ge-blue), 0.12);
+  border-radius: 4px;
+}
+
 .ge-alert-dot-critical {
   width: 6px;
   height: 6px;
@@ -599,6 +608,13 @@ body.gods-eye-lock {
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 220px;
+}
+
+.ge-hud-sparkline {
+  display: block;
+  margin-top: 4px;
+  border-radius: 4px;
+  opacity: 0.85;
 }
 
 /* ── Utility ─────────────────────────────────────── */

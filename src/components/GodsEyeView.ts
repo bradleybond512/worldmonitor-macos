@@ -183,6 +183,17 @@ export class GodsEyeView {
         this.buildingTiles?.destroy();
       }
     });
+    this.hud.setOnAlertClick((lat, lon, _name) => {
+      const viewer = this.globe?.cesiumViewer;
+      if (!viewer) return;
+      viewer.camera.flyTo({
+        destination: Cartesian3.fromDegrees(lon, lat, 300_000),
+        duration: 2,
+      });
+      this.autoFollow?.stop();
+      this.hud?.updateAutoFollowState(null, 0, 0);
+    });
+    this.hud.setOnScreenshot(() => { void this.takeScreenshot(); });
 
     // Update HUD at ~10fps
     this.hudTickId = window.setInterval(() => {
@@ -269,6 +280,28 @@ export class GodsEyeView {
   destroy(): void {
     this.exit();
     this.container.remove();
+  }
+
+  private async takeScreenshot(): Promise<void> {
+    const viewer = this.globe?.cesiumViewer;
+    if (!viewer) return;
+
+    viewer.render();
+    const cesiumCanvas = viewer.canvas;
+
+    const out = document.createElement('canvas');
+    out.width = cesiumCanvas.width;
+    out.height = cesiumCanvas.height;
+    const ctx = out.getContext('2d');
+    if (!ctx) return;
+    ctx.drawImage(cesiumCanvas, 0, 0);
+
+    const dataUrl = out.toDataURL('image/png');
+    const a = document.createElement('a');
+    a.href = dataUrl;
+    const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    a.download = `worldmonitor-${ts}.png`;
+    a.click();
   }
 
   flyToReactorAlert(alertId: string): boolean {
