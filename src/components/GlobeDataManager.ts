@@ -22,6 +22,7 @@ import { applyClustering } from '@/components/globeClustering';
 import { fetchLightningStrikes } from '@/services/lightning';
 import { fetchRedFlagWarnings } from '@/services/red-flag-warnings';
 import { getRadarTileUrl, fetchRadarFrames } from '@/services/rainviewer-radar';
+import { getGoesWmsTileUrl } from '@/services/satellite-weather';
 
 import {
   UNDERSEA_CABLES,
@@ -1378,10 +1379,13 @@ export class GlobeDataManager {
   }
 
   private loadWeatherSatellite(): void {
-    // Disabled: Iowa State TMS layer name `goes_conus_geocolor` returns a pink
-    // "Invalid TMS Request" PNG for every tile, which Cesium renders as a 40%
-    // pink overlay across the entire globe. Re-enable once a working tile
-    // source is wired up in satellite-weather.ts.
+    try {
+      const url = getGoesWmsTileUrl('geocolor');
+      const provider = new UrlTemplateImageryProvider({ url, maximumLevel: 6 });
+      const imgLayer = this.viewer.imageryLayers.addImageryProvider(provider);
+      imgLayer.alpha = 0.4;
+      this.weatherImageryLayers.push(imgLayer);
+    } catch { /* satellite unavailable */ }
   }
 
   private async loadLightningStrikes(): Promise<void> {
