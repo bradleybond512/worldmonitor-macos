@@ -196,6 +196,8 @@ export class CesiumGlobe {
     this.resizeObserver.observe(this.container);
 
     // ── WebGL context loss handlers ────────────────────
+    // macOS reclaims GPU resources from background apps; without these,
+    // a context loss looks identical to an app crash (black globe).
     const canvas = this.viewer.canvas;
     canvas.addEventListener('webglcontextlost', (e) => {
       e.preventDefault();

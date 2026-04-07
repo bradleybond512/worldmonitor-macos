@@ -20,6 +20,7 @@ const SIDECAR_BUILD_TAG = process.env.WM_BUILD_TAG || `node-${process.versions.n
 const SIDECAR_START_MS = Date.now();
 const wmHostStats = new Map(); // host → { ok, fail, lastStatus, lastOkAt, lastFailAt, lastError }
 const WM_HOST_STATS_CAP = 100;
+const wmHostFailures = new Map(); // host → { count, lastError, lastAt }
 const EXPECTED_API_KEYS = [
   'ACLED_ACCESS_TOKEN', 'ACLED_EMAIL', 'FRED_API_KEY', 'EIA_API_KEY',
   'NEWSDATA_API_KEY', 'NASA_API_KEY', 'NASA_FIRMS_API_KEY',
@@ -88,6 +89,14 @@ function wmRecordHostCall(host, ok, status, errorMsg) {
   }
   entry.lastStatus = status;
   wmHostStats.set(host, entry);
+}
+
+function wmRecordHostFailure(host, errorMsg) {
+  const entry = wmHostFailures.get(host) || { count: 0, lastError: '', lastAt: 0 };
+  entry.count += 1;
+  entry.lastError = String(errorMsg).slice(0, 200);
+  entry.lastAt = Date.now();
+  wmHostFailures.set(host, entry);
 }
 
 function wmMissingKeys() {
@@ -5887,6 +5896,7 @@ export async function createLocalApiServer(options = {}) {
           messages: aisState.messageCount,
         },
         host_stats: Object.fromEntries(wmHostStats),
+        host_failures: Object.fromEntries(wmHostFailures),
         missing_keys: wmMissingKeys(),
       }, null, 2));
       return;
@@ -5949,6 +5959,8 @@ export async function createLocalApiServer(options = {}) {
     } catch (error) {
       const durationMs = Date.now() - start;
       context.logger.error('[local-api] fatal', error);
+      const host = (() => { try { return new URL(req.url || '/', `http://x`).host; } catch { return 'unknown'; } })();
+      wmRecordHostFailure(host, error?.message || String(error));
 
       if (!skipRecord) {
         recordTraffic({
