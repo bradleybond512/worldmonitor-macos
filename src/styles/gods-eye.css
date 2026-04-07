@@ -755,3 +755,17 @@ body.gods-eye-lock {
   width: 100%;
 }
 .ge-search-result-item:hover { background: rgba(var(--ge-blue), 0.15); }
+
+/* ── Mini-map ─────────────────────────────────────── */
+.ge-minimap-wrap {
+  position: absolute;
+  bottom: 84px;
+  right: 16px;
+  border: 1px solid var(--ge-glass-border);
+  border-radius: 8px;
+  overflow: hidden;
+  pointer-events: none;
+  box-shadow: var(--ge-glow);
+}
+.ge-minimap-canvas { display: block; }
+

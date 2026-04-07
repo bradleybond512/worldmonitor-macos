@@ -81,16 +81,22 @@ export class GlobeHUD {
   private onBuildingsToggle: ((enabled: boolean) => void) | null = null;
   private onArcsToggle: ((enabled: boolean) => void) | null = null;
   private onHeatmapToggle: ((enabled: boolean) => void) | null = null;
+  private onSatellitesToggle: ((enabled: boolean) => void) | null = null;
+  private onAudioToggle: ((enabled: boolean) => void) | null = null;
   private onAlertClick: ((lat: number, lon: number, name: string) => void) | null = null;
   private onScreenshot: (() => void) | null = null;
   private terminatorBtn: HTMLButtonElement | null = null;
   private buildingsBtn: HTMLButtonElement | null = null;
   private arcsBtn: HTMLButtonElement | null = null;
   private heatmapBtn: HTMLButtonElement | null = null;
+  private satBtn: HTMLButtonElement | null = null;
+  private audioBtn: HTMLButtonElement | null = null;
   private terminatorEnabled = false;
   private buildingsEnabled = false;
   private arcsEnabled = false;
   private heatmapEnabled = false;
+  private satellitesEnabled = false;
+  private audioEnabled = false;
   private clusteringEnabled = true;
   private clockId: number | null = null;
 
@@ -222,6 +228,8 @@ export class GlobeHUD {
     this.buildBuildingsButton(layerBar);
     this.buildArcsButton(layerBar);
     this.buildHeatmapButton(layerBar);
+    this.buildSatellitesButton(layerBar);
+    this.buildAudioButton(layerBar);
     this.buildScreenshotButton(layerBar);
     this.buildLayerButtons(layerBar);
     bottomCenter.append(layerBar);
@@ -422,6 +430,57 @@ export class GlobeHUD {
     this.heatmapBtn = btn;
     bar.append(btn);
   }
+
+  private buildSatellitesButton(bar: HTMLElement): void {
+    const btn = document.createElement('button');
+    btn.className = `ge-layer-btn${this.satellitesEnabled ? ' ge-layer-active' : ''}`;
+    btn.title = 'Toggle ISS & station satellite positions';
+    const nameSpan = document.createElement('span');
+    nameSpan.className = 'ge-layer-name';
+    nameSpan.textContent = 'SAT';
+    btn.append(nameSpan);
+    btn.addEventListener('click', () => {
+      this.setSatellitesEnabled(!this.satellitesEnabled);
+      this.onSatellitesToggle?.(this.satellitesEnabled);
+    });
+    this.satBtn = btn;
+    bar.append(btn);
+  }
+
+  setSatellitesEnabled(enabled: boolean): void {
+    this.satellitesEnabled = enabled;
+    this.satBtn?.classList.toggle('ge-layer-active', enabled);
+  }
+
+  setOnSatellitesToggle(cb: (enabled: boolean) => void): void {
+    this.onSatellitesToggle = cb;
+  }
+
+  private buildAudioButton(bar: HTMLElement): void {
+    const btn = document.createElement('button');
+    btn.className = `ge-layer-btn${this.audioEnabled ? ' ge-layer-active' : ''}`;
+    btn.title = 'Toggle ambient audio (threat-reactive)';
+    const nameSpan = document.createElement('span');
+    nameSpan.className = 'ge-layer-name';
+    nameSpan.textContent = 'AUDIO';
+    btn.append(nameSpan);
+    btn.addEventListener('click', () => {
+      this.setAudioEnabled(!this.audioEnabled);
+      this.onAudioToggle?.(this.audioEnabled);
+    });
+    this.audioBtn = btn;
+    bar.append(btn);
+  }
+
+  setAudioEnabled(enabled: boolean): void {
+    this.audioEnabled = enabled;
+    this.audioBtn?.classList.toggle('ge-layer-active', enabled);
+  }
+
+  setOnAudioToggle(cb: (enabled: boolean) => void): void {
+    this.onAudioToggle = cb;
+  }
+
 
   private buildLayerButtons(bar: HTMLElement): void {
     for (const [key, config] of Object.entries(this.layers)) {
