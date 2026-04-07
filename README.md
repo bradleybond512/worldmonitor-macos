@@ -9,8 +9,6 @@ At the product level, it is a real-time situational-awareness dashboard for geop
 
 ## Why This Repo Is Interesting
 
-<!-- screenshot: full-app overview — 2D map with active panels -->
-
 This is not just a map UI with a long feed list. The repo is designed to show full-stack judgment:
 
 - A single TypeScript frontend powers four distinct product variants without forking the architecture.
@@ -72,8 +70,6 @@ The UI combines MapLibre GL and deck.gl for a globe-style monitoring experience,
 
 ### 6. God's Eye 3D globe
 
-<!-- screenshot: God's Eye 3D globe with HUD overlay and active layers -->
-
 A full-viewport Cesium.js 3D globe mode with 22 data layers rendered as billboard icons over Bing satellite imagery. Includes military bases, nuclear facilities, earthquakes, conflicts, cyclones, fires, vessels, flights, cyber threats, and more. Activated via the sidebar or keyboard shortcut `G`. Requires a free Cesium Ion token for satellite imagery; falls back to ArcGIS World Imagery without one.
 
 **3D immersive features added in this release:**
@@ -106,8 +102,6 @@ npm run dev
 ```
 
 The default dev server runs at [http://localhost:3000](http://localhost:3000).
-
-The `happy` variant shares the default dev server (`npm run dev`). See [docs/API_KEYS.md](docs/API_KEYS.md) for key setup and [docs/DESKTOP_CONFIGURATION.md](docs/DESKTOP_CONFIGURATION.md) for sidecar config.
 
 ### Variant commands
 
