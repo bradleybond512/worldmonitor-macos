@@ -2,6 +2,7 @@ import { JulianDate, type Viewer } from 'cesium';
 import type { GlobeDataManager } from '@/components/GlobeDataManager';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+const FUTURE_MS = 48 * 60 * 60 * 1000;
 const DEBOUNCE_MS = 250;
 const SPEEDS = [1, 4, 16, 64] as const;
 
@@ -56,14 +57,12 @@ export class GlobeTimeMachine {
     const slider = document.createElement('input');
     slider.type = 'range';
     slider.className = 'gtm-slider';
-    slider.min = String(Date.now() - DAY_MS);
-    slider.max = String(Date.now());
-    slider.step = '1000';
-    slider.value = String(Date.now());
+    slider.step = '60000'; // 1-minute steps
     slider.addEventListener('input', () => {
       this.setTime(Number(slider.value));
     });
     this.slider = slider;
+    this.refreshSliderBounds();
 
     this.timeLabel = document.createElement('span');
     this.timeLabel.className = 'gtm-time-label';
@@ -108,12 +107,23 @@ export class GlobeTimeMachine {
     this.dataManager.applyTimeFilter(null);
   }
 
+  private refreshSliderBounds(): void {
+    if (!this.slider) return;
+    const now = Date.now();
+    this.slider.min = String(now - DAY_MS);
+    this.slider.max = String(now + FUTURE_MS);
+    if (!this.slider.value || Number(this.slider.value) < now - DAY_MS) {
+      this.slider.value = String(this.currentMs);
+    }
+  }
+
   setTime(ms: number): void {
-    const max = Date.now();
-    const min = max - DAY_MS;
+    const now = Date.now();
+    const min = now - DAY_MS;
+    const max = now + FUTURE_MS;
     const clamped = Math.max(min, Math.min(max, ms));
     this.currentMs = clamped;
-    this.live = clamped >= max - 1000;
+    this.live = Math.abs(clamped - now) < 60_000;
     this.viewer.clock.currentTime = JulianDate.fromDate(new Date(clamped));
     if (this.slider) this.slider.value = String(clamped);
     this.scheduleFilter();
@@ -130,8 +140,8 @@ export class GlobeTimeMachine {
       const dt = now - this.lastFrame;
       this.lastFrame = now;
       let next = this.currentMs + dt * this.speed;
-      if (next >= Date.now()) {
-        next = Date.now();
+      if (next >= Date.now() + FUTURE_MS) {
+        next = Date.now() + FUTURE_MS;
         this.setTime(next);
         this.pause();
         return;
@@ -165,11 +175,8 @@ export class GlobeTimeMachine {
     this.pause();
     this.currentMs = Date.now();
     this.live = true;
-    if (this.slider) {
-      this.slider.min = String(Date.now() - DAY_MS);
-      this.slider.max = String(Date.now());
-      this.slider.value = String(this.currentMs);
-    }
+    this.refreshSliderBounds();
+    if (this.slider) this.slider.value = String(this.currentMs);
     this.viewer.clock.currentTime = JulianDate.fromDate(new Date(this.currentMs));
     this.dataManager.applyTimeFilter(null);
     this.updateUi();
@@ -185,16 +192,21 @@ export class GlobeTimeMachine {
 
   private updateUi(): void {
     if (this.timeLabel) {
-      // Use the system timezone (Intl picks it from the OS) and show its
-      // short name (e.g. "CST", "PST") so the user always sees local time.
       const d = new Date(this.currentMs);
       const fmt = new Intl.DateTimeFormat(undefined, {
+        month: 'short',
+        day: 'numeric',
         hour: '2-digit',
         minute: '2-digit',
         hour12: false,
         timeZoneName: 'short',
       });
       this.timeLabel.textContent = fmt.format(d);
+    }
+    if (this.liveIndicator) {
+      const isForecast = this.currentMs > Date.now() + 60_000;
+      this.liveIndicator.textContent = isForecast ? 'FORECAST' : 'LIVE';
+      this.liveIndicator.classList.toggle('gtm-forecast-mode', isForecast);
     }
     if (this.playBtn) this.playBtn.textContent = this.playing ? 'Pause' : 'Play';
     if (this.root) this.root.classList.toggle('gtm-scrubbing', !this.live);

@@ -1532,25 +1532,45 @@ export class GlobeDataManager {
    * Filter time-bucketed layers to entities whose timestamp is <= currentTimeMs.
    * Pass null to clear the filter (live mode).
    */
+  private entityInWindow(
+    e: import('cesium').Entity,
+    julian: import('cesium').JulianDate,
+    floor: number,
+    cutoff: number,
+  ): boolean {
+    try {
+      const bag = e.properties?.getValue(julian) as { timestamp?: Date | string | number } | undefined;
+      const ts = bag?.timestamp;
+      if (!ts) return true;
+      const t = ts instanceof Date ? ts.getTime() : Number(ts);
+      return !Number.isNaN(t) && t <= cutoff && t >= floor;
+    } catch {
+      return true;
+    }
+  }
+
+  private filterLayerByTime(
+    entities: import('cesium').Entity[],
+    cutoff: number,
+    floor: number,
+  ): void {
+    const julian = JulianDate.fromDate(new Date(cutoff));
+    for (const e of entities) {
+      if (e) e.show = this.entityInWindow(e, julian, floor, cutoff);
+    }
+  }
+
   applyTimeFilter(currentTimeMs: number | null): void {
     const timeLayers = ['earthquakes', 'fires', 'conflicts', 'airstrikes'];
     for (const name of timeLayers) {
       const layer = this.layers.get(name);
       if (!layer) continue;
-      const entities = layer.source.entities.values;
+      // Snapshot — concurrent data refreshes mutate entities.values mid-iteration.
+      const entities = [...layer.source.entities.values];
       if (currentTimeMs == null) {
-        for (const e of entities) e.show = true;
-        continue;
-      }
-      const cutoff = currentTimeMs;
-      const floor = currentTimeMs - 24 * 60 * 60 * 1000;
-      const julian = JulianDate.fromDate(new Date(currentTimeMs));
-      for (const e of entities) {
-        const bag = e.properties?.getValue(julian) as { timestamp?: Date } | undefined;
-        const ts = bag?.timestamp;
-        if (!ts) { e.show = true; continue; }
-        const t = ts.getTime();
-        e.show = t <= cutoff && t >= floor;
+        for (const e of entities) { if (e) e.show = true; }
+      } else {
+        this.filterLayerByTime(entities, currentTimeMs, currentTimeMs - 24 * 60 * 60 * 1000);
       }
     }
   }
