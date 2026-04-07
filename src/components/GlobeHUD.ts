@@ -61,6 +61,7 @@ export class GlobeHUD {
   private autoFollowCounter: HTMLElement | null = null;
   private autoFollowSkipBtn: HTMLElement | null = null;
   private layerCountEls = new Map<string, HTMLElement>();
+  private tooltipEl: HTMLElement | null = null;
 
   constructor(container: HTMLElement) {
     this.layers = loadGodsEyeLayers();
@@ -155,6 +156,10 @@ export class GlobeHUD {
     const vignette = document.createElement('div');
     vignette.className = 'ge-vignette';
     this.element.append(vignette);
+
+    this.tooltipEl = document.createElement('div');
+    this.tooltipEl.className = 'ge-tooltip ge-hidden';
+    this.element.append(this.tooltipEl);
   }
 
   private pos(style: string): HTMLElement {
@@ -276,6 +281,30 @@ export class GlobeHUD {
     if (this.autoFollowCounter) {
       this.autoFollowCounter.textContent = `${index + 1}/${total}`;
     }
+  }
+
+  showTooltip(x: number, y: number, title: string, body: string): void {
+    if (!this.tooltipEl) return;
+    this.tooltipEl.replaceChildren();
+    const titleEl = document.createElement('div');
+    titleEl.className = 'ge-tooltip-title';
+    titleEl.textContent = title;
+    const bodyEl = document.createElement('div');
+    bodyEl.className = 'ge-tooltip-body';
+    bodyEl.textContent = body;
+    this.tooltipEl.append(titleEl, bodyEl);
+    const pad = 12;
+    const w = this.tooltipEl.offsetWidth || 220;
+    const h = this.tooltipEl.offsetHeight || 80;
+    const left = Math.min(x + 16, window.innerWidth - w - pad);
+    const top = Math.min(y + 16, window.innerHeight - h - pad);
+    this.tooltipEl.style.left = `${left}px`;
+    this.tooltipEl.style.top = `${top}px`;
+    this.tooltipEl.classList.remove('ge-hidden');
+  }
+
+  hideTooltip(): void {
+    this.tooltipEl?.classList.add('ge-hidden');
   }
 
   setOnLayerToggle(cb: (layerKey: string, enabled: boolean) => void): void {

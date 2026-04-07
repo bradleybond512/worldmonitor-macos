@@ -543,3 +543,54 @@ body.gods-eye-lock {
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
+/* ── Utility ─────────────────────────────────────── */
+.ge-hidden { display: none !important; }
+
+/* ── Hover tooltip ───────────────────────────────── */
+.ge-tooltip {
+  position: absolute;
+  pointer-events: none;
+  z-index: 50;
+  max-width: 260px;
+  background: rgba(8, 12, 24, 0.92);
+  border: 1px solid rgba(var(--ge-blue), 0.35);
+  border-radius: 8px;
+  padding: 10px 14px;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+}
+
+.ge-tooltip-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(var(--ge-white), 0.95);
+  margin-bottom: 4px;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.ge-tooltip-body {
+  font-size: 11px;
+  color: rgba(var(--ge-white), 0.7);
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* Drag strip — invisible bar at the very top of God's Eye for window dragging */
+.ge-drag-strip {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 28px;
+  z-index: 100;
+  cursor: grab;
+  /* Transparent — the globe renders through it */
+}
+
+.ge-drag-strip:active {
+  cursor: grabbing;
+}
