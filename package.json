@@ -125,6 +125,7 @@
     "onnxruntime-web": "^1.24.3",
     "papaparse": "^5.5.3",
     "posthog-js": "^1.360.2",
+    "satellite.js": "^7.0.0",
     "telegram": "^2.26.22",
     "three": "^0.183.2",
     "topojson-client": "^3.1.0",
@@ -133,7 +134,7 @@
   },
   "overrides": {
     "fast-xml-parser": "^5.5.9",
-    "serialize-javascript": "^7.0.3"
+    "serialize-javascript": "^7.0.5"
   },
   "author": "Bradley Bond (https://github.com/bradleybond512)",
   "homepage": "https://github.com/bradleybond512/worldmonitor-macos#readme",

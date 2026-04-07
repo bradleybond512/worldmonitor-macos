@@ -62,6 +62,12 @@ import {
   ICON_DISPLACEMENT,
 } from '@/config/globe-icons';
 
+const ICON_SATELLITE = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(`
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24">
+  <path fill="white" d="M12 2L9 9H2l5.5 4-2.1 6.5L12 16l6.6 3.5L16.5 13 22 9h-7z"/>
+</svg>
+`);
+
 // ── Colors ──────────────────────────────────────────────────
 
 const C = {
@@ -269,6 +275,7 @@ export class GlobeDataManager {
     this.registerLayer('darkVessels', () => this.loadDarkVessels());
     this.registerLayer('gpsJamming', () => this.loadGpsJamming());
     this.registerLayer('satChange', () => this.loadSatelliteChange());
+    this.registerLayer('satellites', () => this.loadOrbitalSatellites());
     this.registerLayer('protests', () => this.loadProtests());
     this.registerLayer('disease', () => this.loadDiseaseOutbreaks());
     this.registerLayer('displacement', () => this.loadDisplacement());
@@ -1308,6 +1315,48 @@ export class GlobeDataManager {
           material: new ColorMaterialProperty(C.displacementFlow),
         },
         description: `${flow.originName} → ${flow.asylumName}: ${flow.refugees.toLocaleString()} refugees`,
+      });
+    }
+  }
+
+  private async loadOrbitalSatellites(): Promise<void> {
+    const layer = this.layers.get('satellites');
+    if (!layer) return;
+
+    const { fetchOrbitalSatellites } = await import('@/services/celestrak-tle');
+    const sats = await fetchOrbitalSatellites();
+
+    for (const sat of sats) {
+      const altMeters = sat.alt * 1000;
+      const isStation = sat.group === 'stations';
+      const color = isStation
+        ? Color.fromCssColorString('#00ffff')
+        : Color.fromCssColorString('#aaaaff');
+
+      layer.source.entities.add({
+        position: Cartesian3.fromDegrees(sat.lon, sat.lat, altMeters),
+        billboard: {
+          image: ICON_SATELLITE,
+          color,
+          scale: isStation ? 0.6 : 0.35,
+          scaleByDistance: new NearFarScalar(1e5, 1.5, 5e7, 0.4),
+          verticalOrigin: VerticalOrigin.CENTER,
+          horizontalOrigin: HorizontalOrigin.CENTER,
+        },
+        label: {
+          text: sat.name,
+          font: '10px monospace',
+          fillColor: color,
+          outlineColor: Color.BLACK,
+          outlineWidth: 2,
+          style: 2,
+          pixelOffset: LABEL_OFFSET_SM,
+          horizontalOrigin: HorizontalOrigin.CENTER,
+          verticalOrigin: VerticalOrigin.BOTTOM,
+          scaleByDistance: new NearFarScalar(1e5, 1, 5e7, 0.3),
+          distanceDisplayCondition: new DistanceDisplayCondition(0, 2e7),
+        },
+        description: `${sat.name}\nGroup: ${sat.group}\nAltitude: ${Math.round(sat.alt)} km\nLat: ${sat.lat.toFixed(2)}° Lon: ${sat.lon.toFixed(2)}°`,
       });
     }
   }

@@ -154,13 +154,13 @@ export const DEFAULT_GODS_EYE_LAYERS: GodsEyeLayers = {
     enabled: false,
     description: 'Critical mineral projects — lithium, cobalt, rare earth',
   },
-  // ── Future / Aesthetic ──
   satellites: {
-    name: 'Satellite Tracking',
-    category: 'spatial',
-    enabled: false,
-    description: 'Real-time satellite positions and orbital paths',
+    name: 'Satellites',
+    category: 'intelligence',
+    enabled: true,
+    description: 'Real-time orbital positions for active satellites and space stations',
   },
+  // ── Future / Aesthetic ──
   terrain: {
     name: '3D Terrain',
     category: 'spatial',
