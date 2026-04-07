@@ -119,6 +119,9 @@ export const DEFAULT_MAP_LAYERS: MapLayers = {
   owmClouds: false,
   owmWind: false,
   redFlagWarnings: false,
+  buildings3d: false,
+  satellites: false,
+  aircraft3d: false,
 };
 
 // Mobile-specific defaults for geopolitical
@@ -190,6 +193,9 @@ export const MOBILE_DEFAULT_MAP_LAYERS: MapLayers = {
   owmClouds: false,
   owmWind: false,
   redFlagWarnings: false,
+  buildings3d: false,
+  satellites: false,
+  aircraft3d: false,
 };
 
 export const VARIANT_CONFIG: VariantConfig = {

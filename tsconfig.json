@@ -25,5 +25,5 @@
     }
   },
   "include": ["src"],
-  "exclude": ["src/workers/ml.worker.ts"]
+  "exclude": ["src/workers/ml.worker.ts", "src/**/__tests__/**"]
 }

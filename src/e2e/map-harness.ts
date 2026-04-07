@@ -200,6 +200,9 @@ const allLayersEnabled: MapLayers = {
   owmClouds: false,
   owmWind: false,
   redFlagWarnings: false,
+  buildings3d: false,
+  satellites: false,
+  aircraft3d: false,
 };
 
 const allLayersDisabled: MapLayers = {
@@ -267,6 +270,9 @@ const allLayersDisabled: MapLayers = {
   owmClouds: false,
   owmWind: false,
   redFlagWarnings: false,
+  buildings3d: false,
+  satellites: false,
+  aircraft3d: false,
 };
 
 const SEEDED_NEWS_LOCATIONS: {

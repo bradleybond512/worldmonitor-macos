@@ -608,6 +608,9 @@ export interface MapLayers {
   owmClouds: boolean;
   owmWind: boolean;
   redFlagWarnings: boolean;
+  buildings3d: boolean;
+  satellites: boolean;
+  aircraft3d: boolean;
 }
 
 export interface AIDataCenter {

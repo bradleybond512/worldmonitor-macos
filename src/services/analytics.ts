@@ -106,6 +106,7 @@ const SECRET_ANALYTICS_NAMES: Record<RuntimeSecretKey, string> = {
   GEONAMES_USERNAME: 'geonames',
   IPINFO_TOKEN: 'ipinfo',
   CESIUM_ION_TOKEN: 'cesium',
+  GOOGLE_MAPS_API_KEY: 'google_maps',
 };
 
 // ── Typed event schemas (allowlisted properties per event) ──

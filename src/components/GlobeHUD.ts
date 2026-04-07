@@ -9,6 +9,7 @@ export interface HUDState {
   satelliteCount: number;
   activeHotspots: number;
   threatLevel: string;
+  topAlerts?: { name: string; type: string; severity: number }[];
 }
 
 const MODE_LABELS: Record<AppMode, { label: string; cls: string }> = {
@@ -47,6 +48,11 @@ export class GlobeHUD {
   private onLayerToggle: ((layerKey: string, enabled: boolean) => void) | null = null;
   private onExit: (() => void) | null = null;
   private onAutoFollowSkip: (() => void) | null = null;
+  private onClusterToggle: ((enabled: boolean) => void) | null = null;
+  private onTerminatorToggle: ((enabled: boolean) => void) | null = null;
+  private terminatorBtn: HTMLButtonElement | null = null;
+  private terminatorEnabled = false;
+  private clusteringEnabled = true;
   private clockId: number | null = null;
 
   // Cached DOM refs
@@ -61,6 +67,8 @@ export class GlobeHUD {
   private autoFollowCounter: HTMLElement | null = null;
   private autoFollowSkipBtn: HTMLElement | null = null;
   private layerCountEls = new Map<string, HTMLElement>();
+  private alertListEl: HTMLElement | null = null;
+  private tooltipEl: HTMLElement | null = null;
 
   constructor(container: HTMLElement) {
     this.layers = loadGodsEyeLayers();
@@ -92,6 +100,10 @@ export class GlobeHUD {
     this.coordsEl = this.el('span', 'ge-hud-coord', '0.00\u00B0N, 0.00\u00B0E');
     coordRow.append(this.coordsEl);
     card.append(coordRow);
+    const alertSep = this.el('div', 'ge-hud-separator');
+    card.append(alertSep);
+    this.alertListEl = this.el('div', 'ge-hud-alert-list');
+    card.append(this.alertListEl);
     topLeft.append(card);
     this.element.append(topLeft);
 
@@ -120,17 +132,19 @@ export class GlobeHUD {
 
     // ── Bottom-center: Layer toggle bar ──
     const bottomCenter = this.pos(
-      'bottom:16px;left:50%;transform:translateX(-50%);pointer-events:auto;max-width:90vw;',
+      'bottom:16px;left:16px;right:16px;pointer-events:auto;overflow-x:auto;',
     );
     const layerBar = document.createElement('div');
     layerBar.className = 'ge-layer-bar';
     layerBar.id = 'geLayerBar';
+    this.buildClusterButton(layerBar);
+    this.buildTerminatorButton(layerBar);
     this.buildLayerButtons(layerBar);
     bottomCenter.append(layerBar);
     this.element.append(bottomCenter);
 
-    // ── Bottom-left: Auto-follow status ──
-    const bottomLeft = this.pos('bottom:16px;left:16px;pointer-events:auto;');
+    // ── Bottom-right: Auto-follow status ──
+    const bottomRight = this.pos('bottom:80px;right:16px;pointer-events:auto;');
     this.autoFollowCard = this.card('ge-autofollow-card ge-hidden');
     const afHeader = this.el('div', 'ge-autofollow-header');
     const afLabel = this.el('span', 'ge-hud-micro-label', 'AUTO-FOLLOW');
@@ -144,8 +158,8 @@ export class GlobeHUD {
     this.autoFollowSkipBtn.textContent = 'SKIP \u25B6';
     this.autoFollowSkipBtn.addEventListener('click', () => this.onAutoFollowSkip?.());
     this.autoFollowCard.append(this.autoFollowSkipBtn);
-    bottomLeft.append(this.autoFollowCard);
-    this.element.append(bottomLeft);
+    bottomRight.append(this.autoFollowCard);
+    this.element.append(bottomRight);
 
     // ── Overlays ──
     const scanlines = document.createElement('div');
@@ -155,6 +169,10 @@ export class GlobeHUD {
     const vignette = document.createElement('div');
     vignette.className = 'ge-vignette';
     this.element.append(vignette);
+
+    this.tooltipEl = document.createElement('div');
+    this.tooltipEl.className = 'ge-tooltip ge-hidden';
+    this.element.append(this.tooltipEl);
   }
 
   private pos(style: string): HTMLElement {
@@ -183,6 +201,49 @@ export class GlobeHUD {
     pill.append(labelEl, valueEl);
     parent.append(pill);
     return valueEl;
+  }
+
+  private buildClusterButton(bar: HTMLElement): void {
+    const btn = document.createElement('button');
+    btn.className = `ge-layer-btn${this.clusteringEnabled ? ' ge-layer-active' : ''}`;
+    btn.title = 'Auto-cluster dense event layers';
+    const nameSpan = document.createElement('span');
+    nameSpan.className = 'ge-layer-name';
+    nameSpan.textContent = 'CLUSTER';
+    btn.append(nameSpan);
+    btn.addEventListener('click', () => {
+      this.clusteringEnabled = !this.clusteringEnabled;
+      btn.classList.toggle('ge-layer-active', this.clusteringEnabled);
+      this.onClusterToggle?.(this.clusteringEnabled);
+    });
+    bar.append(btn);
+  }
+
+  private buildTerminatorButton(bar: HTMLElement): void {
+    const btn = document.createElement('button');
+    btn.className = `ge-layer-btn${this.terminatorEnabled ? ' ge-layer-active' : ''}`;
+    btn.title = 'Toggle real-time day/night terminator (L)';
+    const nameSpan = document.createElement('span');
+    nameSpan.className = 'ge-layer-name';
+    nameSpan.textContent = 'TERMINATOR';
+    btn.append(nameSpan);
+    btn.addEventListener('click', () => {
+      this.setTerminatorEnabled(!this.terminatorEnabled);
+      this.onTerminatorToggle?.(this.terminatorEnabled);
+    });
+    this.terminatorBtn = btn;
+    bar.append(btn);
+  }
+
+  setTerminatorEnabled(enabled: boolean): void {
+    this.terminatorEnabled = enabled;
+    this.terminatorBtn?.classList.toggle('ge-layer-active', enabled);
+  }
+
+  toggleTerminator(): boolean {
+    this.setTerminatorEnabled(!this.terminatorEnabled);
+    this.onTerminatorToggle?.(this.terminatorEnabled);
+    return this.terminatorEnabled;
   }
 
   private buildLayerButtons(bar: HTMLElement): void {
@@ -245,6 +306,38 @@ export class GlobeHUD {
       this.coordsEl.textContent =
         `${formatCoord(state.cameraLat, 'N', 'S')}, ${formatCoord(state.cameraLon, 'E', 'W')}`;
     }
+    if (state.topAlerts !== undefined && this.alertListEl) {
+      this.renderAlertList(this.alertListEl, state.topAlerts);
+    }
+  }
+
+  private renderAlertList(
+    el: HTMLElement,
+    alerts: { name: string; type: string; severity: number }[],
+  ): void {
+    while (el.firstChild) el.firstChild.remove();
+    if (alerts.length === 0) {
+      el.textContent = 'No active alerts';
+      return;
+    }
+    for (const alert of alerts) {
+      const row = document.createElement('div');
+      row.className = 'ge-alert-row';
+      const dot = document.createElement('span');
+      dot.className = this.alertDotClass(alert.severity);
+      const text = document.createElement('span');
+      text.className = 'ge-alert-text';
+      text.textContent = alert.name.length > 48 ? alert.name.slice(0, 45) + '\u2026' : alert.name;
+      text.title = `${alert.type}: ${alert.name}`;
+      row.append(dot, text);
+      el.append(row);
+    }
+  }
+
+  private alertDotClass(severity: number): string {
+    if (severity >= 8) return 'ge-alert-dot-critical';
+    if (severity >= 5) return 'ge-alert-dot-elevated';
+    return 'ge-alert-dot-nominal';
   }
 
   updateLayerCounts(counts: Map<string, number>): void {
@@ -278,8 +371,40 @@ export class GlobeHUD {
     }
   }
 
+  showTooltip(x: number, y: number, title: string, body: string): void {
+    if (!this.tooltipEl) return;
+    this.tooltipEl.replaceChildren();
+    const titleEl = document.createElement('div');
+    titleEl.className = 'ge-tooltip-title';
+    titleEl.textContent = title;
+    const bodyEl = document.createElement('div');
+    bodyEl.className = 'ge-tooltip-body';
+    bodyEl.textContent = body;
+    this.tooltipEl.append(titleEl, bodyEl);
+    const pad = 12;
+    const w = this.tooltipEl.offsetWidth || 220;
+    const h = this.tooltipEl.offsetHeight || 80;
+    const left = Math.min(x + 16, window.innerWidth - w - pad);
+    const top = Math.min(y + 16, window.innerHeight - h - pad);
+    this.tooltipEl.style.left = `${left}px`;
+    this.tooltipEl.style.top = `${top}px`;
+    this.tooltipEl.classList.remove('ge-hidden');
+  }
+
+  hideTooltip(): void {
+    this.tooltipEl?.classList.add('ge-hidden');
+  }
+
   setOnLayerToggle(cb: (layerKey: string, enabled: boolean) => void): void {
     this.onLayerToggle = cb;
+  }
+
+  setOnClusterToggle(cb: (enabled: boolean) => void): void {
+    this.onClusterToggle = cb;
+  }
+
+  setOnTerminatorToggle(cb: (enabled: boolean) => void): void {
+    this.onTerminatorToggle = cb;
   }
 
   setOnAutoFollowSkip(cb: () => void): void {

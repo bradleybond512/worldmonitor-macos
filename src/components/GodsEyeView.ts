@@ -8,9 +8,12 @@ import {
 import { CesiumGlobe } from '@/components/CesiumGlobe';
 import { GlobeDataManager } from '@/components/GlobeDataManager';
 import { GlobeHUD } from '@/components/GlobeHUD';
+import { GlobeTimeMachine } from '@/components/GlobeTimeMachine';
 import { AutoFollowEngine } from '@/components/gods-eye/AutoFollowEngine';
+import { GlobeReactorBeacons } from '@/components/GlobeReactorBeacons';
 import type { CustomDataSource } from 'cesium';
 import { getMode, type AppMode, type ModeChangedDetail } from '@/services/mode-manager';
+import { tryInvokeTauri } from '@/services/tauri-bridge';
 
 // ── Theater camera presets (lat, lon, altitude meters, pitch degrees) ──
 const THEATERS = {
@@ -46,13 +49,12 @@ export class GodsEyeView {
   private globe: CesiumGlobe | null = null;
   private dataManager: GlobeDataManager | null = null;
   private hud: GlobeHUD | null = null;
+  private timeMachine: GlobeTimeMachine | null = null;
   private autoFollow: AutoFollowEngine | null = null;
+  private reactorBeacons: GlobeReactorBeacons | null = null;
   private hudTickId: number | null = null;
-  private orbitTickId: number | null = null;
-  private idleTimer: number | null = null;
   private eventHandler: ScreenSpaceEventHandler | null = null;
   private active = false;
-  private userInteracting = false;
   private ionToken: string | undefined;
   private cleanupHandlers: (() => void)[] = [];
   private currentMode: AppMode = 'peace';
@@ -92,6 +94,16 @@ export class GodsEyeView {
       return;
     }
 
+    // Thin drag strip at the top of the overlay for window dragging
+    const dragStrip = document.createElement('div');
+    dragStrip.className = 'ge-drag-strip';
+    dragStrip.addEventListener('mousedown', (e) => {
+      if (e.button !== 0) return;
+      tryInvokeTauri('plugin:window|start_dragging').catch(() => {/* silent */});
+    });
+    this.container.append(dragStrip);
+    this.cleanupHandlers.push(() => dragStrip.remove());
+
     this.attachZoomHandlers();
     this.attachKeyboardHandlers();
     this.attachClickToFly();
@@ -101,6 +113,8 @@ export class GodsEyeView {
     if (viewer) {
       this.dataManager = new GlobeDataManager(viewer);
       this.dataManager.initialize();
+      this.reactorBeacons = new GlobeReactorBeacons(viewer);
+      this.reactorBeacons.mount();
     }
 
     // Auto-follow engine
@@ -115,6 +129,12 @@ export class GodsEyeView {
       });
     }
 
+    // Time Machine scrubber (24h replay)
+    if (viewer && this.dataManager) {
+      this.timeMachine = new GlobeTimeMachine(viewer, this.dataManager, this.container);
+      this.timeMachine.mount();
+    }
+
     // HUD overlay
     this.hud = new GlobeHUD(this.container);
     this.hud.setOnExit(() => this.exit());
@@ -127,6 +147,8 @@ export class GodsEyeView {
       this.dataManager?.setLayerVisible(key, enabled);
     });
     this.hud.setOnAutoFollowSkip(() => this.autoFollow?.skipToNext());
+    this.hud.setOnClusterToggle((enabled) => this.dataManager?.setClusteringEnabled(enabled));
+    this.hud.setOnTerminatorToggle((enabled) => this.globe?.setLightingEnabled(enabled));
 
     // Update HUD at ~10fps
     this.hudTickId = window.setInterval(() => {
@@ -138,6 +160,7 @@ export class GodsEyeView {
         cameraLat: CesiumMath.toDegrees(carto.latitude),
         cameraLon: CesiumMath.toDegrees(carto.longitude),
         activeHotspots: this.dataManager?.getEntityCount() ?? 0,
+        topAlerts: this.dataManager?.getTopAlerts(5) ?? [],
       });
       if (this.dataManager) {
         this.hud.updateLayerCounts(this.dataManager.getLayerCounts());
@@ -163,14 +186,18 @@ export class GodsEyeView {
     document.body.classList.remove('gods-eye-lock');
 
     if (this.hudTickId != null) { clearInterval(this.hudTickId); this.hudTickId = null; }
-    if (this.orbitTickId != null) { cancelAnimationFrame(this.orbitTickId); this.orbitTickId = null; }
-    if (this.idleTimer != null) { clearTimeout(this.idleTimer); this.idleTimer = null; }
 
     this.autoFollow?.destroy();
     this.autoFollow = null;
 
     this.eventHandler?.destroy();
     this.eventHandler = null;
+
+    this.timeMachine?.destroy();
+    this.timeMachine = null;
+
+    this.reactorBeacons?.destroy();
+    this.reactorBeacons = null;
 
     setTimeout(() => {
       this.hud?.destroy();
@@ -195,6 +222,10 @@ export class GodsEyeView {
     this.container.remove();
   }
 
+  flyToReactorAlert(alertId: string): boolean {
+    return this.reactorBeacons?.flyTo(alertId) ?? false;
+  }
+
   // ── Mode theming ─────────────────────────────────────
 
   private handleModeChange(e: Event): void {
@@ -211,46 +242,6 @@ export class GodsEyeView {
     this.hud?.setMode(mode);
   }
 
-  // ── Auto-orbit ───────────────────────────────────────
-
-  private startIdleOrbitTimer(): void {
-    if (this.idleTimer != null) clearTimeout(this.idleTimer);
-    this.userInteracting = false;
-    this.idleTimer = window.setTimeout(() => {
-      if (!this.userInteracting) this.startOrbit();
-    }, 8000);
-  }
-
-  private stopOrbit(): void {
-    if (this.orbitTickId != null) {
-      cancelAnimationFrame(this.orbitTickId);
-      this.orbitTickId = null;
-    }
-  }
-
-  private startOrbit(): void {
-    this.stopOrbit();
-    const camera = this.globe?.camera;
-    if (!camera) return;
-
-    let lastTime = performance.now();
-    const tick = (now: number) => {
-      if (!this.active || this.userInteracting) { this.orbitTickId = null; return; }
-      const dt = (now - lastTime) / 1000;
-      lastTime = now;
-      // Rotate ~2 degrees per second
-      camera.rotateRight(CesiumMath.toRadians(2 * dt));
-      this.orbitTickId = requestAnimationFrame(tick);
-    };
-    this.orbitTickId = requestAnimationFrame(tick);
-  }
-
-  private onUserInteraction(): void {
-    this.userInteracting = true;
-    this.stopOrbit();
-    this.startIdleOrbitTimer();
-  }
-
   // ── Click to fly ─────────────────────────────────────
 
   private attachClickToFly(): void {
@@ -262,7 +253,7 @@ export class GodsEyeView {
       const picked = viewer.scene.pick(click.position) as
         { id?: { position?: { getValue: (t: unknown) => Cartesian3 | undefined } } } | undefined;
       if (picked?.id?.position) {
-        this.onUserInteraction();
+        
         const pos = picked.id.position.getValue(viewer.clock.currentTime);
         if (pos) {
           const carto = viewer.scene.globe.ellipsoid.cartesianToCartographic(pos);
@@ -277,6 +268,31 @@ export class GodsEyeView {
         }
       }
     }, ScreenSpaceEventType.LEFT_CLICK);
+
+    this.eventHandler.setInputAction((movement: { endPosition: Cartesian2 }) => {
+      const viewer = this.globe?.cesiumViewer;
+      if (!viewer || !this.hud) return;
+
+      const picked = viewer.scene.pick(movement.endPosition) as
+        { id?: { description?: { getValue: (t: unknown) => string | undefined }; label?: { text?: { getValue: (t: unknown) => string | undefined } } } } | undefined;
+
+      if (!picked?.id) {
+        this.hud.hideTooltip();
+        return;
+      }
+
+      const desc = picked.id.description?.getValue(viewer.clock.currentTime) ?? '';
+      const label = picked.id.label?.text?.getValue(viewer.clock.currentTime) ?? '';
+      const title = label === '' ? (desc.split('—')[0]?.trim() ?? 'Entity') : label;
+      const body = desc.length > 200 ? desc.slice(0, 197) + '…' : desc;
+
+      if (!desc && !label) {
+        this.hud.hideTooltip();
+        return;
+      }
+
+      this.hud.showTooltip(movement.endPosition.x, movement.endPosition.y, title, body);
+    }, ScreenSpaceEventType.MOUSE_MOVE);
   }
 
   // ── Keyboard ─────────────────────────────────────────
@@ -293,10 +309,23 @@ export class GodsEyeView {
           return;
         }
 
+        // Space toggles Time Machine play/pause
+        if (ke.key === ' ' || ke.code === 'Space') {
+          ke.preventDefault();
+          this.timeMachine?.togglePlay();
+          return;
+        }
+
+        // L toggles day/night terminator
+        if (ke.key === 'l' || ke.key === 'L') {
+          this.hud?.toggleTerminator();
+          return;
+        }
+
         // Theater presets 1-6
         const theater = THEATER_KEYS[ke.key];
         if (theater) {
-          this.onUserInteraction();
+          
           this.flyToTheater(theater);
           return;
         }
@@ -306,10 +335,10 @@ export class GodsEyeView {
         if (!camera) return;
         const alt = camera.positionCartographic.height;
         if (ke.key === '=' || ke.key === '+') {
-          this.onUserInteraction();
+          
           camera.zoomIn(alt * 0.4);
         } else if (ke.key === '-' || ke.key === '_') {
-          this.onUserInteraction();
+          
           camera.zoomOut(alt * 0.4);
         }
       }),
@@ -341,7 +370,7 @@ export class GodsEyeView {
         const we = e as WheelEvent;
         if (!this.container.contains(we.target as Node)) return;
         we.preventDefault();
-        this.onUserInteraction();
+        
         const camera = this.globe?.camera;
         if (!camera) return;
         const delta = we.deltaY * 500;
@@ -353,7 +382,7 @@ export class GodsEyeView {
       addListener(this.container, 'wheel', (e: Event) => {
         const we = e as WheelEvent;
         we.preventDefault();
-        this.onUserInteraction();
+        
         const camera = this.globe?.camera;
         if (!camera) return;
         if (we.deltaY > 0) camera.zoomOut(we.deltaY * 500);
@@ -363,7 +392,7 @@ export class GodsEyeView {
       // 3. Legacy mousewheel
       addListener(this.container, 'mousewheel', (e: Event) => {
         e.preventDefault();
-        this.onUserInteraction();
+        
         const camera = this.globe?.camera;
         if (!camera) return;
         const delta = ((e as WheelEvent).deltaY ?? 0) * 500;
@@ -377,7 +406,7 @@ export class GodsEyeView {
       }),
       addListener(this.container, 'gesturechange', (e: Event) => {
         e.preventDefault();
-        this.onUserInteraction();
+        
         const ge = e as Event & { scale?: number };
         if (ge.scale == null) return;
         const camera = this.globe?.camera;
@@ -388,8 +417,6 @@ export class GodsEyeView {
       }),
 
       // 5. Mouse drag / touch — mark as user interaction
-      addListener(this.container, 'mousedown', () => this.onUserInteraction()),
-      addListener(this.container, 'touchstart', () => this.onUserInteraction()),
     );
   }
 }

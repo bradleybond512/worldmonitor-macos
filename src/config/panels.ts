@@ -55,6 +55,7 @@ const FULL_PANELS: Record<string, PanelConfig> = {
   'satellite-fires': { name: 'Fires', enabled: true, priority: 2 },
   earthquakes: { name: 'Earthquakes', enabled: true, priority: 2 },
   'cyber-threats': { name: 'Cyber Threats', enabled: true, priority: 2 },
+  'threat-inbox': { name: 'Threat Inbox', enabled: true, priority: 2 },
   'local-ids': { name: 'Local IDS', enabled: false, priority: 2 },
   'comms-health': { name: 'Communications Health', enabled: true, priority: 2 },
   'power-grid': { name: 'Power Grid', enabled: true, priority: 2 },
@@ -261,6 +262,9 @@ const FULL_MAP_LAYERS: MapLayers = {
   owmClouds: false,
   owmWind: false,
   redFlagWarnings: true,
+  buildings3d: true,
+  satellites: false,
+  aircraft3d: false,
 };
 
 const FULL_MOBILE_MAP_LAYERS: MapLayers = {
@@ -332,6 +336,9 @@ const FULL_MOBILE_MAP_LAYERS: MapLayers = {
   owmClouds: false,
   owmWind: false,
   redFlagWarnings: false,
+  buildings3d: false,
+  satellites: false,
+  aircraft3d: false,
 };
 
 // ============================================
@@ -444,6 +451,9 @@ const TECH_MAP_LAYERS: MapLayers = {
   owmClouds: false,
   owmWind: false,
   redFlagWarnings: false,
+  buildings3d: false,
+  satellites: false,
+  aircraft3d: false,
 };
 
 const TECH_MOBILE_MAP_LAYERS: MapLayers = {
@@ -515,6 +525,9 @@ const TECH_MOBILE_MAP_LAYERS: MapLayers = {
   owmClouds: false,
   owmWind: false,
   redFlagWarnings: false,
+  buildings3d: false,
+  satellites: false,
+  aircraft3d: false,
 };
 
 // ============================================
@@ -623,6 +636,9 @@ const FINANCE_MAP_LAYERS: MapLayers = {
   owmClouds: false,
   owmWind: false,
   redFlagWarnings: false,
+  buildings3d: false,
+  satellites: false,
+  aircraft3d: false,
 };
 
 const FINANCE_MOBILE_MAP_LAYERS: MapLayers = {
@@ -694,6 +710,9 @@ const FINANCE_MOBILE_MAP_LAYERS: MapLayers = {
   owmClouds: false,
   owmWind: false,
   redFlagWarnings: false,
+  buildings3d: false,
+  satellites: false,
+  aircraft3d: false,
 };
 
 // ============================================
@@ -781,6 +800,9 @@ const HAPPY_MAP_LAYERS: MapLayers = {
   owmClouds: false,
   owmWind: false,
   redFlagWarnings: false,
+  buildings3d: false,
+  satellites: false,
+  aircraft3d: false,
 };
 
 const HAPPY_MOBILE_MAP_LAYERS: MapLayers = {
@@ -852,6 +874,9 @@ const HAPPY_MOBILE_MAP_LAYERS: MapLayers = {
   owmClouds: false,
   owmWind: false,
   redFlagWarnings: false,
+  buildings3d: false,
+  satellites: false,
+  aircraft3d: false,
 };
 
 // ============================================
@@ -916,7 +941,7 @@ export const PANEL_CATEGORY_MAP: Record<string, { labelKey: string; panelKeys: s
   },
   dataTracking: {
     labelKey: 'header.panelCatDataTracking',
-    panelKeys: ['monitors', 'cyber-threats', 'local-ids', 'comms-health', 'power-grid', 'ucdp-events', 'nuclear-risk', 'airstrikes', 'displacement', 'security-advisories', 'oref-sirens', 'space-weather', 'spaceflight-news', 'space-launches', 'population-exposure', 'internet-disruptions', 'air-traffic', 'threat-intel-hub', 'geo-intel', 'dark-web', 'anomaly-detection', 'financial-contagion', 'supply-chain-impact', 'nuclear-monitor', 'sigint-panel', 'dark-vessel', 'ics-ot-dashboard', 'ioc-manager', 'network-topology', 'stix-taxii', 'custom-geofence', 'sanctions-crossref', 'emergency-broadcast', 'satellite-change', 'phishstats-feed', 'urlscan-threats', 'bitcoin-abuse', 'cve-tracker', 'vulners-cve', 'pulsedive-intel', 'hibp-breaches', 'reddit-osint', 'ripe-ncc', 'ipinfo-lookup', 'aerospace-reentry'],
+    panelKeys: ['monitors', 'cyber-threats', 'threat-inbox', 'local-ids', 'comms-health', 'power-grid', 'ucdp-events', 'nuclear-risk', 'airstrikes', 'displacement', 'security-advisories', 'oref-sirens', 'space-weather', 'spaceflight-news', 'space-launches', 'population-exposure', 'internet-disruptions', 'air-traffic', 'threat-intel-hub', 'geo-intel', 'dark-web', 'anomaly-detection', 'financial-contagion', 'supply-chain-impact', 'nuclear-monitor', 'sigint-panel', 'dark-vessel', 'ics-ot-dashboard', 'ioc-manager', 'network-topology', 'stix-taxii', 'custom-geofence', 'sanctions-crossref', 'emergency-broadcast', 'satellite-change', 'phishstats-feed', 'urlscan-threats', 'bitcoin-abuse', 'cve-tracker', 'vulners-cve', 'pulsedive-intel', 'hibp-breaches', 'reddit-osint', 'ripe-ncc', 'ipinfo-lookup', 'aerospace-reentry'],
     variants: ['full'],
   },
   hazards: {

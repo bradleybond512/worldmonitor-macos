@@ -10,11 +10,23 @@ import {
   DistanceDisplayCondition,
   PolylineDashMaterialProperty,
   ColorMaterialProperty,
+  ConstantProperty,
+  PropertyBag,
+  JulianDate,
   Math as CesiumMath,
   UrlTemplateImageryProvider,
   type ImageryLayer,
+  PointPrimitiveCollection,
+  PolylineCollection,
+  HeadingPitchRoll,
+  Transforms,
 } from 'cesium';
 
+import { applyClustering } from '@/components/globeClustering';
+import { modelLoader } from '@/services/model-loader';
+import { BuildingTileManager } from '@/services/building-tiles';
+import { fetchSatelliteCatalog, filterNotable, type SatelliteTLE } from '@/services/satellite-catalog';
+import { satellitePropagator, type SatellitePosition } from '@/services/satellite-propagator';
 import { fetchLightningStrikes } from '@/services/lightning';
 import { fetchRedFlagWarnings } from '@/services/red-flag-warnings';
 import { getRadarTileUrl, fetchRadarFrames } from '@/services/rainviewer-radar';
@@ -31,7 +43,6 @@ import {
 } from '@/config/geo';
 
 import {
-  AIRCRAFT_ICONS,
   VESSEL_ICONS,
   GDACS_ICONS,
   ICON_NUCLEAR,
@@ -42,7 +53,6 @@ import {
   ICON_CYBER_CRITICAL,
   ICON_PROTEST,
   ICON_CABLE_LANDING,
-  ICON_TRANSPORT,
   ICON_WARSHIP,
   ICON_FIRE,
   ICON_BASE,
@@ -61,6 +71,12 @@ import {
   ICON_HOTSPOT,
   ICON_DISPLACEMENT,
 } from '@/config/globe-icons';
+
+const ICON_SATELLITE = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(`
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24">
+  <path fill="white" d="M12 2L9 9H2l5.5 4-2.1 6.5L12 16l6.6 3.5L16.5 13 22 9h-7z"/>
+</svg>
+`);
 
 // ── Colors ──────────────────────────────────────────────────
 
@@ -230,16 +246,42 @@ function diseaseScale(casesPerM: number): number {
 const LABEL_OFFSET = new Cartesian3(0, -20, 0) as unknown as import('cesium').Cartesian2;
 const LABEL_OFFSET_SM = new Cartesian3(0, -18, 0) as unknown as import('cesium').Cartesian2;
 
+function setEntityTimestamp(entity: import('cesium').Entity, when: Date): void {
+  entity.properties ??= new PropertyBag();
+  entity.properties.addProperty('timestamp', new ConstantProperty(when));
+}
+
 interface GlobeLayer {
   source: CustomDataSource;
   load: () => void | Promise<void>;
   loaded: boolean;
 }
 
+// Layers that get auto-clustered at low zoom, keyed by layer name → category color.
+const CLUSTER_LAYERS: Record<string, Color> = {
+  earthquakes: Color.fromCssColorString('#ff8c00'),
+  fires: Color.fromCssColorString('#ff3300'),
+  conflicts: Color.fromCssColorString('#dc143c'),
+  airstrikes: Color.fromCssColorString('#8b0000'),
+  cyber: Color.fromCssColorString('#ff00ff'),
+  flights: Color.fromCssColorString('#00ffff'),
+  vessels: Color.fromCssColorString('#1e90ff'),
+  darkVessels: Color.fromCssColorString('#9400d3'),
+  protests: Color.fromCssColorString('#ffd700'),
+  disease: Color.fromCssColorString('#00ff7f'),
+  lightningStrikes: Color.fromCssColorString('#ffff00'),
+};
+
 export class GlobeDataManager {
   private viewer: Viewer;
   private layers = new Map<string, GlobeLayer>();
   private weatherImageryLayers: ImageryLayer[] = [];
+  private clusterableLayers = new Set<string>();
+  private buildingManager: BuildingTileManager | null = null;
+  private satellitePoints: InstanceType<typeof PointPrimitiveCollection> | null = null;
+  private orbitLines: InstanceType<typeof PolylineCollection> | null = null;
+  private satelliteCatalog: SatelliteTLE[] = [];
+  private unsubPositions: (() => void) | null = null;
 
   constructor(viewer: Viewer) {
     this.viewer = viewer;
@@ -269,6 +311,7 @@ export class GlobeDataManager {
     this.registerLayer('darkVessels', () => this.loadDarkVessels());
     this.registerLayer('gpsJamming', () => this.loadGpsJamming());
     this.registerLayer('satChange', () => this.loadSatelliteChange());
+    this.registerLayer('satellites', () => this.loadOrbitalSatellites());
     this.registerLayer('protests', () => this.loadProtests());
     this.registerLayer('disease', () => this.loadDiseaseOutbreaks());
     this.registerLayer('displacement', () => this.loadDisplacement());
@@ -278,6 +321,13 @@ export class GlobeDataManager {
     this.registerLayer('weatherSatellite', () => this.loadWeatherSatellite());
     this.registerLayer('lightningStrikes', () => this.loadLightningStrikes());
     this.registerLayer('redFlagWarnings', () => this.loadRedFlagWarnings());
+
+    // 3D Building tiles (managed separately — uses Cesium primitives, not data sources)
+    this.buildingManager = new BuildingTileManager(this.viewer);
+    void this.buildingManager.initialize();
+
+    // Satellites (managed via PointPrimitiveCollection for performance, not data sources)
+    void this.initSatellites();
 
     for (const name of this.layers.keys()) {
       void this.loadLayer(name);
@@ -296,8 +346,20 @@ export class GlobeDataManager {
     try {
       await layer.load();
       layer.loaded = true;
+      const categoryColor = CLUSTER_LAYERS[name];
+      if (categoryColor) {
+        applyClustering(layer.source, { categoryColor });
+        this.clusterableLayers.add(name);
+      }
     } catch {
       // Non-fatal — other layers continue loading
+    }
+  }
+
+  setClusteringEnabled(enabled: boolean): void {
+    for (const name of this.clusterableLayers) {
+      const layer = this.layers.get(name);
+      if (layer) layer.source.clustering.enabled = enabled;
     }
   }
 
@@ -587,7 +649,7 @@ export class GlobeDataManager {
       const color = isMajor ? C.earthquake : C.earthquakeMinor;
       const scale = Math.max(0.25, eq.magnitude * 0.08);
 
-      layer.source.entities.add({
+      const eqEntity = layer.source.entities.add({
         position: Cartesian3.fromDegrees(lon, lat),
         billboard: {
           image: ICON_EARTHQUAKE,
@@ -613,6 +675,9 @@ export class GlobeDataManager {
         } : undefined,
         description: `${eq.place} — M${eq.magnitude} at ${eq.depthKm}km depth`,
       });
+      if (eq.occurredAt) {
+        setEntityTimestamp(eqEntity, new Date(eq.occurredAt));
+      }
     }
   }
 
@@ -758,7 +823,7 @@ export class GlobeDataManager {
       const color = fireColor(f.confidence ?? '');
       const scale = fireScale(f.confidence ?? '') * 0.7;
 
-      layer.source.entities.add({
+      const fireEntity = layer.source.entities.add({
         position: Cartesian3.fromDegrees(lon, lat),
         billboard: {
           image: ICON_FIRE,
@@ -784,6 +849,9 @@ export class GlobeDataManager {
         } : undefined,
         description: `Fire — FRP: ${f.frp.toFixed(1)} MW | Brightness: ${f.brightness.toFixed(0)} | ${f.region}`,
       });
+      if (f.detectedAt) {
+        setEntityTimestamp(fireEntity, new Date(f.detectedAt));
+      }
     }
   }
 
@@ -800,7 +868,7 @@ export class GlobeDataManager {
       const color = isExplosion ? C.conflictExplosion : C.conflict;
       const scale = Math.min(0.5, 0.25 + ev.fatalities * 0.02);
 
-      layer.source.entities.add({
+      const conflictEntity = layer.source.entities.add({
         position: Cartesian3.fromDegrees(ev.lon, ev.lat),
         billboard: {
           image: icon,
@@ -826,6 +894,9 @@ export class GlobeDataManager {
         } : undefined,
         description: `${ev.eventType} — ${ev.location}, ${ev.country}`,
       });
+      if (ev.time) {
+        setEntityTimestamp(conflictEntity, ev.time);
+      }
     }
   }
 
@@ -839,7 +910,7 @@ export class GlobeDataManager {
     for (const s of strikes) {
       const scale = Math.min(0.5, 0.3 + s.fatalities * 0.02);
 
-      layer.source.entities.add({
+      const strikeEntity = layer.source.entities.add({
         position: Cartesian3.fromDegrees(s.lon, s.lat),
         billboard: {
           image: ICON_AIRSTRIKE,
@@ -865,6 +936,10 @@ export class GlobeDataManager {
         },
         description: `Airstrike — ${s.actor} vs ${s.targetActor}\n${s.location}, ${s.country}\n${s.fatalities} fatalities\n${s.notes}`,
       });
+      if (s.date) {
+        const parsed = new Date(s.date);
+        if (!Number.isNaN(parsed.getTime())) setEntityTimestamp(strikeEntity, parsed);
+      }
     }
   }
 
@@ -906,20 +981,25 @@ export class GlobeDataManager {
     const { flights } = await fetchMilitaryFlights();
 
     for (const f of flights) {
-      const icon = AIRCRAFT_ICONS[f.aircraftType] ?? ICON_TRANSPORT;
       const altMeters = f.altitude * 0.3048;
 
       layer.source.entities.add({
         position: Cartesian3.fromDegrees(f.lon, f.lat, altMeters),
-        billboard: {
-          image: icon,
+        orientation: Transforms.headingPitchRollQuaternion(
+          Cartesian3.fromDegrees(f.lon, f.lat, altMeters),
+          new HeadingPitchRoll(
+            CesiumMath.toRadians(f.heading),
+            0,
+            0,
+          ),
+        ) as unknown as import('cesium').Property,
+        model: {
+          uri: modelLoader.getUrlForMilitary(f.aircraftType),
+          minimumPixelSize: 24,
+          maximumScale: 5000,
           color: C.flight,
-          scale: 0.4,
-          rotation: CesiumMath.toRadians(-f.heading),
-          alignedAxis: Cartesian3.UNIT_Z,
-          scaleByDistance: new NearFarScalar(1e4, 1.5, 1e7, 0.5),
-          verticalOrigin: VerticalOrigin.CENTER,
-          horizontalOrigin: HorizontalOrigin.CENTER,
+          colorBlendMode: 2,
+          colorBlendAmount: 0.5,
         },
         label: {
           text: f.callsign ?? f.hexCode,
@@ -1312,6 +1392,48 @@ export class GlobeDataManager {
     }
   }
 
+  private async loadOrbitalSatellites(): Promise<void> {
+    const layer = this.layers.get('satellites');
+    if (!layer) return;
+
+    const { fetchOrbitalSatellites } = await import('@/services/celestrak-tle');
+    const sats = await fetchOrbitalSatellites();
+
+    for (const sat of sats) {
+      const altMeters = sat.alt * 1000;
+      const isStation = sat.group === 'stations';
+      const color = isStation
+        ? Color.fromCssColorString('#00ffff')
+        : Color.fromCssColorString('#aaaaff');
+
+      layer.source.entities.add({
+        position: Cartesian3.fromDegrees(sat.lon, sat.lat, altMeters),
+        billboard: {
+          image: ICON_SATELLITE,
+          color,
+          scale: isStation ? 0.6 : 0.35,
+          scaleByDistance: new NearFarScalar(1e5, 1.5, 5e7, 0.4),
+          verticalOrigin: VerticalOrigin.CENTER,
+          horizontalOrigin: HorizontalOrigin.CENTER,
+        },
+        label: {
+          text: sat.name,
+          font: '10px monospace',
+          fillColor: color,
+          outlineColor: Color.BLACK,
+          outlineWidth: 2,
+          style: 2,
+          pixelOffset: LABEL_OFFSET_SM,
+          horizontalOrigin: HorizontalOrigin.CENTER,
+          verticalOrigin: VerticalOrigin.BOTTOM,
+          scaleByDistance: new NearFarScalar(1e5, 1, 5e7, 0.3),
+          distanceDisplayCondition: new DistanceDisplayCondition(0, 2e7),
+        },
+        description: `${sat.name}\nGroup: ${sat.group}\nAltitude: ${Math.round(sat.alt)} km\nLat: ${sat.lat.toFixed(2)}° Lon: ${sat.lon.toFixed(2)}°`,
+      });
+    }
+  }
+
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   // WEATHER LAYERS
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -1408,6 +1530,33 @@ export class GlobeDataManager {
   // PUBLIC API
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+  /**
+   * Filter time-bucketed layers to entities whose timestamp is <= currentTimeMs.
+   * Pass null to clear the filter (live mode).
+   */
+  applyTimeFilter(currentTimeMs: number | null): void {
+    const timeLayers = ['earthquakes', 'fires', 'conflicts', 'airstrikes'];
+    for (const name of timeLayers) {
+      const layer = this.layers.get(name);
+      if (!layer) continue;
+      const entities = layer.source.entities.values;
+      if (currentTimeMs == null) {
+        for (const e of entities) e.show = true;
+        continue;
+      }
+      const cutoff = currentTimeMs;
+      const floor = currentTimeMs - 24 * 60 * 60 * 1000;
+      const julian = JulianDate.fromDate(new Date(currentTimeMs));
+      for (const e of entities) {
+        const bag = e.properties?.getValue(julian) as { timestamp?: Date } | undefined;
+        const ts = bag?.timestamp;
+        if (!ts) { e.show = true; continue; }
+        const t = ts.getTime();
+        e.show = t <= cutoff && t >= floor;
+      }
+    }
+  }
+
   setLayerVisible(name: string, visible: boolean): void {
     const layer = this.layers.get(name);
     if (layer) layer.source.show = visible;
@@ -1429,6 +1578,24 @@ export class GlobeDataManager {
     return counts;
   }
 
+  getTopAlerts(limit = 5): { name: string; type: string; severity: number }[] {
+    const results: { name: string; type: string; severity: number }[] = [];
+    const SEVERITY: Record<string, number> = {
+      airstrikes: 10, conflicts: 8, cyber: 6, earthquakes: 5,
+      gdacs: 7, cyclones: 6, fires: 4, gpsJamming: 5,
+    };
+    for (const [layerKey, layerData] of this.layers) {
+      const sev = SEVERITY[layerKey] ?? 3;
+      const entities = layerData.source.entities.values;
+      for (const entity of entities) {
+        if (!entity.name) continue;
+        results.push({ name: entity.name, type: layerKey, severity: sev });
+      }
+    }
+    results.sort((a, b) => b.severity - a.severity);
+    return results.slice(0, limit);
+  }
+
   /** Expose data sources for AutoFollowEngine to read entity positions. */
   getDataSources(): Map<string, CustomDataSource> {
     const result = new Map<string, CustomDataSource>();
@@ -1438,14 +1605,72 @@ export class GlobeDataManager {
     return result;
   }
 
+  private async initSatellites(): Promise<void> {
+    try {
+      this.satelliteCatalog = await fetchSatelliteCatalog();
+      if (this.satelliteCatalog.length === 0) return;
+
+      this.satellitePoints = new PointPrimitiveCollection();
+      this.viewer.scene.primitives.add(this.satellitePoints);
+
+      this.orbitLines = new PolylineCollection();
+      this.viewer.scene.primitives.add(this.orbitLines);
+
+      satellitePropagator.start(this.satelliteCatalog);
+
+      this.unsubPositions = satellitePropagator.onPositions((positions) => {
+        this.updateSatellitePositions(positions);
+      });
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.warn('[GlobeDataManager] Satellite init failed:', error);
+    }
+  }
+
+  private updateSatellitePositions(positions: SatellitePosition[]): void {
+    if (!this.satellitePoints) return;
+    this.satellitePoints.removeAll();
+
+    const notableIds = new Set(filterNotable(this.satelliteCatalog).map(s => s.noradId));
+
+    for (const pos of positions) {
+      const isNotable = notableIds.has(pos.noradId);
+      const cat = this.satelliteCatalog.find(s => s.noradId === pos.noradId);
+      const rgb = cat?.annotation?.color ?? [150, 150, 150];
+
+      this.satellitePoints.add({
+        position: Cartesian3.fromDegrees(pos.lon, pos.lat, pos.altKm * 1000),
+        pixelSize: isNotable ? 4 : 1.5,
+        color: Color.fromBytes(rgb[0], rgb[1], rgb[2], isNotable ? 255 : 80),
+      });
+    }
+  }
+
   destroy(): void {
     for (const [, layer] of this.layers) {
       this.viewer.dataSources.remove(layer.source, true);
+    }
+    this.buildingManager?.destroy();
+    this.buildingManager = null;
+    this.unsubPositions?.();
+    this.unsubPositions = null;
+    satellitePropagator.stop();
+    if (this.satellitePoints) {
+      this.viewer.scene.primitives.remove(this.satellitePoints);
+      this.satellitePoints = null;
+    }
+    if (this.orbitLines) {
+      this.viewer.scene.primitives.remove(this.orbitLines);
+      this.orbitLines = null;
     }
     this.layers.clear();
     for (const imgLayer of this.weatherImageryLayers) {
       this.viewer.imageryLayers.remove(imgLayer, true);
     }
     this.weatherImageryLayers = [];
+  }
+
+  getBuildingTier(): string {
+    return this.buildingManager?.providerName ?? 'Not loaded';
   }
 }

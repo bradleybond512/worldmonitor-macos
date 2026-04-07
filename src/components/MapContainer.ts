@@ -485,6 +485,18 @@ export class MapContainer {
     }
   }
 
+  public setSatellitePositions(positions: import('@/services/satellite-propagator').SatellitePosition[], catalog: import('@/services/satellite-catalog').SatelliteTLE[]): void {
+    if (this.useDeckGL) {
+      this.deckGLMap?.setSatellitePositions(positions, catalog);
+    }
+  }
+
+  public setSelectedOrbitPath(path: import('@/services/satellite-propagator').OrbitPath | null): void {
+    if (this.useDeckGL) {
+      this.deckGLMap?.setSelectedOrbitPath(path);
+    }
+  }
+
   public setDiseaseIntel(data: DiseaseIntelData): void {
     if (this.useDeckGL) {
       this.deckGLMap?.setDiseaseIntel(data);

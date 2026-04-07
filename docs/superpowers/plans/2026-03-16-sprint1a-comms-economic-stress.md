@@ -17,6 +17,7 @@
 ### Task 1: Add TTL cache helper + `/api/comms-health` route
 
 **Files:**
+
 - Modify: `src-tauri/sidecar/local-api-server.mjs`
 
 - [ ] **Step 1: Read the sidecar file to find insertion points**
@@ -155,11 +156,13 @@
   ```bash
   npm run typecheck:all
   ```
+
   Expected: zero errors (sidecar is JS, not typechecked — this verifies frontend unchanged)
 
 - [ ] **Step 5: Smoke-test the route manually**
 
   Start the sidecar in isolation (optional — skip if no Node.js available locally):
+
   ```bash
   # Skip if Tauri dev not available; verify in Step after full integration
   echo "Sidecar routes added — will verify via full app"
@@ -177,6 +180,7 @@
 ### Task 2: Add `/api/economic-stress` route
 
 **Files:**
+
 - Modify: `src-tauri/sidecar/local-api-server.mjs`
 
 - [ ] **Step 1: Read current file state to confirm cache helper is present**
@@ -300,6 +304,7 @@
   ```bash
   npm run typecheck:all
   ```
+
   Expected: zero errors
 
 - [ ] **Step 6: Commit**
@@ -314,6 +319,7 @@
 ### Task 3: Add frontend services
 
 **Files:**
+
 - Create: `src/services/comms-health.ts`
 - Create: `src/services/economic-stress.ts`
 
@@ -383,6 +389,7 @@
   ```bash
   npm run typecheck:all
   ```
+
   Expected: zero errors
 
 - [ ] **Step 4: Commit**
@@ -399,6 +406,7 @@
 ### Task 4: Create StatusCard component
 
 **Files:**
+
 - Create: `src/components/StatusCard.ts`
 - Modify: `src/components/index.ts`
 
@@ -409,6 +417,7 @@
   Note: all values are string-escaped before insertion into HTML. The `escapeHtml` utility from `src/utils/sanitize.ts` is used; verify it exists (search for `escapeHtml` in the codebase first).
 
   If `escapeHtml` does not exist, add it to `src/utils/sanitize.ts` as:
+
   ```typescript
   export function escapeHtml(s: string): string {
     return String(s)
@@ -467,6 +476,7 @@
   <div style="font-size:0.65rem;opacity:0.55;text-transform:uppercase;letter-spacing:0.05em;">${esc(label)}</div>
   <div style="font-size:1.1rem;font-weight:700;color:${color};line-height:1.3;margin-top:0.15rem;">${esc(String(value))}${unitHtml}</div>
   ${subHtml}${noteHtml}
+
 </div>`;
   }
   ```
@@ -480,6 +490,7 @@
   ```bash
   npm run typecheck:all
   ```
+
   Expected: zero errors
 
 - [ ] **Step 5: Commit**
@@ -494,6 +505,7 @@
 ### Task 5: Create CommsHealthPanel
 
 **Files:**
+
 - Create: `src/components/CommsHealthPanel.ts`
 
 - [ ] **Step 1: Read `src/components/GDACSAlertsPanel.ts`** to understand the `getContentElement()` direct-update pattern
@@ -606,6 +618,7 @@
       const dot = `<div style="width:9px;height:9px;border-radius:50%;background:${tc};box-shadow:0 0 5px ${tc};flex-shrink:0;"></div>`;
 
       el.innerHTML = `
+
 <div style="padding:0.8rem;display:flex;flex-direction:column;gap:0.7rem;">
   <div style="display:flex;align-items:center;gap:0.55rem;padding:0.55rem 0.7rem;background:${bc}0.08);border:1px solid ${bc}0.28);border-radius:6px;">
     ${dot}
@@ -659,6 +672,7 @@
 ### Task 6: Create EconomicStressPanel
 
 **Files:**
+
 - Create: `src/components/EconomicStressPanel.ts`
 
 - [ ] **Step 1: Create `src/components/EconomicStressPanel.ts`**
@@ -734,6 +748,7 @@
       const ts = new Date(data.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
       el.innerHTML = `
+
 <div style="padding:0.8rem;display:flex;flex-direction:column;gap:0.7rem;">
   <div>
     <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:0.35rem;">
@@ -799,6 +814,7 @@
 ### Task 7: Register panels in config and layout
 
 **Files:**
+
 - Modify: `src/config/panels.ts`
 - Modify: `src/app/panel-layout.ts`
 - Modify: `src/app/data-loader.ts`
@@ -834,12 +850,14 @@
 - [ ] **Step 6: Instantiate both panels in `_createPanels()`**
 
   Add imports at top of file:
+
   ```typescript
   import { CommsHealthPanel } from '../components/CommsHealthPanel';
   import { EconomicStressPanel } from '../components/EconomicStressPanel';
   ```
 
   In `_createPanels()`, add:
+
   ```typescript
   panels.set('comms-health',    new CommsHealthPanel('comms-health'));
   panels.set('economic-stress', new EconomicStressPanel('economic-stress'));
@@ -850,22 +868,26 @@
 - [ ] **Step 8: Add refresh tasks in `data-loader.ts`**
 
   Add imports:
+
   ```typescript
   import { fetchCommsHealth } from '../services/comms-health';
   import { fetchEconomicStress } from '../services/economic-stress';
   ```
 
   Add schedule calls (after existing ones):
+
   ```typescript
   scheduleRefresh('comms-health',    fetchCommsHealth,    5 * 60 * 1000);
   scheduleRefresh('economic-stress', fetchEconomicStress, 15 * 60 * 1000);
   ```
 
   Verify that `scheduleRefresh` passes fetched data to the panel's `update()` method — check how existing panels like `gdacs-alerts` wire up. The pattern is typically:
+
   ```typescript
   scheduleRefresh('panel-id', fetchFn, intervalMs);
   // and in the scheduler, it calls: panels.get('panel-id')?.update(data)
   ```
+
   If the scheduler uses a different pattern, match it.
 
 - [ ] **Step 9: Verify typecheck passes**
@@ -873,6 +895,7 @@
   ```bash
   npm run typecheck:all
   ```
+
   Expected: zero errors. Fix any import path issues.
 
 - [ ] **Step 10: Commit**
@@ -891,6 +914,7 @@
   ```bash
   npm run typecheck:all
   ```
+
   Expected: zero errors
 
 - [ ] **Step 2: Verify SUPPORTED_SECRET_KEYS count unchanged**
@@ -898,6 +922,7 @@
   ```bash
   grep -c 'SUPPORTED_SECRET_KEYS\|"[A-Z_]*_API_\|"CLOUDFLARE\|"FRED' src-tauri/src/main.rs
   ```
+
   Open `src-tauri/src/main.rs` and confirm the array still has 25 entries and no new keys were added.
 
 - [ ] **Step 3: Build the app**
@@ -905,6 +930,7 @@
   ```bash
   npm run desktop:build:full
   ```
+
   Expected: successful build. Fix any errors.
 
 - [ ] **Step 4: Manual acceptance checklist** (run the app)

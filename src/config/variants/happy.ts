@@ -88,6 +88,9 @@ export const DEFAULT_MAP_LAYERS: MapLayers = {
   owmClouds: false,
   owmWind: false,
   redFlagWarnings: false,
+  buildings3d: false,
+  satellites: false,
+  aircraft3d: false,
 };
 
 // Mobile defaults — same as desktop for happy variant
@@ -160,6 +163,9 @@ export const MOBILE_DEFAULT_MAP_LAYERS: MapLayers = {
   owmClouds: false,
   owmWind: false,
   redFlagWarnings: false,
+  buildings3d: false,
+  satellites: false,
+  aircraft3d: false,
 };
 
 export const VARIANT_CONFIG: VariantConfig = {

@@ -63,6 +63,7 @@ The existing 2D MapLibre + deck.gl dashboard remains untouched as the default wo
 ### Render Sync
 
 Cesium drives the render loop. Each frame:
+
 1. Cesium renders globe, terrain, imagery, 3D Tiles
 2. Three.js reads Cesium's camera view/projection matrix
 3. Three.js applies inverse transform to its scene, rendering satellites, effects, RF cones into the same canvas
@@ -121,6 +122,7 @@ Existing `three` (v0.183) stays. deck.gl/MapLibre remain for 2D dashboard — un
 ### Satellite Tracking + Orbital Intelligence
 
 **Data Pipeline:**
+
 - **CelesTrak** — bulk TLE fetch every 4 hours via sidecar (free, no auth)
 - **satellite.js** — SGP4 propagation client-side, computing real-time positions each animation frame
 - **N2YO API** — pass predictions for monitored locations (free tier: 1000 req/hr)
@@ -128,6 +130,7 @@ Existing `three` (v0.183) stays. deck.gl/MapLibre remain for 2D dashboard — un
 - TLEs cached in IndexedDB, ~27,000 catalogued objects
 
 **Rendering (Three.js overlay):**
+
 - Instanced point geometry — 5,000-27,000 satellites as GPU-instanced spheres
 - Orbit trails — fading line geometry showing 1 full orbital period
 - Color by type: blue=comms, purple=military/intel, green=weather, yellow=navigation, white=debris
@@ -135,6 +138,7 @@ Existing `three` (v0.183) stays. deck.gl/MapLibre remain for 2D dashboard — un
 - Constellation filter — toggle Starlink, GPS, GLONASS, Galileo, etc.
 
 **Analytical Features:**
+
 - Pass prediction — "when does this satellite see this location next?" via satellite.js geometry
 - Ground footprint — cone projection from satellite to Earth surface (configurable sensor FOV)
 - Imaging windows — Sentinel-2/Landsat pass schedules computed for watchlist locations
@@ -142,6 +146,7 @@ Existing `three` (v0.183) stays. deck.gl/MapLibre remain for 2D dashboard — un
 - Conjunction alerts — close approach warnings between tracked objects
 
 **SIGINT/IMINT Correlation:**
+
 - Sat-event correlation — which imaging satellite had line-of-sight to an incident at time of occurrence?
 - GPS constellation health → overlay on GPS jamming zones to show degraded coverage
 - ADS-B blackout correlation — flag gaps in aircraft tracking where ELINT satellites were overhead
@@ -149,6 +154,7 @@ Existing `three` (v0.183) stays. deck.gl/MapLibre remain for 2D dashboard — un
 - Feeds from existing SIGINT Monitor, ADS-B Flight Tracking, GPS Jamming panels
 
 **Files:**
+
 - `src/services/satellite-tracker.ts` — manages satellite catalog, propagation loop
 - `src/services/tle-fetcher.ts` — CelesTrak/Space-Track data fetching + caching
 - `src/services/orbital-analysis.ts` — pass prediction, conjunction, maneuver detection
@@ -158,30 +164,35 @@ Existing `three` (v0.183) stays. deck.gl/MapLibre remain for 2D dashboard — un
 ### 3D Terrain + Building Models
 
 **Terrain:**
+
 - Cesium World Terrain — free via Cesium ion (quantized mesh tiles)
 - Elevation-aware camera — fly through valleys, over mountains
 - Line-of-sight analysis between two terrain points
 - Terrain exaggeration slider (1x-5x) for visualization emphasis
 
 **3D Buildings:**
+
 - Google Photorealistic 3D Tiles — via Cesium ion adapter (free tier: 2,500 sessions/month)
 - OSM Buildings — free fallback with global coverage
 - Auto-switch: photorealistic when zoomed below 1km altitude, OSM at city scale
 - Dark tint/style applied to buildings to match app theme
 
 **Files:**
+
 - `src/components/TerrainLayer.ts`
 - `src/components/BuildingsLayer.ts`
 
 ### Satellite Imagery Layers
 
 **Providers:**
+
 - **Sentinel-2** — 10m resolution, 5-day revisit, free (Copernicus Browser API)
 - **Landsat 8/9** — 30m resolution, 16-day revisit, free (USGS Earth Explorer)
 - **MODIS** — daily global coverage, 250m-1km, free (NASA Worldview WMTS)
 - **Mapbox Satellite** — high-res commercial composite (if API key configured)
 
 **Features:**
+
 - Toggle imagery provider from God's Eye layer controls
 - Date picker — view imagery from specific past dates
 - False color band composites (NDVI vegetation health, thermal, etc.)
@@ -189,12 +200,14 @@ Existing `three` (v0.183) stays. deck.gl/MapLibre remain for 2D dashboard — un
 - Cesium ImageryLayer — native WMS/WMTS support, no custom tile loader needed
 
 **Files:**
+
 - `src/services/imagery-provider.ts`
 - `src/components/ImageryLayer.ts`
 
 ### HUD / Augmented Reality Overlay
 
 **HUD Elements:**
+
 - Threat brackets — animated targeting reticles on hotspot locations
 - Distance readouts — lines between selected entities with kilometer measurements
 - Status readouts — top-left/right floating intel cards (threat level, SIGINT status, satellite count)
@@ -203,6 +216,7 @@ Existing `three` (v0.183) stays. deck.gl/MapLibre remain for 2D dashboard — un
 - Minimap — 2D inset showing current globe view extent on a flat map
 
 **Aesthetic / Post-Processing:**
+
 - Globe atmospheric glow — custom scatter shader (Three.js)
 - Scanline overlay — subtle CRT/tactical display effect
 - Bloom — UnrealBloomPass on bright elements (satellite points, threat markers)
@@ -211,6 +225,7 @@ Existing `three` (v0.183) stays. deck.gl/MapLibre remain for 2D dashboard — un
 - All effects toggleable — "Clean" mode strips all cosmetics for pure analysis
 
 **Files:**
+
 - `src/components/GlobeHUD.ts`
 - `src/app/hud-elements.ts`
 - `src/shaders/atmosphere.glsl`
@@ -234,6 +249,7 @@ Existing `three` (v0.183) stays. deck.gl/MapLibre remain for 2D dashboard — un
 | Cyber | Pink | APTs, IOCs, CVEs, malware families, C2 infra | ThreatFox, STIX/TAXII, CISA, Vulners |
 
 **Edge Types (relationships):**
+
 - `operates_in` — Actor → Geo
 - `participated_in` — Actor → Event
 - `located_at` — Event/Asset → Geo
@@ -245,6 +261,7 @@ Existing `three` (v0.183) stays. deck.gl/MapLibre remain for 2D dashboard — un
 - `sanctioned_by` — Financial → Actor (state)
 
 **Storage:**
+
 - IndexedDB with two object stores: `entities` (nodes) and `relationships` (edges)
 - Each entity: canonical ID, type, name, metadata object, geo coordinates (nullable)
 - Each relationship: source ID, target ID, type, confidence score (0-1), source attribution
@@ -252,11 +269,13 @@ Existing `three` (v0.183) stays. deck.gl/MapLibre remain for 2D dashboard — un
 - Steady state target: ~50K entities, ~200K relationships
 
 **Entity Extraction:**
+
 - Existing panel data parsed into entities on refresh (structured sources: UCDP, OFAC, ThreatFox, etc.)
 - News/unstructured text: Claude summarization extracts named entities + relationships
 - Entity resolution: fuzzy match on name + type to merge duplicates (e.g., "Russian Federation" = "Russia")
 
 **Rendering:**
+
 - `3d-force-graph` library — Three.js native force-directed layout
 - Opens as resizable overlay panel within God's Eye mode (not full viewport)
 - Click node → expand connections (lazy load 1 hop from IndexedDB)
@@ -267,6 +286,7 @@ Existing `three` (v0.183) stays. deck.gl/MapLibre remain for 2D dashboard — un
 - Pin nodes to lock positions during investigation
 
 **Files:**
+
 - `src/services/entity-graph.ts` — graph query engine (traversal, pathfinding, subgraph extraction)
 - `src/services/entity-extractor.ts` — transforms panel data into entities + relationships
 - `src/services/entity-store.ts` — IndexedDB CRUD, deduplication, incremental updates
@@ -277,6 +297,7 @@ Existing `three` (v0.183) stays. deck.gl/MapLibre remain for 2D dashboard — un
 ### RF / Signal Intelligence Visualization
 
 **Visualizations (Three.js overlay on globe):**
+
 - GPS jamming domes — semi-transparent hemispheres over known jamming zones
 - Radar coverage cones — conical projections from known radar sites with range rings + FOV
 - Satellite comms footprints — ground coverage circles for communications satellites
@@ -284,6 +305,7 @@ Existing `three` (v0.183) stays. deck.gl/MapLibre remain for 2D dashboard — un
 - EW hotspot halos — glowing regions with electronic warfare activity
 
 **Data Sources:**
+
 - GPSJam.org — GPS interference data
 - Existing SIGINT Monitor panel — feeds directly into globe rendering
 - Known radar installations — static dataset enriched with OSINT updates
@@ -291,6 +313,7 @@ Existing `three` (v0.183) stays. deck.gl/MapLibre remain for 2D dashboard — un
 - Cable Health panel — undersea cable status for comms routing visualization
 
 **Files:**
+
 - `src/components/RFVisualizationLayer.ts`
 - `src/services/rf-coverage.ts`
 - `src/shaders/signal-dome.glsl`
@@ -298,12 +321,14 @@ Existing `three` (v0.183) stays. deck.gl/MapLibre remain for 2D dashboard — un
 ### Temporal Playback / Time Slider
 
 **Architecture:**
+
 - Cesium Clock — native temporal engine drives all time-aware layers
 - Time slider UI anchored to bottom of God's Eye viewport
 - Controls: play/pause, speed (1x, 10x, 100x, 1000x), scrub to any recorded point
 - All temporal layers respond simultaneously: satellite positions recompute, events appear/disappear, vessel/flight tracks animate
 
 **Event Recording:**
+
 - IndexedDB `timeline_events` store — every geo-located event timestamped on ingest
 - Sources: conflict events, disasters, cyber incidents, vessel positions, flight positions, satellite maneuvers
 - Snapshots at panel refresh intervals (not continuous — storage-conscious)
@@ -311,12 +336,14 @@ Existing `three` (v0.183) stays. deck.gl/MapLibre remain for 2D dashboard — un
 - Incident replay — select an event, auto-set time window to 24h surrounding it
 
 **Time Slider UI:**
+
 - Horizontal bar with playhead, event markers (color-coded by type), date labels
 - Event density visualization — brighter regions = more activity
 - Click event marker to jump to that moment
 - Keyboard: spacebar=play/pause, arrow keys=step, shift+arrow=speed change
 
 **Files:**
+
 - `src/components/TimelineSlider.ts`
 - `src/services/timeline-recorder.ts`
 - `src/services/timeline-playback.ts`
@@ -326,6 +353,7 @@ Existing `three` (v0.183) stays. deck.gl/MapLibre remain for 2D dashboard — un
 ## New File Summary
 
 ### Phase 1 (Foundation) — 6 files
+
 - `src/components/GodsEyeView.ts`
 - `src/components/CesiumGlobe.ts`
 - `src/components/ThreeOverlay.ts`
@@ -334,6 +362,7 @@ Existing `three` (v0.183) stays. deck.gl/MapLibre remain for 2D dashboard — un
 - `src/config/gods-eye-layers.ts`
 
 ### Phase 2A (Visual Track) — 12 files
+
 - `src/services/satellite-tracker.ts`
 - `src/services/tle-fetcher.ts`
 - `src/services/orbital-analysis.ts`
@@ -348,6 +377,7 @@ Existing `three` (v0.183) stays. deck.gl/MapLibre remain for 2D dashboard — un
 - `src/shaders/scanline.glsl`
 
 ### Phase 2B (Analytical Track) — 9 files
+
 - `src/services/entity-graph.ts`
 - `src/services/entity-extractor.ts`
 - `src/services/entity-store.ts`
@@ -359,6 +389,7 @@ Existing `three` (v0.183) stays. deck.gl/MapLibre remain for 2D dashboard — un
 - `src/shaders/signal-dome.glsl`
 
 ### Shared — 3 files
+
 - `src/components/TimelineSlider.ts`
 - `src/services/timeline-recorder.ts`
 - `src/services/timeline-playback.ts`

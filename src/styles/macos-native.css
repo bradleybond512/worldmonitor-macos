@@ -1275,3 +1275,104 @@ body.is-desktop-macos #unifiedSettingsMount {
   :root { --mac-sidebar-width: 148px; }
   .mac-sidebar-panel-item { font-size: 10.5px; padding: 3px 6px; }
 }
+
+/* ── God's Eye Time Machine ─────────────────────────────── */
+.godseye-time-machine {
+  position: absolute;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 60%;
+  min-width: 520px;
+  padding: 10px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: rgba(13, 27, 42, 0.55);
+  backdrop-filter: blur(18px) saturate(140%);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  border-radius: 14px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+  color: #e6edf3;
+  font: 11px/1.4 -apple-system, BlinkMacSystemFont, 'SF Mono', monospace;
+  z-index: 30;
+  user-select: none;
+}
+.godseye-time-machine .gtm-live-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+.godseye-time-machine .gtm-live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #34d399;
+  box-shadow: 0 0 6px #34d399;
+}
+.godseye-time-machine.gtm-scrubbing .gtm-live-dot {
+  background: #ef4444;
+  box-shadow: 0 0 8px #ef4444;
+}
+.godseye-time-machine.gtm-scrubbing .gtm-live-text::before {
+  content: 'SCRUB ';
+}
+.godseye-time-machine .gtm-btn,
+.godseye-time-machine .gtm-pill {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  color: #e6edf3;
+  padding: 4px 10px;
+  border-radius: 8px;
+  font: inherit;
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease;
+}
+.godseye-time-machine .gtm-btn:hover,
+.godseye-time-machine .gtm-pill:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.20);
+}
+.godseye-time-machine .gtm-pill-active {
+  background: rgba(96, 165, 250, 0.25);
+  border-color: rgba(96, 165, 250, 0.60);
+  color: #fff;
+}
+.godseye-time-machine .gtm-slider {
+  flex: 1;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 2px;
+  outline: none;
+}
+.godseye-time-machine .gtm-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #e6edf3;
+  border: 1px solid rgba(13, 27, 42, 0.8);
+  cursor: pointer;
+  box-shadow: 0 0 6px rgba(0, 0, 0, 0.4);
+}
+.godseye-time-machine.gtm-scrubbing .gtm-slider::-webkit-slider-thumb {
+  background: #ef4444;
+}
+.godseye-time-machine .gtm-time-label {
+  font-variant-numeric: tabular-nums;
+  opacity: 0.9;
+  min-width: 64px;
+  text-align: center;
+}
+.godseye-time-machine .gtm-speed-wrap {
+  display: inline-flex;
+  gap: 4px;
+}
