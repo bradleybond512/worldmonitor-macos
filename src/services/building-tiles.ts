@@ -32,11 +32,11 @@ function osmBuildingStyle(): Cesium3DTileStyle {
   return new Cesium3DTileStyle({
     color: {
       conditions: [
-        ['${height} >= 150', "color('rgba(120,160,220,0.92)')"],   // supertall — bright steel blue
-        ['${height} >= 80',  "color('rgba(90,130,195,0.88)')"],    // tall
-        ['${height} >= 40',  "color('rgba(65,100,165,0.84)')"],    // mid-rise
-        ['${height} >= 15',  "color('rgba(50,78,138,0.80)')"],     // low-rise
-        ['true',             "color('rgba(38,58,108,0.76)')"],     // ground-level/short
+        ['defined(${height}) && ${height} >= 150', "color('rgba(120,160,220,0.92)')"],
+        ['defined(${height}) && ${height} >= 80',  "color('rgba(90,130,195,0.88)')"],
+        ['defined(${height}) && ${height} >= 40',  "color('rgba(65,100,165,0.84)')"],
+        ['defined(${height}) && ${height} >= 15',  "color('rgba(50,78,138,0.80)')"],
+        ['true',                                   "color('rgba(38,58,108,0.76)')"],
       ],
     },
   });
