@@ -116,8 +116,16 @@ export async function getCurrentGpsLocation(): Promise<UserLocation> {
           setAt: Date.now(),
         });
       },
-      err => reject(err),
-      { timeout: 10_000, maximumAge: 300_000 }
+      err => {
+        if (err.code === err.PERMISSION_DENIED) {
+          reject(new Error('Location permission denied. Enable in System Settings → Privacy & Security → Location Services.'));
+        } else if (err.code === err.POSITION_UNAVAILABLE) {
+          reject(new Error('Location unavailable. Check that Wi-Fi or GPS is enabled.'));
+        } else {
+          reject(new Error('Location timed out. ' + err.message));
+        }
+      },
+      { enableHighAccuracy: true, timeout: 10_000, maximumAge: 60_000 }
     );
   });
 }

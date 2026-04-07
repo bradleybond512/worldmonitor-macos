@@ -57,7 +57,9 @@ export function showLocationGate(
       } catch (error) {
         gpsBtn.disabled = false;
         gpsBtn.textContent = '\u{1F4CD} Use My Location';
-        statusEl.textContent = error instanceof Error ? error.message : 'Could not detect location';
+        statusEl.textContent = error instanceof Error
+          ? error.message
+          : 'Could not detect location. Check System Settings → Privacy & Security → Location Services.';
         statusEl.style.color = '#ef4444';
       }
     })();

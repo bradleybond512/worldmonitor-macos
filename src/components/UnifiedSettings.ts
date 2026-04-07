@@ -176,7 +176,11 @@ export class UnifiedSettings {
         btn.disabled = true;
         setLocationFromGps()
           .then(() => this.refreshGeneralTab())
-          .catch(() => this.refreshGeneralTab());
+          .catch((err: unknown) => {
+            this.refreshGeneralTab();
+            const msg = err instanceof Error ? err.message : 'Could not detect location.';
+            alert(msg);
+          });
         return;
       }
       if (target.id === 'us-manual-location') {
