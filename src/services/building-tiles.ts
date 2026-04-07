@@ -10,6 +10,7 @@
 
 import {
   Cesium3DTileset,
+  Cesium3DTileStyle,
   type Viewer,
 } from 'cesium';
 import { getRuntimeConfigSnapshot } from '@/services/runtime-config';
@@ -20,6 +21,25 @@ export interface BuildingTileState {
   currentTier: BuildingTier;
   providerName: string;
   tileset: Cesium3DTileset | null;
+}
+
+/**
+ * Height-based gradient for Cesium OSM Buildings.
+ * Taller buildings get a brighter steel-blue to evoke a lit night skyline.
+ * Opacity is intentionally <1 so satellite base imagery shows through slightly.
+ */
+function osmBuildingStyle(): Cesium3DTileStyle {
+  return new Cesium3DTileStyle({
+    color: {
+      conditions: [
+        ['${height} >= 150', "color('rgba(120,160,220,0.92)')"],   // supertall — bright steel blue
+        ['${height} >= 80',  "color('rgba(90,130,195,0.88)')"],    // tall
+        ['${height} >= 40',  "color('rgba(65,100,165,0.84)')"],    // mid-rise
+        ['${height} >= 15',  "color('rgba(50,78,138,0.80)')"],     // low-rise
+        ['true',             "color('rgba(38,58,108,0.76)')"],     // ground-level/short
+      ],
+    },
+  });
 }
 
 const TIER_NAMES: Record<BuildingTier, string> = {
@@ -69,6 +89,7 @@ export class BuildingTileManager {
     if (ionToken) {
       try {
         this.tileset = await Cesium3DTileset.fromIonAssetId(96_188);
+        this.tileset.style = osmBuildingStyle();
         this.viewer.scene.primitives.add(this.tileset);
         this._currentTier = 2;
         return;
@@ -111,6 +132,7 @@ export class BuildingTileManager {
     if (tier === 2) {
       try {
         this.tileset = await Cesium3DTileset.fromIonAssetId(96_188);
+        this.tileset.style = osmBuildingStyle();
         this.viewer.scene.primitives.add(this.tileset);
         this._currentTier = 2;
         return true;
