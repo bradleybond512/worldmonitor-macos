@@ -10,6 +10,9 @@ import { GlobeDataManager } from '@/components/GlobeDataManager';
 import { GlobeHUD } from '@/components/GlobeHUD';
 import { GlobeTimeMachine } from '@/components/GlobeTimeMachine';
 import { AutoFollowEngine } from '@/components/gods-eye/AutoFollowEngine';
+import { GlobePulse } from '@/components/gods-eye/GlobePulse';
+import { GlobeArcs } from '@/components/gods-eye/GlobeArcs';
+import { GlobeHeatmap } from '@/components/gods-eye/GlobeHeatmap';
 import { GlobeReactorBeacons } from '@/components/GlobeReactorBeacons';
 import { FlyModeController } from '@/components/gods-eye/FlyMode/FlyModeController';
 import { BuildingTileManager } from '@/services/building-tiles';
@@ -55,6 +58,9 @@ export class GodsEyeView {
   private timeMachine: GlobeTimeMachine | null = null;
   private autoFollow: AutoFollowEngine | null = null;
   private reactorBeacons: GlobeReactorBeacons | null = null;
+  private globePulse: GlobePulse | null = null;
+  private globeArcs: GlobeArcs | null = null;
+  private globeHeatmap: GlobeHeatmap | null = null;
   private flyMode: FlyModeController | null = null;
   private buildingTiles: BuildingTileManager | null = null;
   private hudTickId: number | null = null;
@@ -118,6 +124,15 @@ export class GodsEyeView {
     if (viewer) {
       this.dataManager = new GlobeDataManager(viewer);
       this.dataManager.initialize();
+      this.globePulse = new GlobePulse(viewer, this.dataManager);
+      this.globePulse.mount();
+      this.cleanupHandlers.push(() => { this.globePulse?.destroy(); this.globePulse = null; });
+      this.globeArcs = new GlobeArcs(viewer, this.dataManager);
+      this.globeArcs.mount();
+      this.cleanupHandlers.push(() => { this.globeArcs?.destroy(); this.globeArcs = null; });
+      this.globeHeatmap = new GlobeHeatmap(viewer, this.container, this.dataManager);
+      this.globeHeatmap.mount();
+      this.cleanupHandlers.push(() => { this.globeHeatmap?.destroy(); this.globeHeatmap = null; });
       this.reactorBeacons = new GlobeReactorBeacons(viewer);
       this.reactorBeacons.mount();
     }
@@ -194,6 +209,8 @@ export class GodsEyeView {
       this.hud?.updateAutoFollowState(null, 0, 0);
     });
     this.hud.setOnScreenshot(() => { void this.takeScreenshot(); });
+    this.hud.setOnArcsToggle((enabled) => this.globeArcs?.setEnabled(enabled));
+    this.hud.setOnHeatmapToggle((enabled) => this.globeHeatmap?.setEnabled(enabled));
 
     // Update HUD at ~10fps
     this.hudTickId = window.setInterval(() => {
