@@ -332,7 +332,7 @@ export class GlobeHUD {
   private buildBuildingsButton(bar: HTMLElement): void {
     const btn = document.createElement('button');
     btn.className = `ge-layer-btn${this.buildingsEnabled ? ' ge-layer-active' : ''}`;
-    btn.title = 'Toggle 3D building tiles';
+    btn.title = 'Toggle 3D buildings (requires GOOGLE_MAPS_API_KEY or CESIUM_ION_TOKEN)';
     const nameSpan = document.createElement('span');
     nameSpan.className = 'ge-layer-name';
     nameSpan.textContent = '3D BLDG';

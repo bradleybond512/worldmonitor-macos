@@ -175,8 +175,13 @@ export class GodsEyeView {
     this.hud.setOnClusterToggle((enabled) => this.dataManager?.setClusteringEnabled(enabled));
     this.hud.setOnTerminatorToggle((enabled) => this.globe?.setLightingEnabled(enabled));
     this.hud.setOnBuildingsToggle((enabled) => {
-      if (enabled) void this.buildingTiles?.initialize();
-      else this.buildingTiles?.destroy();
+      if (enabled) {
+        this.buildingTiles?.initialize().then((loaded) => {
+          if (!loaded) this.hud?.setBuildingsEnabled(false);
+        }).catch(() => { this.hud?.setBuildingsEnabled(false); });
+      } else {
+        this.buildingTiles?.destroy();
+      }
     });
 
     // Update HUD at ~10fps

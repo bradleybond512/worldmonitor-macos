@@ -67,7 +67,8 @@ export class BuildingTileManager {
     return TIER_NAMES[this._currentTier];
   }
 
-  async initialize(): Promise<void> {
+  /** Returns true if any building tier loaded, false if no API keys are configured. */
+  async initialize(): Promise<boolean> {
     // Tier 1: Google Photorealistic 3D Tiles
     const googleKey = getRuntimeConfigSnapshot().secrets.GOOGLE_MAPS_API_KEY?.value;
     if (googleKey) {
@@ -77,7 +78,7 @@ export class BuildingTileManager {
         );
         this.viewer.scene.primitives.add(this.tileset);
         this._currentTier = 1;
-        return;
+        return true;
       } catch (error) {
         // eslint-disable-next-line no-console
         console.warn('[BuildingTiles] Google 3D Tiles failed, trying Cesium OSM:', error);
@@ -92,15 +93,16 @@ export class BuildingTileManager {
         this.tileset.style = osmBuildingStyle();
         this.viewer.scene.primitives.add(this.tileset);
         this._currentTier = 2;
-        return;
+        return true;
       } catch (error) {
         // eslint-disable-next-line no-console
-        console.warn('[BuildingTiles] Cesium OSM Buildings failed, no 3D buildings available:', error);
+        console.warn('[BuildingTiles] Cesium OSM Buildings failed:', error);
       }
     }
 
-    // Tier 4/5: No 3D buildings (Tier 3 I3SDataProvider not available in this Cesium version)
+    // No keys configured — caller should revert toggle state
     this._currentTier = 4;
+    return false;
   }
 
   /** Force a specific tier, loading it fresh if not already active.
