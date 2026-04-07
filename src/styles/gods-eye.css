@@ -205,6 +205,42 @@ body.gods-eye-lock {
   line-height: 1;
 }
 
+/* ── Auto-spin toggle ────────────────────────────── */
+.ge-autospin-btn {
+  font-family: var(--ge-font);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  color: rgba(var(--ge-white), 0.35);
+  background: var(--ge-glass);
+  backdrop-filter: blur(var(--ge-blur));
+  -webkit-backdrop-filter: blur(var(--ge-blur));
+  border: 1px solid rgba(var(--ge-white), 0.08);
+  border-radius: 10px;
+  padding: 6px 12px;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  animation: ge-card-in 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: 0.25s;
+}
+
+.ge-autospin-btn:hover {
+  color: rgba(var(--ge-white), 0.6);
+  border-color: rgba(var(--ge-blue), 0.3);
+}
+
+.ge-autospin-btn.ge-autospin-active {
+  color: rgba(var(--ge-blue), 0.95);
+  border-color: rgba(var(--ge-blue), 0.35);
+  background: rgba(var(--ge-blue), 0.1);
+  box-shadow: 0 0 14px rgba(var(--ge-blue), 0.12);
+}
+
+.ge-autospin-btn.ge-autospin-active:hover {
+  background: rgba(var(--ge-blue), 0.15);
+}
+
 /* ── Theater hint card ───────────────────────────── */
 .ge-hud-hints {
   min-width: 120px;

@@ -56,9 +56,12 @@ export class GodsEyeView {
   private ionToken: string | undefined;
   private cleanupHandlers: (() => void)[] = [];
   private currentMode: AppMode = 'peace';
+  private autoSpinEnabled = false;
 
   constructor(ionToken?: string) {
     this.ionToken = ionToken;
+    const stored = localStorage.getItem('worldmonitor-globe-autospin');
+    this.autoSpinEnabled = stored === 'true';
     this.container = document.createElement('div');
     this.container.className = 'gods-eye-container';
     document.body.append(this.container);
@@ -116,7 +119,7 @@ export class GodsEyeView {
     }
 
     // HUD overlay
-    this.hud = new GlobeHUD(this.container);
+    this.hud = new GlobeHUD(this.container, this.autoSpinEnabled);
     this.hud.setOnExit(() => this.exit());
     this.hud.setOnLayerToggle((key, enabled) => {
       if (key === 'autoFollow') {
@@ -127,6 +130,16 @@ export class GodsEyeView {
       this.dataManager?.setLayerVisible(key, enabled);
     });
     this.hud.setOnAutoFollowSkip(() => this.autoFollow?.skipToNext());
+    this.hud.setOnAutoSpinToggle((enabled) => {
+      this.autoSpinEnabled = enabled;
+      localStorage.setItem('worldmonitor-globe-autospin', enabled ? 'true' : 'false');
+      if (enabled) {
+        this.startIdleOrbitTimer();
+      } else {
+        this.stopOrbit();
+        if (this.idleTimer != null) { clearTimeout(this.idleTimer); this.idleTimer = null; }
+      }
+    });
 
     // Update HUD at ~10fps
     this.hudTickId = window.setInterval(() => {
@@ -214,6 +227,7 @@ export class GodsEyeView {
   // ── Auto-orbit ───────────────────────────────────────
 
   private startIdleOrbitTimer(): void {
+    if (!this.autoSpinEnabled) return;
     if (this.idleTimer != null) clearTimeout(this.idleTimer);
     this.userInteracting = false;
     this.idleTimer = window.setTimeout(() => {
@@ -248,7 +262,7 @@ export class GodsEyeView {
   private onUserInteraction(): void {
     this.userInteracting = true;
     this.stopOrbit();
-    this.startIdleOrbitTimer();
+    if (this.autoSpinEnabled) this.startIdleOrbitTimer();
   }
 
   // ── Click to fly ─────────────────────────────────────

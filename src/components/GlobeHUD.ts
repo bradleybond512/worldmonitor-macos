@@ -47,6 +47,9 @@ export class GlobeHUD {
   private onLayerToggle: ((layerKey: string, enabled: boolean) => void) | null = null;
   private onExit: (() => void) | null = null;
   private onAutoFollowSkip: (() => void) | null = null;
+  private onAutoSpinToggle: ((enabled: boolean) => void) | null = null;
+  private autoSpinEnabled: boolean;
+  private autoSpinBtn: HTMLElement | null = null;
   private clockId: number | null = null;
 
   // Cached DOM refs
@@ -62,7 +65,8 @@ export class GlobeHUD {
   private autoFollowSkipBtn: HTMLElement | null = null;
   private layerCountEls = new Map<string, HTMLElement>();
 
-  constructor(container: HTMLElement) {
+  constructor(container: HTMLElement, autoSpinEnabled = false) {
+    this.autoSpinEnabled = autoSpinEnabled;
     this.layers = loadGodsEyeLayers();
     this.element = document.createElement('div');
     this.element.className = 'gods-eye-hud';
@@ -105,6 +109,18 @@ export class GlobeHUD {
     exitBtn.append(exitIcon, document.createTextNode(' EXIT'));
     exitBtn.addEventListener('click', () => this.onExit?.());
     topRight.append(exitBtn);
+
+    // Auto-spin toggle
+    this.autoSpinBtn = document.createElement('button');
+    this.autoSpinBtn.className = `ge-autospin-btn${this.autoSpinEnabled ? ' ge-autospin-active' : ''}`;
+    this.autoSpinBtn.title = 'Toggle auto-rotate';
+    this.autoSpinBtn.textContent = 'Auto-rotate';
+    this.autoSpinBtn.addEventListener('click', () => {
+      this.autoSpinEnabled = !this.autoSpinEnabled;
+      this.autoSpinBtn!.classList.toggle('ge-autospin-active', this.autoSpinEnabled);
+      this.onAutoSpinToggle?.(this.autoSpinEnabled);
+    });
+    topRight.append(this.autoSpinBtn);
 
     // Theater preset hints
     const hints = this.card('ge-hud-hints');
@@ -290,10 +306,15 @@ export class GlobeHUD {
     this.onExit = cb;
   }
 
+  setOnAutoSpinToggle(cb: (enabled: boolean) => void): void {
+    this.onAutoSpinToggle = cb;
+  }
+
   destroy(): void {
     if (this.clockId != null) clearInterval(this.clockId);
     this.element.remove();
     this.onLayerToggle = null;
     this.onExit = null;
+    this.onAutoSpinToggle = null;
   }
 }
