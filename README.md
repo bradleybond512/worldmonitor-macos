@@ -9,7 +9,7 @@ Tauri 2 + TypeScript + Rust desktop app: 181+ live data panels across 4 product 
 
 <a href="https://github.com/bradleybond512/worldmonitor-macos/releases/latest"><strong>Download Latest Release</strong></a>
 
-<!-- screenshot: God's Eye 3D globe with HUD overlay and active layers -->
+<!-- screenshot: full-app overview — 2D map with active panels -->
 
 ## God's Eye
 
@@ -29,7 +29,7 @@ Full-viewport Cesium.js 3D globe mode. Activate with `G` or the sidebar.
 
 **Imagery:** Bing satellite (Cesium Ion token) → ArcGIS World Imagery fallback.
 
-<!-- screenshot: God's Eye with HUD overlay and active layers -->
+<!-- screenshot: God's Eye 3D globe with HUD overlay and active layers -->
 
 ## Intelligence Coverage
 
@@ -106,7 +106,7 @@ npm run desktop:build:full     # production desktop
 npm run typecheck:all          # zero-error type check
 ```
 
-See [docs/API_KEYS.md](docs/API_KEYS.md) for key setup and [docs/DESKTOP_CONFIGURATION.md](docs/DESKTOP_CONFIGURATION.md) for sidecar config.
+The `happy` variant shares the default dev server (`npm run dev`). See [docs/API_KEYS.md](docs/API_KEYS.md) for key setup and [docs/DESKTOP_CONFIGURATION.md](docs/DESKTOP_CONFIGURATION.md) for sidecar config.
 
 ## Documentation
 
