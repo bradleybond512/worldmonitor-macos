@@ -47,6 +47,8 @@ export class GlobeHUD {
   private onLayerToggle: ((layerKey: string, enabled: boolean) => void) | null = null;
   private onExit: (() => void) | null = null;
   private onAutoFollowSkip: (() => void) | null = null;
+  private onClusterToggle: ((enabled: boolean) => void) | null = null;
+  private clusteringEnabled = true;
   private clockId: number | null = null;
 
   // Cached DOM refs
@@ -125,6 +127,7 @@ export class GlobeHUD {
     const layerBar = document.createElement('div');
     layerBar.className = 'ge-layer-bar';
     layerBar.id = 'geLayerBar';
+    this.buildClusterButton(layerBar);
     this.buildLayerButtons(layerBar);
     bottomCenter.append(layerBar);
     this.element.append(bottomCenter);
@@ -183,6 +186,22 @@ export class GlobeHUD {
     pill.append(labelEl, valueEl);
     parent.append(pill);
     return valueEl;
+  }
+
+  private buildClusterButton(bar: HTMLElement): void {
+    const btn = document.createElement('button');
+    btn.className = `ge-layer-btn${this.clusteringEnabled ? ' ge-layer-active' : ''}`;
+    btn.title = 'Auto-cluster dense event layers';
+    const nameSpan = document.createElement('span');
+    nameSpan.className = 'ge-layer-name';
+    nameSpan.textContent = 'CLUSTER';
+    btn.append(nameSpan);
+    btn.addEventListener('click', () => {
+      this.clusteringEnabled = !this.clusteringEnabled;
+      btn.classList.toggle('ge-layer-active', this.clusteringEnabled);
+      this.onClusterToggle?.(this.clusteringEnabled);
+    });
+    bar.append(btn);
   }
 
   private buildLayerButtons(bar: HTMLElement): void {
@@ -280,6 +299,10 @@ export class GlobeHUD {
 
   setOnLayerToggle(cb: (layerKey: string, enabled: boolean) => void): void {
     this.onLayerToggle = cb;
+  }
+
+  setOnClusterToggle(cb: (enabled: boolean) => void): void {
+    this.onClusterToggle = cb;
   }
 
   setOnAutoFollowSkip(cb: () => void): void {

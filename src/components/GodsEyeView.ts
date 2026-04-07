@@ -135,6 +135,7 @@ export class GodsEyeView {
       this.dataManager?.setLayerVisible(key, enabled);
     });
     this.hud.setOnAutoFollowSkip(() => this.autoFollow?.skipToNext());
+    this.hud.setOnClusterToggle((enabled) => this.dataManager?.setClusteringEnabled(enabled));
 
     // Update HUD at ~10fps
     this.hudTickId = window.setInterval(() => {

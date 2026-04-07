@@ -18,6 +18,7 @@ import {
   type ImageryLayer,
 } from 'cesium';
 
+import { applyClustering } from '@/components/globeClustering';
 import { fetchLightningStrikes } from '@/services/lightning';
 import { fetchRedFlagWarnings } from '@/services/red-flag-warnings';
 import { getRadarTileUrl, fetchRadarFrames } from '@/services/rainviewer-radar';
@@ -244,10 +245,26 @@ interface GlobeLayer {
   loaded: boolean;
 }
 
+// Layers that get auto-clustered at low zoom, keyed by layer name → category color.
+const CLUSTER_LAYERS: Record<string, Color> = {
+  earthquakes: Color.fromCssColorString('#ff8c00'),
+  fires: Color.fromCssColorString('#ff3300'),
+  conflicts: Color.fromCssColorString('#dc143c'),
+  airstrikes: Color.fromCssColorString('#8b0000'),
+  cyber: Color.fromCssColorString('#ff00ff'),
+  flights: Color.fromCssColorString('#00ffff'),
+  vessels: Color.fromCssColorString('#1e90ff'),
+  darkVessels: Color.fromCssColorString('#9400d3'),
+  protests: Color.fromCssColorString('#ffd700'),
+  disease: Color.fromCssColorString('#00ff7f'),
+  lightningStrikes: Color.fromCssColorString('#ffff00'),
+};
+
 export class GlobeDataManager {
   private viewer: Viewer;
   private layers = new Map<string, GlobeLayer>();
   private weatherImageryLayers: ImageryLayer[] = [];
+  private clusterableLayers = new Set<string>();
 
   constructor(viewer: Viewer) {
     this.viewer = viewer;
@@ -304,8 +321,20 @@ export class GlobeDataManager {
     try {
       await layer.load();
       layer.loaded = true;
+      const categoryColor = CLUSTER_LAYERS[name];
+      if (categoryColor) {
+        applyClustering(layer.source, { categoryColor });
+        this.clusterableLayers.add(name);
+      }
     } catch {
       // Non-fatal — other layers continue loading
+    }
+  }
+
+  setClusteringEnabled(enabled: boolean): void {
+    for (const name of this.clusterableLayers) {
+      const layer = this.layers.get(name);
+      if (layer) layer.source.clustering.enabled = enabled;
     }
   }
 
