@@ -136,7 +136,7 @@
   },
   "overrides": {
     "fast-xml-parser": "^5.5.9",
-    "serialize-javascript": "^7.0.3"
+    "serialize-javascript": "^7.0.5"
   },
   "author": "Bradley Bond (https://github.com/bradleybond512)",
   "homepage": "https://github.com/bradleybond512/worldmonitor-macos#readme",
