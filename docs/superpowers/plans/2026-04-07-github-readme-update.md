@@ -1,3 +1,25 @@
+# GitHub README + About Update Implementation Plan
+
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+
+**Goal:** Replace `README.md` with a portfolio-optimized rewrite leading with technical density, then update the GitHub repository About section (description + topics).
+
+**Architecture:** Single file rewrite (`README.md`) plus a `gh` CLI command to update the GitHub repo metadata. No code changes — content and metadata only.
+
+**Tech Stack:** Markdown, `gh` CLI (GitHub CLI), `markdownlint-cli2`
+
+---
+
+### Task 1: Write the new README.md
+
+**Files:**
+- Modify: `README.md` (full rewrite)
+
+- [ ] **Step 1: Overwrite README.md with the new content**
+
+Replace the entire file with:
+
+```markdown
 # World Monitor
 
 Tauri 2 + TypeScript + Rust desktop app: 181+ live data panels across 4 product variants, a Cesium.js/DeckGL 3D globe with 22 geospatial layers, SGP4 orbital propagation in a Web Worker, AI summarization with Ollama/Groq/Claude/OpenRouter fallback chain, Protobuf/Buf contract-driven API layer, OS keychain secret storage, Node.js sidecar proxy on a bearer-authenticated local port, and a PostHog-instrumented Ghost Mode with analytics suppression.
@@ -9,7 +31,7 @@ Tauri 2 + TypeScript + Rust desktop app: 181+ live data panels across 4 product 
 
 <a href="https://github.com/bradleybond512/worldmonitor-macos/releases/latest"><strong>Download Latest Release</strong></a>
 
-<!-- screenshot: full-app overview — 2D map with active panels -->
+<!-- screenshot: God's Eye 3D globe with HUD overlay and active layers -->
 
 ## God's Eye
 
@@ -29,7 +51,7 @@ Full-viewport Cesium.js 3D globe mode. Activate with `G` or the sidebar.
 
 **Imagery:** Bing satellite (Cesium Ion token) → ArcGIS World Imagery fallback.
 
-<!-- screenshot: God's Eye 3D globe with HUD overlay and active layers -->
+<!-- screenshot: God's Eye with HUD overlay and active layers -->
 
 ## Intelligence Coverage
 
@@ -106,7 +128,7 @@ npm run desktop:build:full     # production desktop
 npm run typecheck:all          # zero-error type check
 ```
 
-The `happy` variant shares the default dev server (`npm run dev`). See [docs/API_KEYS.md](docs/API_KEYS.md) for key setup and [docs/DESKTOP_CONFIGURATION.md](docs/DESKTOP_CONFIGURATION.md) for sidecar config.
+See [docs/API_KEYS.md](docs/API_KEYS.md) for key setup and [docs/DESKTOP_CONFIGURATION.md](docs/DESKTOP_CONFIGURATION.md) for sidecar config.
 
 ## Documentation
 
@@ -128,3 +150,121 @@ If you change product behavior, API contracts, or operational workflows, update 
 ## License and Attribution
 
 Licensed under AGPL-3.0-only. This desktop project builds on top of [koala73/worldmonitor](https://github.com/koala73/worldmonitor) by Elie Habib.
+```
+
+- [ ] **Step 2: Run markdown lint**
+
+```bash
+npm run lint:md
+```
+
+Expected: `Summary: 0 error(s)`
+
+If errors appear, they will be in the table formatting or heading structure. Common fix: ensure table header rows have the correct number of columns matching the separator row.
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add README.md
+git commit -m "docs: portfolio-optimized README rewrite
+
+- Lead with dense technical hero paragraph
+- God's Eye as flagship section (HUD, Fly Mode, Time Machine, 22 layers)
+- Intelligence coverage table organized by domain
+- What Makes This Hard: 6 non-trivial engineering challenges
+- Corrected panel count: 181 full (was 134), secret keys: 47 (was 46)
+- Merged duplicate docs tables into one
+
+Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>"
+```
+
+---
+
+### Task 2: Update GitHub About section
+
+**Files:**
+- No file changes — GitHub repository metadata updated via `gh` CLI
+
+**Prerequisites:** `gh` CLI installed and authenticated to `bradleybond512` account.
+Check with: `gh auth status`
+
+- [ ] **Step 1: Verify gh CLI is authenticated**
+
+```bash
+gh auth status
+```
+
+Expected output includes `Logged in to github.com as bradleybond512`.
+
+If not authenticated: `gh auth login` and follow the prompts.
+
+- [ ] **Step 2: Update description and topics**
+
+```bash
+gh repo edit bradleybond512/worldmonitor-macos \
+  --description "Tauri 2 desktop app for real-time geopolitical, weather, cyber, and market intelligence. Cesium.js 3D globe, 181+ live panels, AI fallback chain, local-first secret storage." \
+  --add-topic tauri \
+  --add-topic typescript \
+  --add-topic rust \
+  --add-topic cesiumjs \
+  --add-topic deckgl \
+  --add-topic maplibre \
+  --add-topic geospatial \
+  --add-topic intelligence \
+  --add-topic vite \
+  --add-topic desktop \
+  --add-topic macos \
+  --add-topic real-time \
+  --add-topic satellite-tracking \
+  --add-topic osint
+```
+
+Expected: No error output. Command exits 0.
+
+- [ ] **Step 3: Verify on GitHub**
+
+Open: `https://github.com/bradleybond512/worldmonitor-macos`
+
+Confirm:
+- Description shows in the About box (top-right on the repo page)
+- Topics appear as clickable tags below the description
+
+---
+
+### Task 3: Push branch and open PR
+
+- [ ] **Step 1: Commit the plan file**
+
+```bash
+git add docs/superpowers/plans/2026-04-07-github-readme-update.md
+git commit -m "docs: add implementation plan for README update
+
+Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>"
+```
+
+- [ ] **Step 2: Push the branch**
+
+```bash
+git push macos claude/readme-github-update
+```
+
+- [ ] **Step 2: Open a PR**
+
+```bash
+gh pr create \
+  --repo bradleybond512/worldmonitor-macos \
+  --title "docs: portfolio-optimized README rewrite" \
+  --body "Full rewrite of README.md for maximum technical impact on GitHub.
+
+## Changes
+- Dense technical hero paragraph leading with full stack
+- God's Eye promoted to section 2 (was section 6)
+- Intelligence coverage table organized by domain
+- New 'What Makes This Hard' section: 6 non-trivial engineering challenges explained
+- Corrected stale numbers: 181 full panels (was 134), 47 secret keys (was 46)
+- Merged two duplicate docs tables into one
+- GitHub About: updated description + 14 topics via \`gh repo edit\`" \
+  --base main
+```
+
+Expected: PR URL printed to terminal.
