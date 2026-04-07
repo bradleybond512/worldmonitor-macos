@@ -39,6 +39,7 @@ Panel     DeckGLMap layer
 ## Data Model
 
 ### FAA Camera (from avcams.faa.gov)
+
 ```ts
 interface FAACamera {
   id: string;
@@ -54,6 +55,7 @@ interface FAACamera {
 ```
 
 ### Scored Camera (frontend)
+
 ```ts
 interface ScoredFAACamera extends FAACamera {
   alertProximityMi: number | null;   // null = no nearby alert
@@ -68,20 +70,24 @@ interface ScoredFAACamera extends FAACamera {
 ## Phase 1 — FAA Weather Cams Panel
 
 **New files:**
+
 - `src-tauri/sidecar/local-api-server.mjs` — add `/api/faa-cameras` route
 - `src/services/faa-cameras.ts` — fetch, score, cache
 - `src/components/FAAWeatherCamsPanel.ts` — panel UI
 
 **Sidecar route:** `GET /api/faa-cameras`
+
 - Fetches `https://avcams.faa.gov/api/cameras`
 - Cache TTL: 15 minutes (images refresh every 10 min)
 - Returns `FAACamera[]`
 
 **NWS route extension:** `GET /api/nws-alerts`
+
 - Extend existing route to include `centroid: [lon, lat] | null` from GeoJSON feature geometry
 - Point geometry → use directly; Polygon → bounding-box centroid; null if no geometry
 
 **Panel UI:**
+
 - Sortable table: Camera Name | Location | Alert Proximity | Score | Last Updated
 - Default sort: relevanceScore descending
 - Filters: state dropdown + category toggle + "Alert-proximate only" checkbox
@@ -91,6 +97,7 @@ interface ScoredFAACamera extends FAACamera {
 - Panel header shows digest when ≥2 cameras are alert-proximate (Phase 4)
 
 **Panel registration:**
+
 - Key: `faa-weather-cams`
 - Category: `weather`
 - Default: `enabled: true`, priority 2
@@ -101,11 +108,13 @@ interface ScoredFAACamera extends FAACamera {
 ## Phase 2 — DeckGL Map Layer
 
 **Modified files:**
+
 - `src/types/index.ts` — add `faaWeatherCams: boolean` to `MapLayers`
 - `src/config/panels.ts` — add `faaWeatherCams: true` to `FULL_MAP_LAYERS` (and false for tech/finance/happy)
 - `src/components/DeckGLMap.ts` — new `createFAACamerasLayer()`, state + setter
 
 **Layer behavior:**
+
 - `ScatterplotLayer` at camera lat/lon
 - Peace mode: radius 4px, opacity 0.3, color `[100, 180, 255]`
 - Alert-proximate: radius 8px, opacity 0.85, color `[255, 160, 60]`
@@ -120,11 +129,13 @@ interface ScoredFAACamera extends FAACamera {
 ## Phase 3 — Disaster Mode Integration
 
 **Modified files:**
+
 - `src/services/faa-cameras.ts` — add `getDisasterProximateCameras()`
 - `src/app/data-loader.ts` — call FAA camera scoring when Disaster mode activates
 - `src/components/FAAWeatherCamsPanel.ts` — auto-apply alert filter in Disaster mode
 
 **Behavior:**
+
 - When `AppMode` transitions to `'disaster'`, `data-loader.ts` calls `getDisasterProximateCameras()` with current GDACS events (Orange+Red) and NWS alerts (Extreme/Severe)
 - Panel auto-enables "Alert-proximate only" filter
 - Panel header shows: "N cameras near [Alert Name]"
@@ -136,6 +147,7 @@ interface ScoredFAACamera extends FAACamera {
 ## Phase 4 — AI Features
 
 **AI tier:**
+
 1. **Relevance scoring** — deterministic metadata scoring in `faa-cameras.ts`, no model needed
 2. **On-demand image analysis** — user clicks "Analyze" → sidecar fetches JPEG, base64-encodes, sends to Ollama `/api/generate` with vision model prompt
 3. **Alert digest** — when ≥2 alert-proximate cameras exist, sidecar generates a 2-sentence situational summary
@@ -143,6 +155,7 @@ interface ScoredFAACamera extends FAACamera {
 **New sidecar routes:**
 
 `POST /api/faa-cam-analyze`
+
 - Body: `{ imageUrl: string, cameraName: string, alertLabel: string | null }`
 - Fetches image, base64-encodes, sends to Ollama with prompt:
   `"Describe current weather conditions visible in this camera image in 1-2 sentences. Be concise and factual."`
@@ -150,12 +163,14 @@ interface ScoredFAACamera extends FAACamera {
 - Returns: `{ conditions: string } | { error: string }`
 
 `POST /api/faa-cam-digest`
+
 - Body: `{ cameras: Array<{ name: string, location: string, alertLabel: string }> }`
 - Uses Ollama text model (no vision) with structured prompt
 - Returns: `{ digest: string }` — 2-sentence situational summary
 - Falls back to Claude API if available
 
 **Scoring algorithm (deterministic, Phase 1):**
+
 ```
 relevanceScore = 0
 + 40  if alertProximityMi !== null && alertProximityMi < 50
@@ -166,6 +181,7 @@ relevanceScore = 0
 ```
 
 **Model requirements for Ollama:**
+
 - Vision analysis: any model with `vision` capability (LLaVA, moondream2, llava-phi3)
 - Digest: any text model (llama3, mistral, etc.)
 - Detection: sidecar checks `/api/tags` at Ollama URL, returns `ollamaAvailable: bool, hasVision: bool` in `/api/faa-cam-analyze` error payload so the panel can show appropriate UI

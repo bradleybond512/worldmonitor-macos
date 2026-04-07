@@ -1,10 +1,12 @@
 # WW3 Escalation Enhancement — Implementation Plan
+
 **Date:** 2026-03-31
 **Status:** In Progress
 
 ## Problem
 
 World Monitor has strong raw-event coverage (ACLED, UCDP, GDELT, Telegram OSINT, theater posture) but gaps in:
+
 1. **Authoritative conflict analysis** — events without expert interpretation
 2. **Multi-government consensus signals** — no single-country advisory has the weight of 3 govts simultaneously upgrading a warning
 3. **Nuclear test detection** — USGS alone covers one sensor network; CTBTO is not public
@@ -13,6 +15,7 @@ World Monitor has strong raw-event coverage (ACLED, UCDP, GDELT, Telegram OSINT,
 ## Sources to Integrate (all free, no API keys)
 
 ### Phase 1 — Conflict Analysis Layer
+
 | Source | Endpoint | Value |
 |---|---|---|
 | ISW (Inst. for the Study of War) | `https://www.understandingwar.org/feed` (RSS) | Daily situation reports — gold standard for Ukraine/Russia, Gaza, Sudan |
@@ -20,11 +23,13 @@ World Monitor has strong raw-event coverage (ACLED, UCDP, GDELT, Telegram OSINT,
 | Bellingcat | `https://www.bellingcat.com/feed/` (RSS) | Covert military movement OSINT, equipment losses, war crimes |
 
 ### Phase 2 — Nuclear Test Detection
+
 | Source | Endpoint | Value |
 |---|---|---|
 | EMSC Seismic | `https://www.seismicportal.eu/fdsnws/event/1/query` (JSON) | Independent European sensor network; cross-reference at known test sites |
 
 **Test site proximity logic** (implemented in sidecar):
+
 - Punggye-ri, NK: 41.27°N, 129.08°E — 50km radius
 - Novaya Zemlya, RU: 73.4°N, 54.9°E — 100km radius
 - Lop Nor, CN: 41.0°N, 88.4°E — 50km radius
@@ -33,6 +38,7 @@ World Monitor has strong raw-event coverage (ACLED, UCDP, GDELT, Telegram OSINT,
 Any M≥4.0 event within these radii at depth ≤20km flagged as `suspectedNuclearTest: true`.
 
 ### Phase 3 — Multi-Government Consensus Signal
+
 | Source | Endpoint | Value |
 |---|---|---|
 | UK FCDO | `https://www.gov.uk/foreign-travel-advice.atom` | Level 1-4 travel warnings for all countries |
@@ -42,6 +48,7 @@ Any M≥4.0 event within these radii at depth ≤20km flagged as `suspectedNucle
 **Convergence logic**: When 2+ governments have warnings for the same country that changed within 7 days, emit a `govConsensusAlert` with escalation delta.
 
 ### Phase 4 — Official Military & Diplomatic Feeds
+
 | Source | Endpoint | Value |
 |---|---|---|
 | US DoD News | `https://www.defense.gov/News/RSS/` | Pentagon press releases — deployments, exercises, posture shifts |

@@ -33,6 +33,7 @@
 ### Task 1: Extend `/api/nws-alerts` to include centroid
 
 **Files:**
+
 - Modify: `src-tauri/sidecar/local-api-server.mjs` (around line 1838–1852)
 
 The NWS route fetches GeoJSON but currently strips all geometry. We need each alert's centroid so the service can compute camera proximity.
@@ -137,6 +138,7 @@ Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>"
 ### Task 2: Add `/api/faa-cameras` sidecar route
 
 **Files:**
+
 - Modify: `src-tauri/sidecar/local-api-server.mjs`
 
 - [ ] **Step 1: Add the route after the existing `/api/nws-alerts` block**
@@ -201,6 +203,7 @@ Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>"
 ### Task 3: Create `src/services/faa-cameras.ts`
 
 **Files:**
+
 - Create: `src/services/faa-cameras.ts`
 
 - [ ] **Step 1: Write the service file**
@@ -345,6 +348,7 @@ Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>"
 ### Task 4: Create `FAAWeatherCamsPanel.ts`
 
 **Files:**
+
 - Create: `src/components/FAAWeatherCamsPanel.ts`
 - Modify: `src/components/index.ts`
 
@@ -611,6 +615,7 @@ Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>"
 ### Task 5: Register panel in config and layout
 
 **Files:**
+
 - Modify: `src/config/panels.ts`
 - Modify: `src/app/panel-layout.ts`
 
@@ -663,6 +668,7 @@ Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>"
 ### Task 6: Add `faaWeatherCams` to MapLayers type and all configs
 
 **Files:**
+
 - Modify: `src/types/index.ts`
 - Modify: `src/config/panels.ts`
 
@@ -719,6 +725,7 @@ Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>"
 ### Task 7: Add FAA camera layer to DeckGLMap
 
 **Files:**
+
 - Modify: `src/components/DeckGLMap.ts`
 
 - [ ] **Step 1: Add import and private state**
@@ -849,6 +856,7 @@ Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>"
 ### Task 8: Wire FAA cameras into data-loader
 
 **Files:**
+
 - Modify: `src/app/data-loader.ts`
 
 - [ ] **Step 1: Add imports**
@@ -902,6 +910,7 @@ Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>"
 ### Task 9: Auto-surface cameras on Disaster mode activation
 
 **Files:**
+
 - Modify: `src/app/data-loader.ts`
 
 - [ ] **Step 1: Add disaster-mode import**
@@ -960,6 +969,7 @@ Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>"
 ### Task 10: Add `/api/faa-cam-analyze` and `/api/faa-cam-digest` sidecar routes
 
 **Files:**
+
 - Modify: `src-tauri/sidecar/local-api-server.mjs`
 
 **Important:** Before writing these routes, check how existing routes access secrets (e.g. `context.secrets?.OLLAMA_API_URL` vs a `getSecret()` helper). Use the same pattern.
@@ -1142,6 +1152,7 @@ Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>"
 ### Task 11: Fetch digest from data-loader when cameras are alert-proximate
 
 **Files:**
+
 - Modify: `src/app/data-loader.ts`
 
 - [ ] **Step 1: Add digest fetch after camera scoring**
@@ -1198,6 +1209,7 @@ Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>"
 ### Task 12: CSP and final build check
 
 **Files:**
+
 - Verify: `src-tauri/tauri.conf.json` (img-src CSP)
 
 - [ ] **Step 1: Check existing img-src CSP**
@@ -1236,6 +1248,7 @@ Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>"
 ## Self-Review
 
 **Spec coverage:**
+
 - Phase 1 panel: Tasks 1–5 ✓
 - Phase 2 map layer: Tasks 6–8 ✓
 - Phase 3 disaster mode: Task 9 ✓
@@ -1250,6 +1263,7 @@ Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>"
 **Type consistency:** `ScoredFAACamera` defined in Task 3, used in Tasks 4, 7, 8, 9. `FAACamera` defined in Task 3, used in Tasks 2, 3. `NWSAlert.centroid` added in Task 1, consumed in Task 3. All setters (`setFAACameras`, `setDisasterMode`, `setDigest`) defined before they are called. ✓
 
 **Known unknowns to resolve at implementation time:**
+
 - Exact secrets access pattern in the sidecar (Task 10, Step 1 covers this)
 - Exact pattern for panel instance access in `data-loader.ts` (Task 8, Step 2 note covers this)
 - FAA API exact response shape (Task 2 defensively handles multiple field name variants)

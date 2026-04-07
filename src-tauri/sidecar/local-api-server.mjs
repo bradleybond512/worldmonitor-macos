@@ -18,7 +18,20 @@ const AisWebSocket = WebSocket;
 const SIDECAR_TRACE = process.env.WM_TRACE === '1';
 const SIDECAR_BUILD_TAG = process.env.WM_BUILD_TAG || `node-${process.versions.node}`;
 const SIDECAR_START_MS = Date.now();
+const wmHostStats = new Map(); // host → { ok, fail, lastStatus, lastOkAt, lastFailAt, lastError }
+const WM_HOST_STATS_CAP = 100;
 const wmHostFailures = new Map(); // host → { count, lastError, lastAt }
+const EXPECTED_API_KEYS = [
+  'ACLED_ACCESS_TOKEN', 'ACLED_EMAIL', 'FRED_API_KEY', 'EIA_API_KEY',
+  'NEWSDATA_API_KEY', 'NASA_API_KEY', 'NASA_FIRMS_API_KEY',
+  'OWM_API_KEY', 'FINNHUB_API_KEY', 'NEWSAPI_KEY', 'AVIATIONSTACK_API',
+  'OPENSKY_CLIENT_ID', 'OPENSKY_CLIENT_SECRET', 'AISSTREAM_API_KEY',
+  'CESIUM_ION_TOKEN', 'GROQ_API_KEY', 'OPENROUTER_API_KEY',
+  'GEONAMES_USERNAME', 'THREATFOX_API_KEY', 'URLHAUS_AUTH_KEY',
+  'OTX_API_KEY', 'ABUSEIPDB_API_KEY', 'VIRUSTOTAL_API_KEY',
+  'SHODAN_API_KEY', 'GREYNOISE_API_KEY', 'URLSCAN_API_KEY',
+  'ANTHROPIC_API_KEY',
+];
 
 function wmTimestamp() {
   return new Date().toISOString();
@@ -52,12 +65,45 @@ process.on('exit', (code) => { console.log(`[sidecar] process exit code=${code} 
 
 console.log(`[sidecar] starting pid=${process.pid} node=${process.versions.node} build=${SIDECAR_BUILD_TAG} trace=${SIDECAR_TRACE}`);
 
+function wmRecordHostCall(host, ok, status, errorMsg) {
+  let entry = wmHostStats.get(host);
+  if (!entry) {
+    if (wmHostStats.size >= WM_HOST_STATS_CAP) {
+      let oldestKey = null;
+      let oldestTs = Infinity;
+      for (const [k, v] of wmHostStats) {
+        const ts = Math.max(v.lastOkAt, v.lastFailAt);
+        if (ts < oldestTs) { oldestTs = ts; oldestKey = k; }
+      }
+      if (oldestKey) wmHostStats.delete(oldestKey);
+    }
+    entry = { ok: 0, fail: 0, lastStatus: 0, lastOkAt: 0, lastFailAt: 0, lastError: '' };
+  }
+  if (ok) {
+    entry.ok += 1;
+    entry.lastOkAt = Date.now();
+  } else {
+    entry.fail += 1;
+    entry.lastFailAt = Date.now();
+    entry.lastError = String(errorMsg || '').slice(0, 200);
+  }
+  entry.lastStatus = status;
+  wmHostStats.set(host, entry);
+}
+
 function wmRecordHostFailure(host, errorMsg) {
   const entry = wmHostFailures.get(host) || { count: 0, lastError: '', lastAt: 0 };
   entry.count += 1;
   entry.lastError = String(errorMsg).slice(0, 200);
   entry.lastAt = Date.now();
   wmHostFailures.set(host, entry);
+}
+
+function wmMissingKeys() {
+  return EXPECTED_API_KEYS.filter((k) => {
+    const v = process.env[k];
+    return !v || !v.trim();
+  });
 }
 
 const brotliCompressAsync = promisify(brotliCompress);
@@ -284,6 +330,30 @@ globalThis.fetch = async function ipv4Fetch(input, init) {
     if (body != undefined) req.write(body);
     req.end();
   });
+};
+
+// Wrap fetch AFTER the ipv4Fetch patch so we instrument its entry point.
+// Skips loopback (sidecar-internal) calls since those would drown the real signal.
+const wmUpstreamFetch = globalThis.fetch;
+globalThis.fetch = async function wmInstrumentedFetch(input, init) {
+  let host = '';
+  try {
+    const url = typeof input === 'string' ? input : (input && input.url) || '';
+    host = new URL(url).host;
+  } catch { /* relative or opaque — skip */ }
+
+  if (!host || host.startsWith('127.0.0.1') || host.startsWith('localhost')) {
+    return wmUpstreamFetch(input, init);
+  }
+
+  try {
+    const res = await wmUpstreamFetch(input, init);
+    wmRecordHostCall(host, res.ok, res.status, res.ok ? '' : `HTTP ${res.status}`);
+    return res;
+  } catch (error) {
+    wmRecordHostCall(host, false, 0, error?.message || String(error));
+    throw error;
+  }
 };
 
 const ALLOWED_ENV_KEYS = new Set([
@@ -5847,7 +5917,9 @@ export async function createLocalApiServer(options = {}) {
           vessels: aisState.vessels.size,
           messages: aisState.messageCount,
         },
+        host_stats: Object.fromEntries(wmHostStats),
         host_failures: Object.fromEntries(wmHostFailures),
+        missing_keys: wmMissingKeys(),
       }, null, 2));
       return;
     }

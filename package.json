@@ -5,6 +5,7 @@
   "license": "AGPL-3.0-only",
   "type": "module",
   "scripts": {
+    "postinstall": "node scripts/patch-satellite-js.mjs",
     "prepare": "node scripts/install-git-hooks.mjs",
     "lint:md": "markdownlint-cli2 '**/*.md' '!.agent/**' '!.agents/**' '!.claude/**' '!.claude.local.md' '!CLAUDE.md' '!.factory/**' '!.windsurf/**' '!skills/**' '!docs/internal/**' '!docs/Docs_To_Review/**' '!docs/superpowers/**' '!research/**'",
     "lint:json": "node scripts/lint-json.mjs",
@@ -106,6 +107,7 @@
     "@deck.gl/geo-layers": "^9.2.11",
     "@deck.gl/layers": "^9.2.6",
     "@deck.gl/mapbox": "^9.2.6",
+    "@deck.gl/mesh-layers": "^9.2.11",
     "@sentry/browser": "^10.39.0",
     "@types/three": "^0.183.1",
     "@upstash/ratelimit": "^2.0.8",
@@ -125,6 +127,7 @@
     "onnxruntime-web": "^1.24.3",
     "papaparse": "^5.5.3",
     "posthog-js": "^1.360.2",
+    "satellite.js": "^7.0.0",
     "telegram": "^2.26.22",
     "three": "^0.183.2",
     "topojson-client": "^3.1.0",
@@ -133,7 +136,7 @@
   },
   "overrides": {
     "fast-xml-parser": "^5.5.9",
-    "serialize-javascript": "^7.0.3"
+    "serialize-javascript": "^7.0.5"
   },
   "author": "Bradley Bond (https://github.com/bradleybond512)",
   "homepage": "https://github.com/bradleybond512/worldmonitor-macos#readme",

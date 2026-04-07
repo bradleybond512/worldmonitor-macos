@@ -1,4 +1,5 @@
 # PizzINT — Pentagon Pizza Index Design Spec
+
 **Date:** 2026-03-30
 **Status:** Approved
 
@@ -26,9 +27,11 @@ The `PizzIntIndicator` component, data-loader wiring, App.ts setup, and all type
 Add two routes using the existing `CHROME_UA` constant (already defined at line ~252):
 
 ### `GET /api/pizzint/dashboard`
+
 Proxies `https://www.pizzint.watch/api/dashboard-data` with `User-Agent: CHROME_UA` and `Accept: application/json`. Returns raw JSON response as-is. On non-2xx, returns `{ success: false, data: [] }` with the upstream status code forwarded.
 
 ### `GET /api/pizzint/gdelt`
+
 Proxies `https://www.pizzint.watch/api/gdelt/batch?pairs=usa_russia,russia_ukraine,usa_china,china_taiwan,usa_iran,usa_venezuela` with `User-Agent: CHROME_UA` and `Accept: application/json`. Returns raw JSON as-is. On error, returns `[]`.
 
 Both routes use `getApiBaseUrl()` is not applicable (these are sidecar-internal routes). Standard error handling: catch fetch errors, log to console, return safe fallback.

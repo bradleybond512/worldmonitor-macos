@@ -25,6 +25,7 @@
 ### Task 1: Add `UpdateState` type and field to AppContext
 
 **Files:**
+
 - Modify: `src/app/app-context.ts`
 - Modify: `src/App.ts`
 
@@ -95,6 +96,7 @@ Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>"
 ### Task 2: Wire DesktopUpdater to write updateState and emit events
 
 **Files:**
+
 - Modify: `src/app/desktop-updater.ts`
 
 - [ ] **Step 1: Update the import to include UpdateState**
@@ -218,6 +220,7 @@ Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>"
 ### Task 3: Add CSS for the three update button states
 
 **Files:**
+
 - Modify: `src/styles/macos-native.css`
 
 - [ ] **Step 1: Add three new rule blocks after `.mac-sidebar-version`**
@@ -281,6 +284,7 @@ Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>"
 ### Task 4: Wire the sidebar button in PanelLayoutManager
 
 **Files:**
+
 - Modify: `src/app/panel-layout.ts`
 
 `escapeHtml` is already imported from `@/utils/sanitize` at line 87. `invokeTauri` needs to be checked.
@@ -428,6 +432,7 @@ The sidebar footer should show plain `v2.8.0` while the update check is still pe
 - [ ] **Step 3: Verify post-check state (~5 seconds after launch)**
 
 One of:
+
 - `v2.8.0 ✓` muted — already on latest
 - `v2.8.0 → vX.Y.Z` blue pill button — update available
 

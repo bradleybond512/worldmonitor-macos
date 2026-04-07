@@ -154,13 +154,13 @@ export const DEFAULT_GODS_EYE_LAYERS: GodsEyeLayers = {
     enabled: false,
     description: 'Critical mineral projects — lithium, cobalt, rare earth',
   },
-  // ── Future / Aesthetic ──
   satellites: {
-    name: 'Satellite Tracking',
-    category: 'spatial',
-    enabled: false,
-    description: 'Real-time satellite positions and orbital paths',
+    name: 'Satellites',
+    category: 'intelligence',
+    enabled: true,
+    description: 'Real-time orbital positions for active satellites and space stations',
   },
+  // ── Future / Aesthetic ──
   terrain: {
     name: '3D Terrain',
     category: 'spatial',
@@ -169,9 +169,15 @@ export const DEFAULT_GODS_EYE_LAYERS: GodsEyeLayers = {
   },
   buildings: {
     name: '3D Buildings',
-    category: 'spatial',
+    category: 'aesthetic',
     enabled: false,
     description: 'Google Photorealistic 3D Tiles / OSM Buildings',
+  },
+  aircraft3d: {
+    name: '3D Aircraft',
+    category: 'spatial',
+    enabled: false,
+    description: 'Detailed glTF aircraft models at real altitude with heading',
   },
   rfCoverage: {
     name: 'RF/SIGINT',

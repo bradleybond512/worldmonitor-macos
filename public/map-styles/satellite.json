@@ -5,20 +5,20 @@
     "esri-satellite": {
       "type": "raster",
       "tiles": [
-        "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+        "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/BlueMarble_NextGeneration/default/500m/{z}/{y}/{x}.jpeg"
       ],
       "tileSize": 256,
-      "maxzoom": 19,
-      "attribution": "Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community"
+      "maxzoom": 8,
+      "attribution": "Imagery &copy; NASA EOSDIS GIBS / Blue Marble Next Generation"
     },
     "esri-labels": {
       "type": "raster",
       "tiles": [
-        "https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}"
+        "https://cartodb-basemaps-a.global.ssl.fastly.net/rastertiles/voyager_only_labels/{z}/{x}/{y}.png"
       ],
       "tileSize": 256,
       "maxzoom": 19,
-      "attribution": "Labels &copy; Esri"
+      "attribution": "Labels &copy; CARTO &mdash; OpenStreetMap contributors"
     }
   },
   "layers": [

@@ -3,7 +3,6 @@ import {
   IonImageryProvider,
   ImageryLayer,
   UrlTemplateImageryProvider,
-  Terrain,
   SceneMode,
   Color,
   type Scene,
@@ -42,7 +41,9 @@ export class CesiumGlobe {
       animation: false,
       baseLayerPicker: false,
       baseLayer: false,
-      terrain: hasToken ? Terrain.fromWorldTerrain() : undefined,
+      // Terrain disabled — was implicated in pink-globe bug alongside HDR.
+      // Re-enable with Terrain.fromWorldTerrain() once the root cause is confirmed.
+      terrain: undefined,
       fullscreenButton: false,
       geocoder: false,
       homeButton: false,
@@ -103,7 +104,8 @@ export class CesiumGlobe {
     scene.postProcessStages.fxaa.enabled = true;
     scene.postProcessStages.bloom.enabled = false;
     scene.postProcessStages.ambientOcclusion.enabled = false;
-    scene.highDynamicRange = true;
+    // HDR causes pink globe on some Mac GPUs — keep disabled.
+    scene.highDynamicRange = false;
 
     // ── Camera Controls ────────────────────────────────
     const controller = scene.screenSpaceCameraController;
@@ -111,7 +113,8 @@ export class CesiumGlobe {
     controller.enableRotate = true;
     controller.enableTilt = true;
     controller.enableLook = true;
-    controller.minimumZoomDistance = 250;
+    // 1500m floor — below this, terrain + imagery render breaks to pink on Mac GPUs.
+    controller.minimumZoomDistance = 1500;
     controller.maximumZoomDistance = 5e7;
 
     // ── Imagery Layers ─────────────────────────────────
@@ -130,6 +133,62 @@ export class CesiumGlobe {
       this.addFallbackImagery('post-init-safety');
     }
 
+    // ── Pink-Globe Pixel Sentinel ──────────────────────────
+    // 3 s after init, sample a pixel near the globe's center. If it's in the
+    // hot-magenta range, log diagnostics and force ArcGIS fallback so the user
+    // sees something rather than a pink sphere. Next session we'll have the data.
+    setTimeout(() => {
+      if (!this.viewer) return;
+      const sentinelCanvas = this.viewer.canvas;
+      const w = sentinelCanvas.width, h = sentinelCanvas.height;
+      const gl = sentinelCanvas.getContext('webgl2') ?? sentinelCanvas.getContext('webgl');
+      if (!gl) return;
+      const px = new Uint8Array(4);
+      try {
+        // Sample at ~1/3 from top, center — likely to hit globe, not space
+        gl.readPixels(Math.floor(w / 2), Math.floor(h * 2 / 3), 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px);
+        const r = px[0] ?? 0, g = px[1] ?? 0, b = px[2] ?? 0;
+        if (r > 200 && g < 80 && b > 150) {
+          const layerCount = this.viewer.imageryLayers.length;
+          this.log('ERROR', `[globe] pink-globe detected via pixel sample rgb=(${r},${g},${b}) — ionToken=${hasToken} terrain=false layers=${layerCount} — forcing ArcGIS fallback`);
+          this.addFallbackImagery('pixel-sentinel');
+        } else {
+          this.log('INFO', `[globe] pixel sample ok rgb=(${r},${g},${b})`);
+        }
+      } catch (error) {
+        this.log('WARN', `[globe] pixel sentinel readPixels failed: ${String(error)}`);
+      }
+    }, 3000);
+
+    // ── Pink-Globe Camera moveEnd Sentinel ────────────────
+    // Sample a pixel after each camera move to catch pink-screen at close zoom.
+    // Debounced to at most once per 500ms so it doesn't spam on continuous scrolling.
+    let moveEndDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+    this.viewer.camera.moveEnd.addEventListener(() => {
+      if (!this.viewer) return;
+      if (moveEndDebounceTimer !== null) return;
+      moveEndDebounceTimer = setTimeout(() => {
+        moveEndDebounceTimer = null;
+        if (!this.viewer) return;
+        const height = this.viewer.camera.positionCartographic?.height ?? -1;
+        const moveCanvas = this.viewer.canvas;
+        const mw = moveCanvas.width, mh = moveCanvas.height;
+        const mgl = moveCanvas.getContext('webgl2') ?? moveCanvas.getContext('webgl');
+        if (!mgl) return;
+        const mpx = new Uint8Array(4);
+        try {
+          mgl.readPixels(Math.floor(mw / 2), Math.floor(mh * 2 / 3), 1, 1, mgl.RGBA, mgl.UNSIGNED_BYTE, mpx);
+          const r = mpx[0] ?? 0, g = mpx[1] ?? 0, b = mpx[2] ?? 0;
+          if (r > 200 && g < 80 && b > 150) {
+            this.log('ERROR', `[globe] pink detected after camera move height=${Math.round(height)}m rgb=(${r},${g},${b}) — forcing ArcGIS fallback`);
+            this.addFallbackImagery('moveend-pink-sentinel');
+          }
+        } catch (error) {
+          this.log('WARN', `[globe] moveEnd pixel sentinel readPixels failed: ${String(error)}`);
+        }
+      }, 500);
+    });
+
     // ── Resize Observer ────────────────────────────────
     this.resizeObserver = new ResizeObserver(() => {
       this.viewer?.resize();
@@ -137,13 +196,23 @@ export class CesiumGlobe {
     this.resizeObserver.observe(this.container);
 
     // ── WebGL context loss handlers ────────────────────
+    // macOS reclaims GPU resources from background apps; without these,
+    // a context loss looks identical to an app crash (black globe).
     const canvas = this.viewer.canvas;
     canvas.addEventListener('webglcontextlost', (e) => {
       e.preventDefault();
       this.log('WARN', 'CesiumGlobe webglcontextlost — GPU context dropped');
     }, false);
     canvas.addEventListener('webglcontextrestored', () => {
-      this.log('INFO', 'CesiumGlobe webglcontextrestored — re-rendering');
+      this.log('INFO', 'CesiumGlobe webglcontextrestored — reloading imagery layers');
+      // Re-add imagery layers — textures are lost on context restore.
+      const layers = this.viewer?.imageryLayers;
+      if (layers && layers.length > 0) {
+        const existing: ImageryLayer[] = [];
+        for (let i = 0; i < layers.length; i++) existing.push(layers.get(i));
+        layers.removeAll(false);
+        for (const l of existing) layers.add(l);
+      }
       this.viewer?.scene.requestRender();
     }, false);
   }
@@ -256,6 +325,22 @@ export class CesiumGlobe {
 
   get canvas(): HTMLCanvasElement | undefined {
     return this.viewer?.canvas;
+  }
+
+  setLightingEnabled(enabled: boolean): void {
+    const scene = this.viewer?.scene;
+    if (!scene) return;
+    scene.globe.enableLighting = enabled;
+    scene.globe.dynamicAtmosphereLighting = enabled;
+    scene.globe.dynamicAtmosphereLightingFromSun = enabled;
+    if (scene.skyAtmosphere) {
+      scene.skyAtmosphere.brightnessShift = enabled ? 0 : -0.05;
+    }
+    scene.requestRender();
+  }
+
+  getLightingEnabled(): boolean {
+    return this.viewer?.scene.globe.enableLighting ?? false;
   }
 
   destroy(): void {

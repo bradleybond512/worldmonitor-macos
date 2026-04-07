@@ -70,7 +70,15 @@ The UI combines MapLibre GL and deck.gl for a globe-style monitoring experience,
 
 ### 6. God's Eye 3D globe
 
-A full-viewport Cesium.js 3D globe mode with 22 data layers rendered as billboard icons over Bing satellite imagery. Includes military bases, nuclear facilities, earthquakes, conflicts, cyclones, fires, vessels, flights, cyber threats, and more. Activated via the sidebar or keyboard shortcut `G`. Requires a free Cesium Ion token for satellite imagery; falls back to ArcGIS World Imagery without one. See [docs/API_KEYS.md](docs/API_KEYS.md) for setup.
+A full-viewport Cesium.js 3D globe mode with 22 data layers rendered as billboard icons over Bing satellite imagery. Includes military bases, nuclear facilities, earthquakes, conflicts, cyclones, fires, vessels, flights, cyber threats, and more. Activated via the sidebar or keyboard shortcut `G`. Requires a free Cesium Ion token for satellite imagery; falls back to ArcGIS World Imagery without one.
+
+**3D immersive features added in this release:**
+
+- **Photorealistic 3D buildings**: 5-tier fallback chain — Google Photorealistic tiles → Cesium OSM Buildings → 2D map extrusions → flat. Extrusions on the 2D map require no API key; photorealistic tiles need `GOOGLE_MAPS_API_KEY`.
+- **3D aircraft models**: Aircraft rendered as 3D meshes (GLTF/GLB) on both the 2D DeckGL map and the God's Eye globe. Works without any API key — models are bundled locally.
+- **Real-time satellite tracking**: Live orbital positions for ISS, Starlink, weather satellites, and more via CelesTrak TLE data. SGP4 propagation runs in a Web Worker so it never blocks the UI. No API key required.
+
+See [docs/API_KEYS.md](docs/API_KEYS.md) for setup and [docs/DESKTOP_CONFIGURATION.md](docs/DESKTOP_CONFIGURATION.md) for degradation behavior.
 
 ### 7. Comprehensive weather intelligence
 

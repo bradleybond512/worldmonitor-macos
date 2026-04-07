@@ -42,6 +42,9 @@ import { EventHandlerManager } from '@/app/event-handlers';
 import { resolveUserRegion } from '@/utils/user-location';
 import type { GodsEyeView } from '@/components/GodsEyeView';
 import { getRuntimeConfigSnapshot } from '@/services/runtime-config';
+import { startNotificationRouter } from '@/services/notification-router';
+
+export let cyberReactorUnsubscribe: (() => void) | null = null;
 
 const CYBER_LAYER_ENABLED = import.meta.env.VITE_ENABLE_CYBER_LAYER === 'true';
 const CRITICAL_PRIORITY_PANELS: Record<string, string[]> = {
@@ -346,6 +349,7 @@ export class App {
     }
     await initDB();
     await initI18n();
+    cyberReactorUnsubscribe = startNotificationRouter();
     const aiFlow = getAiFlowSettings();
     if (aiFlow.browserModel || isDesktopRuntime()) {
       await mlWorker.init();

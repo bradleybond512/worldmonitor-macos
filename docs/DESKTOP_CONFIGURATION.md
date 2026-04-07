@@ -18,7 +18,7 @@ The desktop vault schema is defined by Rust `SUPPORTED_SECRET_KEYS` in `src-taur
 
 **Geo & Infrastructure:** `GEONAMES_USERNAME`, `IPINFO_TOKEN`, `BGPVIEW_API_KEY`, `CLOUDFLARE_API_TOKEN`, `NASA_API_KEY`, `UC_DP_KEY`
 
-**Mapping:** `CESIUM_ION_TOKEN`, `OWM_API_KEY`
+**Mapping:** `CESIUM_ION_TOKEN`, `OWM_API_KEY`, `GOOGLE_MAPS_API_KEY`
 
 ## Feature Availability Model
 
@@ -50,6 +50,27 @@ When secrets are missing or disabled, the desktop app degrades feature-by-featur
 - Aviation and live tracking: `WINGBITS_API_KEY`, `AVIATIONSTACK_API`, `ICAO_API_KEY`, `AISSTREAM_API_KEY`, `WS_RELAY_URL`, `VITE_WS_RELAY_URL`, `VITE_OPENSKY_RELAY_URL`, `OPENSKY_CLIENT_ID`, and `OPENSKY_CLIENT_SECRET` gate enrichment and relay-backed transport features.
 - Trade and institutional data: `WTO_API_KEY` gates WTO-backed trade policy enrichment.
 - Weather map tile overlays: `OWM_API_KEY` gates OpenWeatherMap temperature, precipitation, cloud, wind, and pressure tile layers. Free weather features (radar, lightning, satellite imagery, forecasts, tides, pollen, red flag warnings) work without any key.
+
+## 3D Feature Degradation
+
+The 3D immersive features degrade gracefully based on available keys:
+
+**3D Buildings**
+
+| Tier | Requirement | Behavior |
+|------|-------------|----------|
+| 1 | `GOOGLE_MAPS_API_KEY` | Photorealistic 3D building tiles on God's Eye globe |
+| 2 | `CESIUM_ION_TOKEN` (no Google key) | Cesium OSM Buildings on God's Eye globe |
+| 3 | Neither key | 2D map building extrusions only (zoom 14+) |
+| 4 | Extrusions disabled | Flat map, no building geometry |
+
+**3D Aircraft**
+
+No API key required. Aircraft are rendered as 3D meshes using locally bundled GLTF models on both the 2D DeckGL map and the God's Eye globe. Mesh rendering is limited to 200 aircraft instances for performance.
+
+**Satellite Tracking**
+
+No API key required. TLE data is fetched from CelesTrak (free, no registration). SGP4 propagation runs in a Web Worker. At low zoom levels, rendering is limited to notable satellites (~200) to maintain frame rate. At high zoom, all tracked satellites are visible.
 
 ## Related Docs
 
