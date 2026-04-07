@@ -1,5 +1,8 @@
 # World Monitor
 
+*** Disclaimer *** This is heavily a work in progress and constantly under construction right now. It is rapidly improving but could see degradation temporalily. 
+
+
 [![Version](https://img.shields.io/github/v/release/bradleybond512/worldmonitor-macos?label=version)](https://github.com/bradleybond512/worldmonitor-macos/releases/latest)
 <a href="https://github.com/bradleybond512/worldmonitor-macos/releases/latest"><strong>Download Latest Release</strong></a>
 
