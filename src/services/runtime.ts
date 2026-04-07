@@ -64,10 +64,10 @@ export function detectDesktopRuntime(probe: RuntimeProbe): boolean {
   const tauriLikeLocation = (
     probe.locationProtocol === 'tauri:' ||
     probe.locationProtocol === 'asset:' ||
-    /* eslint-disable no-restricted-syntax -- intentional: Tauri IPC origins; these must remain as-is */
+     
     probe.locationHost === 'tauri.localhost' ||
     probe.locationHost.endsWith('.tauri.localhost') ||
-    /* eslint-enable no-restricted-syntax */
+     
     probe.locationOrigin.startsWith('tauri://') ||
     secureLocalhostOrigin
   );
@@ -143,7 +143,7 @@ const APP_HOSTS = new Set([
   'www.worldmonitor.app',
   'tech.worldmonitor.app',
   'api.worldmonitor.app',
-  // eslint-disable-next-line no-restricted-syntax -- intentional: allowlist entry for local web dev server; WKWebView uses 127.0.0.1 (also in this set)
+   
   'localhost',
   '127.0.0.1',
   ...extractHostnames(WS_API_URL, import.meta.env.VITE_WS_RELAY_URL),
@@ -319,7 +319,7 @@ export function installRuntimeFetchPatch(): void {
       const cloudHeaders = new Headers(init?.headers);
       const cloudApiKey = await getWorldMonitorCloudApiKey();
       if (!cloudApiKey) {
-        return new Response(JSON.stringify({ error: 'WORLDMONITOR_API_KEY not configured' }), {
+        return Response.json({ error: 'WORLDMONITOR_API_KEY not configured' }, {
           status: 503,
           headers: { 'Content-Type': 'application/json' },
         });
@@ -333,8 +333,11 @@ export function installRuntimeFetchPatch(): void {
       let response = await fetchLocalWithStartupRetry(nativeFetch, localUrl, localInit);
       if (debug) console.log(`[fetch] ${target} → ${response.status} (${Math.round(performance.now() - t0)}ms)`);
 
-      // Token may be stale after a sidecar restart — refresh and retry once.
-      if (response.status === 401 && localApiToken) {
+      // Token may be stale after a sidecar restart, OR may have been null on
+      // the very first fetch (IPC race at startup). Refresh and retry once
+      // either way — without this, a cold-start 401 cascades into cloud
+      // fallback for the rest of the session.
+      if (response.status === 401) {
         if (debug) console.log(`[fetch] 401 from sidecar, refreshing token and retrying`);
         await refreshToken();
         if (localApiToken) {
@@ -372,7 +375,7 @@ const ALLOWED_REDIRECT_HOSTS = /^https:\/\/([a-z0-9]([a-z0-9-]*[a-z0-9])?\.)*wor
 function isAllowedRedirectTarget(url: string): boolean {
   try {
     const parsed = new URL(url);
-    // eslint-disable-next-line no-restricted-syntax -- intentional: redirect allowlist includes localhost for local web dev; WKWebView origin is 127.0.0.1 (covered by ALLOWED_REDIRECT_HOSTS)
+     
     return ALLOWED_REDIRECT_HOSTS.test(parsed.origin) || parsed.hostname === 'localhost';
   } catch {
     return false;
