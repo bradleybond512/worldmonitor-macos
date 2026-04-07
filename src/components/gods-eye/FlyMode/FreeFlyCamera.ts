@@ -1,11 +1,10 @@
 import type { Viewer } from 'cesium';
-import {
-  FLY_SENSITIVITY,
-  FLY_SPEED_SCALE,
-  FLY_MIN_SPEED,
-  FLY_BOOST_MULTIPLIER,
-  FLY_BRAKE_MULTIPLIER,
-} from './flyModeKeybinds';
+import { FLY_SENSITIVITY } from './flyModeKeybinds';
+
+// Minimum altitude to prevent clipping through the globe (meters above ellipsoid)
+const MIN_ALT_M = 100;
+// Maximum speed cap regardless of altitude (m/s)
+const MAX_SPEED_MS = 50_000;
 
 interface KeyState {
   w: boolean; s: boolean; a: boolean; d: boolean;
@@ -17,12 +16,10 @@ export class FreeFlyCamera {
   protected viewer: Viewer;
   protected canvas: HTMLCanvasElement;
   private keys: KeyState = { w:false, s:false, a:false, d:false, q:false, e:false, shift:false, ctrl:false };
-  // Mouse-look is active while right-click is held
   private rightMouseDown = false;
 
   private cleanupFns: (() => void)[] = [];
 
-  // Class-field bound handlers so activate/deactivate share the same reference
   private readonly boundKeyDown = (e: KeyboardEvent) => { this.onKeyDown(e); };
   private readonly boundKeyUp = (e: KeyboardEvent) => { this.onKeyUp(e); };
   private readonly boundMouseMove = (e: MouseEvent) => { this.onMouseMove(e); };
@@ -41,7 +38,6 @@ export class FreeFlyCamera {
     document.addEventListener('mousemove', this.boundMouseMove);
     document.addEventListener('mousedown', this.boundMouseDown);
     document.addEventListener('mouseup', this.boundMouseUp);
-    // Suppress context menu so right-click doesn't pop a menu
     this.canvas.addEventListener('contextmenu', this.boundContextMenu);
 
     this.cleanupFns = [
@@ -63,11 +59,15 @@ export class FreeFlyCamera {
 
   update(dt: number): void {
     const camera = this.viewer.camera;
-    const alt = camera.positionCartographic.height;
-    const base = Math.max(FLY_MIN_SPEED, alt * FLY_SPEED_SCALE);
+    const alt = Math.max(1, camera.positionCartographic.height);
+
+    // Power-law speed: feels natural across 100m → 10,000km range.
+    // pow(alt/1000, 0.6) * 100 gives:
+    //   100m → ~25 m/s   10km → ~400 m/s   1000km → ~6.3 km/s
+    const base = Math.min(Math.pow(alt / 1000, 0.6) * 100, MAX_SPEED_MS);
     const speed = base
-      * (this.keys.shift ? FLY_BOOST_MULTIPLIER : 1)
-      * (this.keys.ctrl ? FLY_BRAKE_MULTIPLIER : 1);
+      * (this.keys.shift ? 10 : 1)
+      * (this.keys.ctrl ? 0.1 : 1);
     const dist = speed * dt;
 
     if (this.keys.w) camera.moveForward(dist);
@@ -76,6 +76,12 @@ export class FreeFlyCamera {
     if (this.keys.d) camera.moveRight(dist);
     if (this.keys.q) camera.moveUp(dist);
     if (this.keys.e) camera.moveDown(dist);
+
+    // Altitude floor — prevent going underground and triggering pink/black globe
+    const currentAlt = camera.positionCartographic.height;
+    if (currentAlt < MIN_ALT_M) {
+      camera.moveUp(MIN_ALT_M - currentAlt);
+    }
   }
 
   private onKeyDown(e: KeyboardEvent): void {
@@ -121,7 +127,6 @@ export class FreeFlyCamera {
   }
 
   private onMouseMove(e: MouseEvent): void {
-    // Mouse-look only while right-click held — no pointer lock needed
     if (!this.rightMouseDown) return;
     const camera = this.viewer.camera;
     const dx = e.movementX * FLY_SENSITIVITY;

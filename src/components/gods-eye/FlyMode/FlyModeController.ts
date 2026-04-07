@@ -27,9 +27,8 @@ export class FlyModeController {
   private chase: ChaseCamera | null = null;
   private cityFly: CityFlyMode | null = null;
 
-  private preUpdateRemover: (() => void) | null = null;
+  private rafId: number | null = null;
   private lastFrameMs = 0;
-  private readonly preUpdateHandler = () => { this.onFrame(); };
   private onStatusChange: ((status: FlyModeStatus) => void) | null = null;
 
   constructor(
@@ -63,13 +62,10 @@ export class FlyModeController {
     // Disable orbit camera controller — we take over completely
     this.setOrbitEnabled(false);
 
-    // Keep requestRenderMode = true (on-demand). We drive the loop by calling
-    // scene.requestRender() at the end of each preUpdate frame, which queues
-    // the next frame. This avoids a full-speed render storm in WKWebView.
-
-    // Hook per-frame update
+    // Own RAF loop — independent of Cesium's preUpdate so no render-request deadlock.
+    // Camera mutations trigger Cesium's change detection which re-renders naturally.
     this.lastFrameMs = performance.now();
-    this.preUpdateRemover = this.viewer.scene.preUpdate.addEventListener(this.preUpdateHandler);
+    this.startLoop();
 
     this.activateSubMode(startSubMode);
   }
@@ -78,13 +74,8 @@ export class FlyModeController {
     if (!this._active) return;
     this._active = false;
 
+    this.stopLoop();
     this.destroyActiveSubMode();
-
-    // Remove frame listener
-    this.preUpdateRemover?.();
-    this.preUpdateRemover = null;
-
-    // Restore orbit controller
     this.setOrbitEnabled(true);
 
     this.emitStatus();
@@ -97,7 +88,6 @@ export class FlyModeController {
     this.activateSubMode(subMode);
   }
 
-  /** Called from GodsEyeView when a click picks an entity during Chase mode. */
   attachChaseTarget(entity: import('cesium').Entity): void {
     if (this._subMode === 3 && this.chase) {
       this.chase.attachToEntity(entity);
@@ -105,7 +95,6 @@ export class FlyModeController {
     }
   }
 
-  /** Toggle cockpit / 3rd-person in Chase mode. */
   toggleCockpit(): void {
     this.chase?.toggleCockpit();
     this.emitStatus();
@@ -127,6 +116,22 @@ export class FlyModeController {
 
   // ── Private ──────────────────────────────────────────
 
+  private startLoop(): void {
+    const tick = () => {
+      if (!this._active) return;
+      this.onFrame();
+      this.rafId = requestAnimationFrame(tick);
+    };
+    this.rafId = requestAnimationFrame(tick);
+  }
+
+  private stopLoop(): void {
+    if (this.rafId !== null) {
+      cancelAnimationFrame(this.rafId);
+      this.rafId = null;
+    }
+  }
+
   private activateSubMode(subMode: FlySubMode): void {
     this._subMode = subMode;
 
@@ -141,7 +146,6 @@ export class FlyModeController {
         if (targets.length >= 2) {
           this.cinematic = new CinematicPath(this.viewer, targets);
         } else {
-          // Not enough targets — fall back to free fly
           this.freeFly = new FreeFlyCamera(this.viewer, this.canvas);
           this.freeFly.activate();
           this._subMode = 1;
@@ -150,13 +154,6 @@ export class FlyModeController {
       }
       case 3: {
         this.chase = new ChaseCamera(this.viewer);
-        // If a click handler is wired, the user will click to pick a target.
-        // Pre-attach to the first priority target if available.
-        const targets = this.getPriorityTargets(1);
-        if (targets.length > 0) {
-          // Targets are FollowTarget objects (lat/lon/id), not entities.
-          // Chase cam will pick up an entity on the next click through attachChaseTarget().
-        }
         break;
       }
       case 4: {
@@ -182,20 +179,27 @@ export class FlyModeController {
 
   private onFrame(): void {
     const now = performance.now();
-    const dt = Math.min((now - this.lastFrameMs) / 1000, 0.1); // cap dt at 100ms
+    const dt = Math.min((now - this.lastFrameMs) / 1000, 0.1); // cap at 100ms
     this.lastFrameMs = now;
 
     const time = this.viewer.clock.currentTime;
 
-    switch (this._subMode) {
-      case 1: { this.freeFly?.update(dt); break; }
-      case 2: { this.cinematic?.update(dt); break; }
-      case 3: { this.chase?.update(dt, time); break; }
-      case 4: { this.cityFly?.update(dt); break; }
+    try {
+      switch (this._subMode) {
+        case 1: { this.freeFly?.update(dt); break;
+        }
+        case 2: { this.cinematic?.update(dt); break;
+        }
+        case 3: { this.chase?.update(dt, time); break;
+        }
+        case 4: { this.cityFly?.update(dt); break;
+        }
+      }
+    } catch {
+      // Swallow per-frame errors — camera mutations can throw if viewer is mid-destroy
     }
 
-    // Queue next frame — creates a controlled continuous loop via Cesium's
-    // animation frame scheduler (rate-limited to display refresh rate)
+    // Tell Cesium to render the camera changes
     this.viewer.scene.requestRender();
   }
 
