@@ -13,6 +13,7 @@ import { AutoFollowEngine } from '@/components/gods-eye/AutoFollowEngine';
 import { GlobeReactorBeacons } from '@/components/GlobeReactorBeacons';
 import type { CustomDataSource } from 'cesium';
 import { getMode, type AppMode, type ModeChangedDetail } from '@/services/mode-manager';
+import { tryInvokeTauri } from '@/services/tauri-bridge';
 
 // ── Theater camera presets (lat, lon, altitude meters, pitch degrees) ──
 const THEATERS = {
@@ -92,6 +93,16 @@ export class GodsEyeView {
       document.body.classList.remove('gods-eye-lock');
       return;
     }
+
+    // Thin drag strip at the top of the overlay for window dragging
+    const dragStrip = document.createElement('div');
+    dragStrip.className = 'ge-drag-strip';
+    dragStrip.addEventListener('mousedown', (e) => {
+      if (e.button !== 0) return;
+      tryInvokeTauri('plugin:window|start_dragging').catch(() => {/* silent */});
+    });
+    this.container.append(dragStrip);
+    this.cleanupHandlers.push(() => dragStrip.remove());
 
     this.attachZoomHandlers();
     this.attachKeyboardHandlers();
@@ -257,6 +268,31 @@ export class GodsEyeView {
         }
       }
     }, ScreenSpaceEventType.LEFT_CLICK);
+
+    this.eventHandler.setInputAction((movement: { endPosition: Cartesian2 }) => {
+      const viewer = this.globe?.cesiumViewer;
+      if (!viewer || !this.hud) return;
+
+      const picked = viewer.scene.pick(movement.endPosition) as
+        { id?: { description?: { getValue: (t: unknown) => string | undefined }; label?: { text?: { getValue: (t: unknown) => string | undefined } } } } | undefined;
+
+      if (!picked?.id) {
+        this.hud.hideTooltip();
+        return;
+      }
+
+      const desc = picked.id.description?.getValue(viewer.clock.currentTime) ?? '';
+      const label = picked.id.label?.text?.getValue(viewer.clock.currentTime) ?? '';
+      const title = label === '' ? (desc.split('—')[0]?.trim() ?? 'Entity') : label;
+      const body = desc.length > 200 ? desc.slice(0, 197) + '…' : desc;
+
+      if (!desc && !label) {
+        this.hud.hideTooltip();
+        return;
+      }
+
+      this.hud.showTooltip(movement.endPosition.x, movement.endPosition.y, title, body);
+    }, ScreenSpaceEventType.MOUSE_MOVE);
   }
 
   // ── Keyboard ─────────────────────────────────────────
