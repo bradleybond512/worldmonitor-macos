@@ -8,6 +8,15 @@ let installed = false;
 
 const noop = (): void => { /* deliberately empty */ };
 
+function fmtArg(a: unknown): string {
+  if (a instanceof Error) return a.stack ?? a.message;
+  if (a !== null && typeof a === 'object') {
+    try { return JSON.stringify(a).slice(0, 500); } catch { return '[object]'; }
+  }
+  if (typeof a === 'symbol') return a.toString();
+  return String(a as string | number | boolean | bigint | null | undefined);
+}
+
 export function logToDesktop(
   level: 'ERROR' | 'WARN' | 'INFO' | 'DEBUG',
   message: string,
@@ -42,6 +51,26 @@ export function installLogBridge(): void {
       stack: reason instanceof Error ? reason.stack?.slice(0, 800) : undefined,
     });
   });
+
+  // eslint-disable-next-line no-console
+  const origError = console.error.bind(console);
+  // eslint-disable-next-line no-console
+  const origWarn = console.warn.bind(console);
+
+  // eslint-disable-next-line no-console
+  console.error = (...args: unknown[]) => {
+    origError(...args);
+    try {
+      logToDesktop('ERROR', `console.error: ${args.map(a => fmtArg(a)).join(' ').slice(0, 1000)}`);
+    } catch { /* safe */ }
+  };
+  // eslint-disable-next-line no-console
+  console.warn = (...args: unknown[]) => {
+    origWarn(...args);
+    try {
+      logToDesktop('WARN', `console.warn: ${args.map(a => fmtArg(a)).join(' ').slice(0, 1000)}`);
+    } catch { /* safe */ }
+  };
 
   // Cmd+Shift+D — copy diagnostics bundle to clipboard
   document.addEventListener('keydown', (e) => {
