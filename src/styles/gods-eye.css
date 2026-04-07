@@ -709,7 +709,7 @@ body.gods-eye-lock {
 /* ── Geocode search bar ──────────────────────────── */
 .ge-search-root {
   position: absolute;
-  top: 16px;
+  top: 56px;
   left: 50%;
   transform: translateX(-50%);
   z-index: 20;
