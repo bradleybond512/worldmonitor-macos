@@ -5,6 +5,7 @@ import {
   UrlTemplateImageryProvider,
   SceneMode,
   Color,
+  Math as CesiumMath,
   type Scene,
   type Camera,
   type ImageryProvider,
@@ -116,6 +117,23 @@ export class CesiumGlobe {
     // 1500m floor — below this, terrain + imagery render breaks to pink on Mac GPUs.
     controller.minimumZoomDistance = 1500;
     controller.maximumZoomDistance = 5e7;
+
+    // Clamp camera pitch so the globe can't go more sideways than 45° from vertical.
+    // Cesium pitch: -π/2 = straight down, 0 = horizontal. Cap at -π/4 (-45°).
+    const MAX_PITCH = CesiumMath.toRadians(-45);
+    scene.postUpdate.addEventListener(() => {
+      const camera = this.viewer?.camera;
+      if (!camera) return;
+      if (camera.pitch > MAX_PITCH) {
+        camera.setView({
+          orientation: {
+            heading: camera.heading,
+            pitch: MAX_PITCH,
+            roll: 0,
+          },
+        });
+      }
+    });
 
     // ── Imagery Layers ─────────────────────────────────
     this.viewer.imageryLayers.removeAll();
