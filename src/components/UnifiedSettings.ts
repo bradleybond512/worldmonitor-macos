@@ -11,7 +11,7 @@ import { RuntimeConfigPanel } from './RuntimeConfigPanel';
 import type { StatusPanel } from './StatusPanel';
 import { isYouTubeConnected, signInToYouTube, signOutOfYouTube, initYouTubeAccountListeners } from '@/services/youtube-account';
 import { getApiBaseUrl } from '@/services/runtime';
-import { tryInvokeTauri } from '@/services/tauri-bridge';
+import { tryInvokeTauri, invokeTauri } from '@/services/tauri-bridge';
 import {
   getSavedPlaces,
   removeSavedPlace,
@@ -59,6 +59,7 @@ export class UnifiedSettings {
   private _diagToken: string | null = null;
   private _diagRefreshInterval: ReturnType<typeof setInterval> | null = null;
   private placesDeleteConfirm: string | null = null;
+  private _gpsPermissionDenied = false;
 
   constructor(config: UnifiedSettingsConfig) {
     this.config = config;
@@ -174,13 +175,20 @@ export class UnifiedSettings {
         const btn = target as HTMLButtonElement;
         btn.textContent = 'Detecting…';
         btn.disabled = true;
+        this._gpsPermissionDenied = false;
         setLocationFromGps()
-          .then(() => this.refreshGeneralTab())
-          .catch((err: unknown) => {
+          .then(() => { this._gpsPermissionDenied = false; this.refreshGeneralTab(); })
+          .catch((error: unknown) => {
+            const msg = error instanceof Error ? error.message : 'Could not detect location.';
+            this._gpsPermissionDenied = msg.includes('permission denied') || msg.includes('Permission denied');
             this.refreshGeneralTab();
-            const msg = err instanceof Error ? err.message : 'Could not detect location.';
-            alert(msg);
           });
+        return;
+      }
+      if (target.id === 'us-open-location-settings') {
+        void invokeTauri<void>('open_system_prefs_location').catch(() => {
+          alert('Couldn\'t open System Settings. Go to System Settings \u2192 Privacy & Security \u2192 Location Services and enable World Monitor.');
+        });
         return;
       }
       if (target.id === 'us-manual-location') {
@@ -545,14 +553,24 @@ export class UnifiedSettings {
       const latVal = loc ? escapeHtml(String(loc.lat)) : '';
       const lonVal = loc ? escapeHtml(String(loc.lon)) : '';
       const labelVal = loc ? escapeHtml(loc.label) : '';
+      let deniedHtml = '';
+      if (this._gpsPermissionDenied) {
+        const openBtn = this.config.isDesktopApp
+          ? '<button id="us-open-location-settings" class="yt-account-btn connect" style="font-size:10px;padding:2px 8px;min-width:0;margin-left:4px;">Open Location Settings</button>'
+          : '';
+        deniedHtml = `<div style="font-size:11px;color:#ef4444;margin-top:4px;">Location permission denied.${openBtn}</div>`;
+      }
       html += `<div class="ai-flow-section-label">Home Location</div>`;
       html += `
-        <div class="ai-flow-toggle-row">
-          <div class="ai-flow-toggle-label-wrap">
-            <div class="ai-flow-toggle-label">Current location</div>
-            <div class="ai-flow-toggle-desc">${locLabel}${locSource}</div>
+        <div class="ai-flow-toggle-row" style="flex-direction:column;align-items:stretch;">
+          <div style="display:flex;align-items:center;justify-content:space-between;">
+            <div class="ai-flow-toggle-label-wrap">
+              <div class="ai-flow-toggle-label">Current location</div>
+              <div class="ai-flow-toggle-desc">${locLabel}${locSource}</div>
+            </div>
+            <button id="us-gps-location" class="yt-account-btn connect" style="min-width:100px">Use GPS</button>
           </div>
-          <button id="us-gps-location" class="yt-account-btn connect" style="min-width:100px">Use GPS</button>
+          ${deniedHtml}
         </div>
         <div class="ai-flow-toggle-row" style="flex-direction:column;align-items:flex-start;gap:6px">
           <div class="ai-flow-toggle-label">Set manually</div>
