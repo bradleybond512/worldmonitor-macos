@@ -18,7 +18,6 @@ import {
 import { fetchLightningStrikes } from '@/services/lightning';
 import { fetchRedFlagWarnings } from '@/services/red-flag-warnings';
 import { getRadarTileUrl, fetchRadarFrames } from '@/services/rainviewer-radar';
-import { getGoesWmsTileUrl } from '@/services/satellite-weather';
 
 import {
   UNDERSEA_CABLES,
@@ -1329,13 +1328,10 @@ export class GlobeDataManager {
   }
 
   private loadWeatherSatellite(): void {
-    try {
-      const url = getGoesWmsTileUrl('geocolor');
-      const provider = new UrlTemplateImageryProvider({ url, maximumLevel: 6 });
-      const imgLayer = this.viewer.imageryLayers.addImageryProvider(provider);
-      imgLayer.alpha = 0.4;
-      this.weatherImageryLayers.push(imgLayer);
-    } catch { /* satellite unavailable */ }
+    // Disabled: Iowa State TMS layer name `goes_conus_geocolor` returns a pink
+    // "Invalid TMS Request" PNG for every tile, which Cesium renders as a 40%
+    // pink overlay across the entire globe. Re-enable once a working tile
+    // source is wired up in satellite-weather.ts.
   }
 
   private async loadLightningStrikes(): Promise<void> {
@@ -1427,6 +1423,24 @@ export class GlobeDataManager {
       counts.set(name, layer.source.entities.values.length);
     }
     return counts;
+  }
+
+  getTopAlerts(limit = 5): { name: string; type: string; severity: number }[] {
+    const results: { name: string; type: string; severity: number }[] = [];
+    const SEVERITY: Record<string, number> = {
+      airstrikes: 10, conflicts: 8, cyber: 6, earthquakes: 5,
+      gdacs: 7, cyclones: 6, fires: 4, gpsJamming: 5,
+    };
+    for (const [layerKey, layerData] of this.layers) {
+      const sev = SEVERITY[layerKey] ?? 3;
+      const entities = layerData.source.entities.values;
+      for (const entity of entities) {
+        if (!entity.name) continue;
+        results.push({ name: entity.name, type: layerKey, severity: sev });
+      }
+    }
+    results.sort((a, b) => b.severity - a.severity);
+    return results.slice(0, limit);
   }
 
   /** Expose data sources for AutoFollowEngine to read entity positions. */
