@@ -113,7 +113,11 @@ export type RuntimeFeatureId =
   | 'acapsCrisisSeverity'
   | 'liveUaMapFeed'
   | 'godsEye3dGlobe'
-  | 'owmWeatherTiles';
+  | 'owmWeatherTiles'
+  | 'cyberReactor'
+  | 'cyberReactorNotifyNative'
+  | 'cyberReactorNotifyToast'
+  | 'cyberReactorNotifyMap';
 
 export interface RuntimeFeatureDefinition {
   id: RuntimeFeatureId;
@@ -207,6 +211,10 @@ const defaultToggles: Record<RuntimeFeatureId, boolean> = {
   liveUaMapFeed: true,
   godsEye3dGlobe: true,
   owmWeatherTiles: true,
+  cyberReactor: true,
+  cyberReactorNotifyNative: true,
+  cyberReactorNotifyToast: true,
+  cyberReactorNotifyMap: true,
 };
 
 export const RUNTIME_FEATURES: RuntimeFeatureDefinition[] = [
@@ -710,6 +718,34 @@ export const RUNTIME_FEATURES: RuntimeFeatureDefinition[] = [
     requiredSecrets: ['OWM_API_KEY'],
     desktopRequiredSecrets: [],
     fallback: 'Weather tile overlays disabled. Free weather radar (RainViewer), satellite imagery (NOAA), and lightning data still available.',
+  },
+  {
+    id: 'cyberReactor',
+    name: 'Cyber Threat Reactor',
+    description: 'Evaluates incoming cyber threats against your device fingerprint and emits relevance-scored alerts.',
+    requiredSecrets: [],
+    fallback: 'Cyber threat panel continues without personalized alerting.',
+  },
+  {
+    id: 'cyberReactorNotifyNative',
+    name: 'Cyber Reactor native notifications',
+    description: 'Route Cyber Reactor alerts to native OS notifications.',
+    requiredSecrets: [],
+    fallback: 'Native notifications disabled for Cyber Reactor alerts.',
+  },
+  {
+    id: 'cyberReactorNotifyToast',
+    name: 'Cyber Reactor toast notifications',
+    description: 'Route Cyber Reactor alerts to in-app toasts.',
+    requiredSecrets: [],
+    fallback: 'Toast notifications disabled for Cyber Reactor alerts.',
+  },
+  {
+    id: 'cyberReactorNotifyMap',
+    name: 'Cyber Reactor map pings',
+    description: 'Route Cyber Reactor alerts to map pings.',
+    requiredSecrets: [],
+    fallback: 'Map pings disabled for Cyber Reactor alerts.',
   },
 ];
 

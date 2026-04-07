@@ -3,6 +3,9 @@ import type { CyberThreat, CyberThreatSeverity } from '@/types';
 import { escapeHtml } from '@/utils/sanitize';
 import { t } from '@/services/i18n';
 import { lookupVtIndicator } from '@/services/cyber-extra';
+import { cyberThreatToNormalized } from '@/services/cyber';
+
+type IndicatorKind = 'ip' | 'url' | 'domain';
 
 export class CyberThreatPanel extends Panel {
   private threats: CyberThreat[] = [];
@@ -24,6 +27,14 @@ export class CyberThreatPanel extends Panel {
     this.lastUpdated = new Date();
     this.setCount(this.threats.length);
     this.render();
+    void (async () => {
+      try {
+        const mod = await import('@/services/threat-reactor');
+        await mod.ingest(this.threats.map((t) => cyberThreatToNormalized(t)));
+      } catch {
+        // reactor errors must never break UI refresh
+      }
+    })();
   }
 
   private render(): void {
@@ -39,7 +50,9 @@ export class CyberThreatPanel extends Panel {
       const typeLbl = typeLabel(threat.type);
       const sourceLbl = sourceLabel(threat.source);
       const age = threat.lastSeen ? timeAgo(threat.lastSeen) : '—';
-      const itype = threat.indicatorType === 'ip' ? 'ip' : threat.indicatorType === 'url' ? 'url' : 'domain';
+      let itype: IndicatorKind = 'domain';
+      if (threat.indicatorType === 'ip') itype = 'ip';
+      else if (threat.indicatorType === 'url') itype = 'url';
       return `<tr class="${rowClass} ct-clickable" data-indicator="${escapeHtml(threat.indicator)}" data-itype="${itype}" title="Click for VirusTotal lookup">
         <td class="ct-sev">${escapeHtml(threat.severity)}</td>
         <td class="ct-type">${typeLbl}</td>
@@ -103,7 +116,10 @@ export class CyberThreatPanel extends Panel {
       return;
     }
 
-    const badge = rep.malicious >= 5 ? '🔴' : rep.malicious >= 1 ? '🟠' : rep.suspicious >= 3 ? '🟡' : '🟢';
+    let badge = '🟢';
+    if (rep.malicious >= 5) badge = '🔴';
+    else if (rep.malicious >= 1) badge = '🟠';
+    else if (rep.suspicious >= 3) badge = '🟡';
     tooltip.innerHTML = `
       <div class="ct-vt-result">
         <strong>${badge} ${escapeHtml(indicator.length > 40 ? indicator.slice(0, 38) + '…' : indicator)}</strong>

@@ -11,6 +11,7 @@ import type {
   CyberThreatIndicatorType,
 } from '@/types';
 import { createCircuitBreaker } from '@/utils';
+import type { NormalizedThreat } from '@/services/threat-reactor';
 
 // ---- Client + Circuit Breaker ----
 
@@ -54,15 +55,15 @@ const SEVERITY_REVERSE: Record<string, CyberThreatSeverity> = {
 function toCyberThreat(proto: ProtoCyberThreat): CyberThreat {
   return {
     id: proto.id,
-    type: THREAT_TYPE_REVERSE[proto.type] || 'malicious_url',
-    source: SOURCE_REVERSE[proto.source] || 'feodo',
+    type: THREAT_TYPE_REVERSE[proto.type] ?? 'malicious_url',
+    source: SOURCE_REVERSE[proto.source] ?? 'feodo',
     indicator: proto.indicator,
-    indicatorType: INDICATOR_TYPE_REVERSE[proto.indicatorType] || 'ip',
+    indicatorType: INDICATOR_TYPE_REVERSE[proto.indicatorType] ?? 'ip',
     lat: proto.location?.latitude ?? 0,
     lon: proto.location?.longitude ?? 0,
-    country: proto.country || undefined,
-    severity: SEVERITY_REVERSE[proto.severity] || 'low',
-    malwareFamily: proto.malwareFamily || undefined,
+    country: proto.country === '' ? undefined : proto.country,
+    severity: SEVERITY_REVERSE[proto.severity] ?? 'low',
+    malwareFamily: proto.malwareFamily === '' ? undefined : proto.malwareFamily,
     tags: proto.tags,
     firstSeen: proto.firstSeenAt ? new Date(proto.firstSeenAt).toISOString() : undefined,
     lastSeen: proto.lastSeenAt ? new Date(proto.lastSeenAt).toISOString() : undefined,
@@ -98,5 +99,31 @@ export async function fetchCyberThreats(options: { limit?: number; days?: number
     });
   }, emptyFallback);
 
-  return resp.threats.map(toCyberThreat);
+  const threats = resp.threats.map((p) => toCyberThreat(p));
+  void (async () => {
+    try {
+      const mod = await import('@/services/threat-reactor');
+      await mod.ingest(threats.map((t) => cyberThreatToNormalized(t)));
+    } catch {
+      // reactor errors must never break cyber fetch
+    }
+  })();
+  return threats;
+}
+
+export function cyberThreatToNormalized(t: CyberThreat): NormalizedThreat {
+  return {
+    id: t.id,
+    source: t.source,
+    indicator: t.indicator,
+    indicatorType: t.indicatorType,
+    severity: t.severity,
+    country: t.country,
+    lat: t.lat,
+    lon: t.lon,
+    malwareFamily: t.malwareFamily,
+    tags: t.tags,
+    title: `${t.type.replace(/_/g, ' ')}: ${t.indicator}`,
+    body: `${t.malwareFamily ?? ''} from ${t.source}`,
+  };
 }
