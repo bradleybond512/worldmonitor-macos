@@ -15,6 +15,7 @@ export class GlobePulse {
   private source: CustomDataSource;
   private pulses: PulseEntry[] = [];
   private rafId: number | null = null;
+  private destroyed = false;
 
   constructor(private viewer: Viewer, private dataManager: GlobeDataManager) {
     this.source = new CustomDataSource('pulses');
@@ -26,12 +27,14 @@ export class GlobePulse {
   }
 
   destroy(): void {
+    this.destroyed = true;
     if (this.rafId != null) { cancelAnimationFrame(this.rafId); this.rafId = null; }
     this.viewer.dataSources.remove(this.source, true);
   }
 
   private tick(): void {
     this.rafId = requestAnimationFrame(() => {
+      if (this.destroyed) return;
       this.refreshPulses();
       this.tick();
     });
