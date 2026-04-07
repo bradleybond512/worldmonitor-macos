@@ -48,6 +48,9 @@ export class GlobeHUD {
   private onExit: (() => void) | null = null;
   private onAutoFollowSkip: (() => void) | null = null;
   private onClusterToggle: ((enabled: boolean) => void) | null = null;
+  private onTerminatorToggle: ((enabled: boolean) => void) | null = null;
+  private terminatorBtn: HTMLButtonElement | null = null;
+  private terminatorEnabled = false;
   private clusteringEnabled = true;
   private clockId: number | null = null;
 
@@ -128,6 +131,7 @@ export class GlobeHUD {
     layerBar.className = 'ge-layer-bar';
     layerBar.id = 'geLayerBar';
     this.buildClusterButton(layerBar);
+    this.buildTerminatorButton(layerBar);
     this.buildLayerButtons(layerBar);
     bottomCenter.append(layerBar);
     this.element.append(bottomCenter);
@@ -202,6 +206,33 @@ export class GlobeHUD {
       this.onClusterToggle?.(this.clusteringEnabled);
     });
     bar.append(btn);
+  }
+
+  private buildTerminatorButton(bar: HTMLElement): void {
+    const btn = document.createElement('button');
+    btn.className = `ge-layer-btn${this.terminatorEnabled ? ' ge-layer-active' : ''}`;
+    btn.title = 'Toggle real-time day/night terminator (L)';
+    const nameSpan = document.createElement('span');
+    nameSpan.className = 'ge-layer-name';
+    nameSpan.textContent = 'TERMINATOR';
+    btn.append(nameSpan);
+    btn.addEventListener('click', () => {
+      this.setTerminatorEnabled(!this.terminatorEnabled);
+      this.onTerminatorToggle?.(this.terminatorEnabled);
+    });
+    this.terminatorBtn = btn;
+    bar.append(btn);
+  }
+
+  setTerminatorEnabled(enabled: boolean): void {
+    this.terminatorEnabled = enabled;
+    this.terminatorBtn?.classList.toggle('ge-layer-active', enabled);
+  }
+
+  toggleTerminator(): boolean {
+    this.setTerminatorEnabled(!this.terminatorEnabled);
+    this.onTerminatorToggle?.(this.terminatorEnabled);
+    return this.terminatorEnabled;
   }
 
   private buildLayerButtons(bar: HTMLElement): void {
@@ -303,6 +334,10 @@ export class GlobeHUD {
 
   setOnClusterToggle(cb: (enabled: boolean) => void): void {
     this.onClusterToggle = cb;
+  }
+
+  setOnTerminatorToggle(cb: (enabled: boolean) => void): void {
+    this.onTerminatorToggle = cb;
   }
 
   setOnAutoFollowSkip(cb: () => void): void {

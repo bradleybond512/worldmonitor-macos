@@ -258,6 +258,22 @@ export class CesiumGlobe {
     return this.viewer?.canvas;
   }
 
+  setLightingEnabled(enabled: boolean): void {
+    const scene = this.viewer?.scene;
+    if (!scene) return;
+    scene.globe.enableLighting = enabled;
+    scene.globe.dynamicAtmosphereLighting = enabled;
+    scene.globe.dynamicAtmosphereLightingFromSun = enabled;
+    if (scene.skyAtmosphere) {
+      scene.skyAtmosphere.brightnessShift = enabled ? 0 : -0.05;
+    }
+    scene.requestRender();
+  }
+
+  getLightingEnabled(): boolean {
+    return this.viewer?.scene.globe.enableLighting ?? false;
+  }
+
   destroy(): void {
     this.resizeObserver?.disconnect();
     this.resizeObserver = null;

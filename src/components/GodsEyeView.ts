@@ -140,6 +140,7 @@ export class GodsEyeView {
     });
     this.hud.setOnAutoFollowSkip(() => this.autoFollow?.skipToNext());
     this.hud.setOnClusterToggle((enabled) => this.dataManager?.setClusteringEnabled(enabled));
+    this.hud.setOnTerminatorToggle((enabled) => this.globe?.setLightingEnabled(enabled));
 
     // Update HUD at ~10fps
     this.hudTickId = window.setInterval(() => {
@@ -320,6 +321,12 @@ export class GodsEyeView {
         if (ke.key === ' ' || ke.code === 'Space') {
           ke.preventDefault();
           this.timeMachine?.togglePlay();
+          return;
+        }
+
+        // L toggles day/night terminator
+        if (ke.key === 'l' || ke.key === 'L') {
+          this.hud?.toggleTerminator();
           return;
         }
 
