@@ -1,8 +1,6 @@
 import {
   Viewer,
-  IonImageryProvider,
   UrlTemplateImageryProvider,
-  Terrain,
   SceneMode,
   Color,
   type Scene,
@@ -25,21 +23,19 @@ export class CesiumGlobe {
     this.container = options.container;
   }
 
-  async initialize(): Promise<void> {
+  initialize(): void {
     initCesium(this.options.ionToken);
 
     const cesiumContainer = document.createElement('div');
     cesiumContainer.style.cssText = 'width:100%;height:100%;position:absolute;inset:0;';
     this.container.append(cesiumContainer);
 
-    const hasToken = Boolean(this.options.ionToken);
-
     this.viewer = new Viewer(cesiumContainer, {
       sceneMode: SceneMode.SCENE3D,
       animation: false,
       baseLayerPicker: false,
       baseLayer: false,
-      terrain: hasToken ? Terrain.fromWorldTerrain() : undefined,
+      terrain: undefined,
       fullscreenButton: false,
       geocoder: false,
       homeButton: false,
@@ -69,7 +65,8 @@ export class CesiumGlobe {
 
     // ── Sky & Space ────────────────────────────────────
     scene.backgroundColor = Color.fromCssColorString('#050510');
-    globe.baseColor = Color.fromCssColorString('#0d1b2a');
+    // Dark charcoal — visually distinct from Cesium's pink missing-tile fallback
+    globe.baseColor = Color.fromCssColorString('#1a1a1a');
 
     // Sun and moon — visible light sources give depth
     if (scene.sun) scene.sun.show = true;
@@ -110,8 +107,7 @@ export class CesiumGlobe {
     // Ambient occlusion — disabled; darkens terrain too much at globe scale
     scene.postProcessStages.ambientOcclusion.enabled = false;
 
-    // HDR for richer lighting range
-    scene.highDynamicRange = true;
+    scene.highDynamicRange = false;
 
     // ── Camera Controls ────────────────────────────────
     const controller = scene.screenSpaceCameraController;
@@ -124,52 +120,8 @@ export class CesiumGlobe {
     controller.maximumZoomDistance = 5e7;
 
     // ── Imagery Layers ─────────────────────────────────
+    this.log('INFO', '[globe] adding ArcGIS imagery');
     this.viewer.imageryLayers.removeAll();
-
-    if (hasToken) {
-      try {
-        // Day imagery: Bing Maps Aerial (asset 2) — high-res satellite
-        // Fades to 30% on night side so terrain stays visible
-        const bingImagery = await IonImageryProvider.fromAssetId(2, {});
-        const dayLayer = this.viewer.imageryLayers.addImageryProvider(bingImagery);
-        dayLayer.alpha = 1;
-        dayLayer.brightness = 1.1;
-        dayLayer.contrast = 1.15;
-        dayLayer.saturation = 1.2;
-      } catch {
-        this.addFallbackImagery();
-      }
-    } else {
-      this.addFallbackImagery();
-    }
-
-    // ── Resize Observer ────────────────────────────────
-    this.resizeObserver = new ResizeObserver(() => {
-      this.viewer?.resize();
-    });
-    this.resizeObserver.observe(this.container);
-
-    // ── WebGL context loss handlers ────────────────────
-    // macOS reclaims GPU resources from background apps; without these,
-    // a context loss looks identical to an app crash (black globe).
-    const canvas = this.viewer.canvas;
-    canvas.addEventListener('webglcontextlost', (e) => {
-      e.preventDefault();
-      void import('@/services/log-bridge').then((m) => {
-        m.logToDesktop('WARN', 'CesiumGlobe webglcontextlost — GPU context dropped');
-      });
-    }, false);
-    canvas.addEventListener('webglcontextrestored', () => {
-      void import('@/services/log-bridge').then((m) => {
-        m.logToDesktop('INFO', 'CesiumGlobe webglcontextrestored — re-rendering');
-      });
-      this.viewer?.scene.requestRender();
-    }, false);
-  }
-
-  private addFallbackImagery(): void {
-    if (!this.viewer) return;
-    // ArcGIS World Imagery — free satellite tiles, no API key needed
     const satImagery = new UrlTemplateImageryProvider({
       url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
       credit: 'Esri, Maxar, Earthstar Geographics',
@@ -180,8 +132,31 @@ export class CesiumGlobe {
     layer.brightness = 1.1;
     layer.contrast = 1.1;
     layer.saturation = 1.15;
+
+    // ── Resize Observer ────────────────────────────────
+    this.resizeObserver = new ResizeObserver(() => {
+      this.viewer?.resize();
+    });
+    this.resizeObserver.observe(this.container);
+
+    // ── WebGL context loss handlers ────────────────────
+    const canvas = this.viewer.canvas;
+    canvas.addEventListener('webglcontextlost', (e) => {
+      e.preventDefault();
+      this.log('WARN', 'CesiumGlobe webglcontextlost — GPU context dropped');
+    }, false);
+    canvas.addEventListener('webglcontextrestored', () => {
+      this.log('INFO', 'CesiumGlobe webglcontextrestored — re-rendering');
+      this.viewer?.scene.requestRender();
+    }, false);
   }
 
+
+  private log(level: 'INFO' | 'WARN' | 'ERROR', msg: string): void {
+    void import('@/services/log-bridge').then((m) => {
+      m.logToDesktop(level, msg);
+    });
+  }
 
   get scene(): Scene | undefined {
     return this.viewer?.scene;
