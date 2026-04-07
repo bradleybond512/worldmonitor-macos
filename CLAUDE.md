@@ -122,6 +122,18 @@ src-tauri/
 
 Ghost Mode: polling ×5, analytics suppressed, notifications suppressed, dark crimson sidebar, 👻 title.
 
+## God's Eye HUD
+
+`src/components/GlobeHUD.ts` overlay (built when entering God's Eye). State pumped at ~10fps from `GodsEyeView.ts` via `hud.updateState({...})`. Top-left threat card carries: clock (local TZ via `Intl.DateTimeFormat`), mode badge, threat assessment, HOTSPOTS / ALT / CONFLICT / DISASTER stat pills, coords, LOCAL HH:MM at camera longitude + sun-phase badge (DAY/GOLDEN/CIVIL/NAUTICAL/ASTRO/NIGHT), nearest hotspot card, top-5 alert list. Top-center has a scrolling LIVE ticker built from `getTopAlerts(8)`. Bottom-center is the layer-toggle bar; bottom-right is auto-follow (offset 80px to clear the time-machine scrubber at 84px).
+
+**No finance/markets data on God's Eye** — explicit user mandate. Conflict counts come from `getCategoryCounts()` (`conflicts` + `airstrikes`); disaster counts from `gdacs` + `cyclones` + `earthquakes` + `fires`. Nearest hotspot is haversine over the `hotspots` layer's entity positions (`getNearestHotspot(lat, lon)`).
+
+The magenta-globe regression has bitten us twice. Root cause both times: `loadWeatherSatellite()` in `GlobeDataManager.ts` adds an Iowa State TMS overlay (`goes_conus_geocolor`) that returns "Invalid TMS Request" pink PNGs for every tile. The function is currently a no-op stub — re-enable only when `satellite-weather.ts` has a working tile source. Original fix: commit `44a56901`. The base imagery (NASA GIBS Blue Marble in `CesiumGlobe.ts`) is unrelated.
+
+## CSP Posture
+
+`script-src` includes `'unsafe-eval'`. Required by Cesium (God's Eye 3D globe) for shader compilation. PR #170 attempted to remove it as a security hardening, which broke God's Eye entirely (silent dynamic-import failure → vault reload loop). Do not remove `'unsafe-eval'` without first replacing Cesium with a non-eval globe library. Compensating defenses: trusted-window IPC gating, sidecar bearer auth, no `'unsafe-inline'` on script-src, devtools disabled in production.
+
 ## Tauri 2 / WKWebView Gotchas
 
 - **Window drag**: CSS `-webkit-app-region: drag` does NOT work — use JS `mousedown` → `tryInvokeTauri('plugin:window|start_dragging')`. Requires `core:window:allow-start-dragging` in `capabilities/default.json` (not in `core:default`).

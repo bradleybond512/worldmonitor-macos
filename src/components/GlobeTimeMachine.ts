@@ -185,10 +185,16 @@ export class GlobeTimeMachine {
 
   private updateUi(): void {
     if (this.timeLabel) {
+      // Use the system timezone (Intl picks it from the OS) and show its
+      // short name (e.g. "CST", "PST") so the user always sees local time.
       const d = new Date(this.currentMs);
-      const hh = String(d.getUTCHours()).padStart(2, '0');
-      const mm = String(d.getUTCMinutes()).padStart(2, '0');
-      this.timeLabel.textContent = `${hh}:${mm} UTC`;
+      const fmt = new Intl.DateTimeFormat(undefined, {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+        timeZoneName: 'short',
+      });
+      this.timeLabel.textContent = fmt.format(d);
     }
     if (this.playBtn) this.playBtn.textContent = this.playing ? 'Pause' : 'Play';
     if (this.root) this.root.classList.toggle('gtm-scrubbing', !this.live);

@@ -152,6 +152,7 @@ export default tseslint.config(
       'src/services/offline-alert-cache.ts',
       'src/services/unified-alerts.ts',
       'src/App.ts',
+      'src/bootstrap/chunk-reload.ts',
       'src/services/intelligence-briefing.ts',
       'src/components/IntelligenceBriefingPanel.ts',
       'src/services/world-monitor-chat.ts',

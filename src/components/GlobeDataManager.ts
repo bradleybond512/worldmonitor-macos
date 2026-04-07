@@ -31,7 +31,6 @@ import { satellitePropagator, type SatellitePosition } from '@/services/satellit
 import { fetchLightningStrikes } from '@/services/lightning';
 import { fetchRedFlagWarnings } from '@/services/red-flag-warnings';
 import { getRadarTileUrl, fetchRadarFrames } from '@/services/rainviewer-radar';
-import { getGoesWmsTileUrl } from '@/services/satellite-weather';
 
 import {
   UNDERSEA_CABLES,
@@ -1452,13 +1451,11 @@ export class GlobeDataManager {
   }
 
   private loadWeatherSatellite(): void {
-    try {
-      const url = getGoesWmsTileUrl('geocolor');
-      const provider = new UrlTemplateImageryProvider({ url, maximumLevel: 6 });
-      const imgLayer = this.viewer.imageryLayers.addImageryProvider(provider);
-      imgLayer.alpha = 0.4;
-      this.weatherImageryLayers.push(imgLayer);
-    } catch { /* satellite unavailable */ }
+    // Disabled: Iowa State TMS layer name `goes_conus_geocolor` returns a pink
+    // "Invalid TMS Request" PNG for every tile, which Cesium renders as a
+    // magenta overlay across the entire globe. Original fix in commit 44a56901,
+    // lost in godseye-tier1 integration merge (#171). Re-enable once a working
+    // tile source is wired up in satellite-weather.ts.
   }
 
   private async loadLightningStrikes(): Promise<void> {
@@ -1597,6 +1594,36 @@ export class GlobeDataManager {
     return results.slice(0, limit);
   }
 
+  getCategoryCounts(): { conflicts: number; disasters: number } {
+    return {
+      conflicts: (this.layers.get('conflicts')?.source.show ? this.layers.get('conflicts')!.source.entities.values.length : 0) + (this.layers.get('airstrikes')?.source.show ? this.layers.get('airstrikes')!.source.entities.values.length : 0),
+      disasters: (this.layers.get('gdacs')?.source.show ? this.layers.get('gdacs')!.source.entities.values.length : 0) + (this.layers.get('cyclones')?.source.show ? this.layers.get('cyclones')!.source.entities.values.length : 0) + (this.layers.get('earthquakes')?.source.show ? this.layers.get('earthquakes')!.source.entities.values.length : 0) + (this.layers.get('fires')?.source.show ? this.layers.get('fires')!.source.entities.values.length : 0),
+    };
+  }
+
+  getNearestHotspot(lat: number, lon: number): { name: string; distanceKm: number } | null {
+    const layer = this.layers.get('hotspots');
+    if (!layer?.source.show) return null;
+    const R = 6371;
+    const rad = Math.PI / 180;
+    const lat1 = lat * rad;
+    let best: { name: string; distanceKm: number } | null = null;
+    for (const entity of layer.source.entities.values) {
+      const pos = entity.position?.getValue(this.viewer.clock.currentTime);
+      if (!pos) continue;
+      const carto = Cartographic.fromCartesian(pos);
+      const lat2 = carto.latitude;
+      const dLat = lat2 - lat1;
+      const dLon = carto.longitude - lon * rad;
+      const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) ** 2;
+      const d = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      if (!best || d < best.distanceKm) {
+        best = { name: entity.name ?? 'Unknown hotspot', distanceKm: d };
+      }
+    }
+    return best;
+  }
+
   /** Expose data sources for AutoFollowEngine to read entity positions. */
   getDataSources(): Map<string, CustomDataSource> {
     const result = new Map<string, CustomDataSource>();
@@ -1675,36 +1702,4 @@ export class GlobeDataManager {
     return this.buildingManager?.providerName ?? 'Not loaded';
   }
 
-  getCategoryCounts(): { conflicts: number; disasters: number } {
-    const counts = this.getLayerCounts();
-    return {
-      conflicts: (counts.get('conflicts') ?? 0) + (counts.get('airstrikes') ?? 0),
-      disasters: (counts.get('gdacs') ?? 0) + (counts.get('cyclones') ?? 0) + (counts.get('earthquakes') ?? 0) + (counts.get('fires') ?? 0),
-    };
-  }
-
-  getNearestHotspot(lat: number, lon: number): { name: string; distanceKm: number } | null {
-    const hotspotLayer = this.layers.get('hotspots');
-    if (!hotspotLayer) return null;
-    const entities = hotspotLayer.source.entities.values;
-    let nearest: { name: string; distanceKm: number } | null = null;
-    const now = JulianDate.now();
-    const latR = CesiumMath.toRadians(lat);
-    const lonR = CesiumMath.toRadians(lon);
-    const scratch = new Cartographic();
-    for (const entity of entities) {
-      if (!entity.name) continue;
-      const pos = entity.position?.getValue(now);
-      if (!pos) continue;
-      Cartographic.fromCartesian(pos, undefined, scratch);
-      const dLat = scratch.latitude - latR;
-      const dLon = scratch.longitude - lonR;
-      const a = Math.sin(dLat/2)**2 + Math.cos(latR) * Math.cos(scratch.latitude) * Math.sin(dLon/2)**2;
-      const distKm = 6371 * 2 * Math.asin(Math.sqrt(a));
-      if (!nearest || distKm < nearest.distanceKm) {
-        nearest = { name: entity.name, distanceKm: Math.round(distKm) };
-      }
-    }
-    return nearest;
-  }
 }
