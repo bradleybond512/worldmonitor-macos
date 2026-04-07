@@ -11,6 +11,55 @@ import { pathToFileURL } from 'node:url';
 // Node 22 ships a built-in WebSocket global (WHATWG API) — no external dep needed.
 const AisWebSocket = WebSocket;
 
+// ── Diagnostics prelude ──────────────────────────────────────────────────
+// Wrap stdout/stderr so every log line gets a timestamp and stream tag.
+// Without this, the parent log file interleaves silently and you can't tell
+// when anything happened or which stream produced it.
+const SIDECAR_TRACE = process.env.WM_TRACE === '1';
+const SIDECAR_BUILD_TAG = process.env.WM_BUILD_TAG || `node-${process.versions.node}`;
+const SIDECAR_START_MS = Date.now();
+const wmHostFailures = new Map(); // host → { count, lastError, lastAt }
+
+function wmTimestamp() {
+  return new Date().toISOString();
+}
+function wmTagStream(stream, tag) {
+  const orig = stream.write.bind(stream);
+  stream.write = (chunk, ...rest) => {
+    if (typeof chunk === 'string') {
+      const lines = chunk.split('\n');
+      const last = lines.pop();
+      const out = lines.map(l => `[${wmTimestamp()}][${tag}] ${l}\n`).join('');
+      return orig(out + (last ? `[${wmTimestamp()}][${tag}] ${last}` : ''), ...rest);
+    }
+    return orig(chunk, ...rest);
+  };
+}
+wmTagStream(process.stdout, 'stdout');
+wmTagStream(process.stderr, 'stderr');
+
+// Catch-all error handlers — without these, an unhandled rejection can kill
+// the process with no log line at all.
+process.on('uncaughtException', (err) => {
+  console.error('[sidecar] uncaughtException:', err?.stack || err);
+});
+process.on('unhandledRejection', (reason) => {
+  console.error('[sidecar] unhandledRejection:', reason?.stack || reason);
+});
+process.on('SIGTERM', () => { console.log('[sidecar] received SIGTERM, exiting cleanly'); process.exit(0); });
+process.on('SIGINT', () => { console.log('[sidecar] received SIGINT, exiting cleanly'); process.exit(0); });
+process.on('exit', (code) => { console.log(`[sidecar] process exit code=${code} uptime_ms=${Date.now() - SIDECAR_START_MS}`); });
+
+console.log(`[sidecar] starting pid=${process.pid} node=${process.versions.node} build=${SIDECAR_BUILD_TAG} trace=${SIDECAR_TRACE}`);
+
+function wmRecordHostFailure(host, errorMsg) {
+  const entry = wmHostFailures.get(host) || { count: 0, lastError: '', lastAt: 0 };
+  entry.count += 1;
+  entry.lastError = String(errorMsg).slice(0, 200);
+  entry.lastAt = Date.now();
+  wmHostFailures.set(host, entry);
+}
+
 const brotliCompressAsync = promisify(brotliCompress);
 
 // ── AIS Stream Manager ────────────────────────────────────────────────────
@@ -5719,10 +5768,65 @@ export async function createLocalApiServer(options = {}) {
 
   const server = createServer(async (req, res) => {
     const requestUrl = new URL(req.url || '/', `http://127.0.0.1:${context.port}`);
+    const reqStartedAt = Date.now();
 
     if (!requestUrl.pathname.startsWith('/api/')) {
       res.writeHead(404, { 'content-type': 'application/json', ...makeCorsHeaders(req) });
       res.end(JSON.stringify({ error: 'Not found' }));
+      return;
+    }
+
+    // ── /api/health — lightweight liveness probe ──────────────────────
+    if (requestUrl.pathname === '/api/health') {
+      const mem = process.memoryUsage();
+      res.writeHead(200, { 'content-type': 'application/json', ...makeCorsHeaders(req) });
+      res.end(JSON.stringify({
+        ok: true,
+        pid: process.pid,
+        uptime_ms: Date.now() - SIDECAR_START_MS,
+        port: context.port,
+        rss_mb: Math.round(mem.rss / 1024 / 1024),
+        heap_mb: Math.round(mem.heapUsed / 1024 / 1024),
+        ais_connected: aisState.socket?.readyState === 1,
+        ais_vessels: aisState.vessels.size,
+      }));
+      return;
+    }
+
+    // ── /api/diag — full diagnostics snapshot for bug reports ─────────
+    if (requestUrl.pathname === '/api/diag') {
+      const mem = process.memoryUsage();
+      const envKeys = Object.keys(process.env).filter(k =>
+        /API|KEY|TOKEN|SECRET|URL|EMAIL/i.test(k)
+      ).sort();
+      res.writeHead(200, { 'content-type': 'application/json', ...makeCorsHeaders(req) });
+      res.end(JSON.stringify({
+        timestamp: wmTimestamp(),
+        sidecar: {
+          pid: process.pid,
+          node_version: process.versions.node,
+          build_tag: SIDECAR_BUILD_TAG,
+          trace: SIDECAR_TRACE,
+          uptime_ms: Date.now() - SIDECAR_START_MS,
+          rss_mb: Math.round(mem.rss / 1024 / 1024),
+          heap_mb: Math.round(mem.heapUsed / 1024 / 1024),
+        },
+        config: {
+          port: context.port,
+          mode: context.mode,
+          api_dir: context.apiDir,
+          data_dir: context.dataDir,
+          cloud_fallback: context.cloudFallback,
+          route_count: routes.length,
+        },
+        env_keys_present: envKeys, // names only, never values
+        ais: {
+          connected: aisState.socket?.readyState === 1,
+          vessels: aisState.vessels.size,
+          messages: aisState.messageCount,
+        },
+        host_failures: Object.fromEntries(wmHostFailures),
+      }, null, 2));
       return;
     }
 
@@ -5777,9 +5881,14 @@ export async function createLocalApiServer(options = {}) {
 
       res.writeHead(response.status, headers);
       res.end(body);
+      if (SIDECAR_TRACE && !skipRecord) {
+        context.logger.log(`[req] ${req.method} ${requestUrl.pathname} → ${response.status} ${durationMs}ms`);
+      }
     } catch (error) {
       const durationMs = Date.now() - start;
       context.logger.error('[local-api] fatal', error);
+      const host = (() => { try { return new URL(req.url || '/', `http://x`).host; } catch { return 'unknown'; } })();
+      wmRecordHostFailure(host, error?.message || String(error));
 
       if (!skipRecord) {
         recordTraffic({
@@ -5833,6 +5942,36 @@ export async function createLocalApiServer(options = {}) {
       }
 
       context.logger.log(`[local-api] listening on http://127.0.0.1:${boundPort} (apiDir=${context.apiDir}, routes=${routes.length}, cloudFallback=${context.cloudFallback})`);
+
+      // ── Heartbeat ───────────────────────────────────────────────────
+      // Writes liveness state every 10s (1s in trace mode). Rust watcher
+      // can detect event-loop hangs by checking lastHeartbeat freshness.
+      const heartbeatPath = path.join(context.dataDir, 'sidecar.health.json');
+      let lastEventLoopCheck = Date.now();
+      const heartbeatInterval = SIDECAR_TRACE ? 1000 : 10_000;
+      setInterval(() => {
+        const now = Date.now();
+        const eventLoopLagMs = Math.max(0, now - lastEventLoopCheck - heartbeatInterval);
+        lastEventLoopCheck = now;
+        const mem = process.memoryUsage();
+        try {
+          writeFileSync(heartbeatPath, JSON.stringify({
+            pid: process.pid,
+            port: boundPort,
+            uptime_ms: now - SIDECAR_START_MS,
+            last_heartbeat: wmTimestamp(),
+            event_loop_lag_ms: eventLoopLagMs,
+            rss_mb: Math.round(mem.rss / 1024 / 1024),
+            heap_mb: Math.round(mem.heapUsed / 1024 / 1024),
+            ais_connected: aisState.socket?.readyState === 1,
+            ais_vessels: aisState.vessels.size,
+          }));
+        } catch {}
+        if (eventLoopLagMs > 2000) {
+          context.logger.warn(`[local-api] event loop lag ${eventLoopLagMs}ms`);
+        }
+      }, heartbeatInterval).unref();
+
       return { port: boundPort };
     },
     async close() {
