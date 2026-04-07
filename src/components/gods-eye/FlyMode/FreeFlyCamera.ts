@@ -17,18 +17,18 @@ export class FreeFlyCamera {
   protected viewer: Viewer;
   protected canvas: HTMLCanvasElement;
   private keys: KeyState = { w:false, s:false, a:false, d:false, q:false, e:false, shift:false, ctrl:false };
-  protected pointerLocked = false;
+  // Mouse-look is active while right-click is held
+  private rightMouseDown = false;
 
-  private removeKeyDown: (() => void) | null = null;
-  private removeKeyUp: (() => void) | null = null;
-  private removeMouseMove: (() => void) | null = null;
-  private removeLockChange: (() => void) | null = null;
+  private cleanupFns: (() => void)[] = [];
 
-  // Bound method references kept as class fields so activate/deactivate share the same reference
+  // Class-field bound handlers so activate/deactivate share the same reference
   private readonly boundKeyDown = (e: KeyboardEvent) => { this.onKeyDown(e); };
   private readonly boundKeyUp = (e: KeyboardEvent) => { this.onKeyUp(e); };
   private readonly boundMouseMove = (e: MouseEvent) => { this.onMouseMove(e); };
-  private readonly boundLockChange = () => { this.pointerLocked = document.pointerLockElement === this.canvas; };
+  private readonly boundMouseDown = (e: MouseEvent) => { if (e.button === 2) this.rightMouseDown = true; };
+  private readonly boundMouseUp = (e: MouseEvent) => { if (e.button === 2) this.rightMouseDown = false; };
+  private readonly boundContextMenu = (e: Event) => { e.preventDefault(); };
 
   constructor(viewer: Viewer, canvas: HTMLCanvasElement) {
     this.viewer = viewer;
@@ -39,30 +39,25 @@ export class FreeFlyCamera {
     document.addEventListener('keydown', this.boundKeyDown);
     document.addEventListener('keyup', this.boundKeyUp);
     document.addEventListener('mousemove', this.boundMouseMove);
-    document.addEventListener('pointerlockchange', this.boundLockChange);
+    document.addEventListener('mousedown', this.boundMouseDown);
+    document.addEventListener('mouseup', this.boundMouseUp);
+    // Suppress context menu so right-click doesn't pop a menu
+    this.canvas.addEventListener('contextmenu', this.boundContextMenu);
 
-    this.removeKeyDown = () => { document.removeEventListener('keydown', this.boundKeyDown); };
-    this.removeKeyUp = () => { document.removeEventListener('keyup', this.boundKeyUp); };
-    this.removeMouseMove = () => { document.removeEventListener('mousemove', this.boundMouseMove); };
-    this.removeLockChange = () => { document.removeEventListener('pointerlockchange', this.boundLockChange); };
-
-    this.canvas.requestPointerLock().catch(() => {/* denied — continue without lock */});
+    this.cleanupFns = [
+      () => { document.removeEventListener('keydown', this.boundKeyDown); },
+      () => { document.removeEventListener('keyup', this.boundKeyUp); },
+      () => { document.removeEventListener('mousemove', this.boundMouseMove); },
+      () => { document.removeEventListener('mousedown', this.boundMouseDown); },
+      () => { document.removeEventListener('mouseup', this.boundMouseUp); },
+      () => { this.canvas.removeEventListener('contextmenu', this.boundContextMenu); },
+    ];
   }
 
   deactivate(): void {
-    this.removeKeyDown?.();
-    this.removeKeyUp?.();
-    this.removeMouseMove?.();
-    this.removeLockChange?.();
-    this.removeKeyDown = null;
-    this.removeKeyUp = null;
-    this.removeMouseMove = null;
-    this.removeLockChange = null;
-
-    if (document.pointerLockElement === this.canvas) {
-      document.exitPointerLock();
-    }
-    this.pointerLocked = false;
+    for (const fn of this.cleanupFns) fn();
+    this.cleanupFns = [];
+    this.rightMouseDown = false;
     this.keys = { w:false, s:false, a:false, d:false, q:false, e:false, shift:false, ctrl:false };
   }
 
@@ -126,7 +121,8 @@ export class FreeFlyCamera {
   }
 
   private onMouseMove(e: MouseEvent): void {
-    if (!this.pointerLocked) return;
+    // Mouse-look only while right-click held — no pointer lock needed
+    if (!this.rightMouseDown) return;
     const camera = this.viewer.camera;
     const dx = e.movementX * FLY_SENSITIVITY;
     const dy = e.movementY * FLY_SENSITIVITY;

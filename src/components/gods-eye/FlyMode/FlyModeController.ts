@@ -63,8 +63,9 @@ export class FlyModeController {
     // Disable orbit camera controller — we take over completely
     this.setOrbitEnabled(false);
 
-    // Switch Cesium to continuous rendering so frames fire even without input
-    this.viewer.scene.requestRenderMode = false;
+    // Keep requestRenderMode = true (on-demand). We drive the loop by calling
+    // scene.requestRender() at the end of each preUpdate frame, which queues
+    // the next frame. This avoids a full-speed render storm in WKWebView.
 
     // Hook per-frame update
     this.lastFrameMs = performance.now();
@@ -83,16 +84,8 @@ export class FlyModeController {
     this.preUpdateRemover?.();
     this.preUpdateRemover = null;
 
-    // Restore on-demand rendering
-    this.viewer.scene.requestRenderMode = true;
-
     // Restore orbit controller
     this.setOrbitEnabled(true);
-
-    // Release pointer lock if held
-    if (document.pointerLockElement === this.canvas) {
-      document.exitPointerLock();
-    }
 
     this.emitStatus();
   }
@@ -195,15 +188,15 @@ export class FlyModeController {
     const time = this.viewer.clock.currentTime;
 
     switch (this._subMode) {
-      case 1: { this.freeFly?.update(dt); break;
-      }
-      case 2: { this.cinematic?.update(dt); break;
-      }
-      case 3: { this.chase?.update(dt, time); break;
-      }
-      case 4: { this.cityFly?.update(dt); break;
-      }
+      case 1: { this.freeFly?.update(dt); break; }
+      case 2: { this.cinematic?.update(dt); break; }
+      case 3: { this.chase?.update(dt, time); break; }
+      case 4: { this.cityFly?.update(dt); break; }
     }
+
+    // Queue next frame — creates a controlled continuous loop via Cesium's
+    // animation frame scheduler (rate-limited to display refresh rate)
+    this.viewer.scene.requestRender();
   }
 
   private setOrbitEnabled(enabled: boolean): void {
