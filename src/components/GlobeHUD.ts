@@ -78,8 +78,11 @@ export class GlobeHUD {
   private onAutoFollowSkip: (() => void) | null = null;
   private onClusterToggle: ((enabled: boolean) => void) | null = null;
   private onTerminatorToggle: ((enabled: boolean) => void) | null = null;
+  private onBuildingsToggle: ((enabled: boolean) => void) | null = null;
   private terminatorBtn: HTMLButtonElement | null = null;
+  private buildingsBtn: HTMLButtonElement | null = null;
   private terminatorEnabled = false;
+  private buildingsEnabled = false;
   private clusteringEnabled = true;
   private clockId: number | null = null;
 
@@ -199,6 +202,7 @@ export class GlobeHUD {
     layerBar.id = 'geLayerBar';
     this.buildClusterButton(layerBar);
     this.buildTerminatorButton(layerBar);
+    this.buildBuildingsButton(layerBar);
     this.buildLayerButtons(layerBar);
     bottomCenter.append(layerBar);
     this.element.append(bottomCenter);
@@ -314,6 +318,31 @@ export class GlobeHUD {
     this.setTerminatorEnabled(!this.terminatorEnabled);
     this.onTerminatorToggle?.(this.terminatorEnabled);
     return this.terminatorEnabled;
+  }
+
+  setOnBuildingsToggle(cb: (enabled: boolean) => void): void {
+    this.onBuildingsToggle = cb;
+  }
+
+  setBuildingsEnabled(enabled: boolean): void {
+    this.buildingsEnabled = enabled;
+    this.buildingsBtn?.classList.toggle('ge-layer-active', enabled);
+  }
+
+  private buildBuildingsButton(bar: HTMLElement): void {
+    const btn = document.createElement('button');
+    btn.className = `ge-layer-btn${this.buildingsEnabled ? ' ge-layer-active' : ''}`;
+    btn.title = 'Toggle 3D building tiles';
+    const nameSpan = document.createElement('span');
+    nameSpan.className = 'ge-layer-name';
+    nameSpan.textContent = '3D BLDG';
+    btn.append(nameSpan);
+    btn.addEventListener('click', () => {
+      this.setBuildingsEnabled(!this.buildingsEnabled);
+      this.onBuildingsToggle?.(this.buildingsEnabled);
+    });
+    this.buildingsBtn = btn;
+    bar.append(btn);
   }
 
   private buildLayerButtons(bar: HTMLElement): void {
