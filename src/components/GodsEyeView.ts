@@ -17,6 +17,9 @@ import type { FlySubMode } from '@/components/gods-eye/FlyMode/flyModeKeybinds';
 import type { CustomDataSource } from 'cesium';
 import { getMode, type AppMode, type ModeChangedDetail } from '@/services/mode-manager';
 import { tryInvokeTauri } from '@/services/tauri-bridge';
+import { loadBookmarks, saveBookmark } from '@/services/camera-bookmarks';
+import { saveWaypoint, WaypointTour, loadWaypoints } from '@/services/globe-waypoints';
+import { GlobeSearch } from '@/components/gods-eye/GlobeSearch';
 
 // ── Theater camera presets (lat, lon, altitude meters, pitch degrees) ──
 const THEATERS = {
@@ -57,6 +60,8 @@ export class GodsEyeView {
   private reactorBeacons: GlobeReactorBeacons | null = null;
   private flyMode: FlyModeController | null = null;
   private buildingTiles: BuildingTileManager | null = null;
+  private globeSearch: GlobeSearch | null = null;
+  private waypointTour: WaypointTour | null = null;
   private hudTickId: number | null = null;
   private eventHandler: ScreenSpaceEventHandler | null = null;
   private active = false;
@@ -160,6 +165,13 @@ export class GodsEyeView {
       this.timeMachine.mount();
     }
 
+    // Geocode search bar
+    if (viewer) {
+      this.globeSearch = new GlobeSearch(viewer, this.container);
+      this.globeSearch.mount();
+      this.cleanupHandlers.push(() => { this.globeSearch?.destroy(); this.globeSearch = null; });
+    }
+
     // HUD overlay
     this.hud = new GlobeHUD(this.container);
     this.hud.setOnExit(() => this.exit());
@@ -229,6 +241,9 @@ export class GodsEyeView {
     document.body.classList.remove('gods-eye-lock');
 
     if (this.hudTickId != null) { clearInterval(this.hudTickId); this.hudTickId = null; }
+
+    this.waypointTour?.stop();
+    this.waypointTour = null;
 
     this.autoFollow?.destroy();
     this.autoFollow = null;
@@ -365,7 +380,7 @@ export class GodsEyeView {
             this.hud?.updateFlyMode({ active: false, subMode: 1, subModeName: 'FREE FLY' });
             return;
           }
-          const flySubMap: Record<string, FlySubMode> = { '1': 1, '2': 2, '3': 3, '4': 4 };
+          const flySubMap: Record<string, FlySubMode> = { '1': 1, '2': 2, '3': 3, '4': 4, '5': 5 };
           const flySubMode = flySubMap[ke.key];
           if (flySubMode !== undefined) {
             this.flyMode.switchSubMode(flySubMode);
@@ -406,11 +421,77 @@ export class GodsEyeView {
           return;
         }
 
-        // Theater presets 1-6
-        const theater = THEATER_KEYS[ke.key];
-        if (theater) {
-          this.flyToTheater(theater);
+        // Bookmark save: Cmd+1-5
+        if ((ke.metaKey || ke.ctrlKey) && ke.key >= '1' && ke.key <= '5') {
+          const viewer = this.globe?.cesiumViewer;
+          if (!viewer) return;
+          const cam = viewer.camera;
+          const carto = cam.positionCartographic;
+          saveBookmark(ke.key, {
+            lon: CesiumMath.toDegrees(carto.longitude),
+            lat: CesiumMath.toDegrees(carto.latitude),
+            alt: carto.height,
+            heading: CesiumMath.toDegrees(cam.heading),
+            pitch: CesiumMath.toDegrees(cam.pitch),
+          });
+          ke.preventDefault();
           return;
+        }
+
+        // W = save waypoint, Shift+W = start/stop tour
+        if ((ke.key === 'w' || ke.key === 'W') && !ke.metaKey && !ke.ctrlKey) {
+          const viewer = this.globe?.cesiumViewer;
+          if (!viewer) return;
+          const cam = viewer.camera;
+          const carto = cam.positionCartographic;
+          if (ke.shiftKey) {
+            if (this.waypointTour) {
+              this.waypointTour.stop();
+              this.waypointTour = null;
+            } else {
+              this.waypointTour = new WaypointTour(viewer);
+              this.waypointTour.start();
+            }
+          } else {
+            const wps = loadWaypoints();
+            saveWaypoint({
+              id: String(Date.now()),
+              name: `Waypoint ${wps.length + 1}`,
+              lon: CesiumMath.toDegrees(carto.longitude),
+              lat: CesiumMath.toDegrees(carto.latitude),
+              alt: carto.height,
+              heading: CesiumMath.toDegrees(cam.heading),
+              pitch: CesiumMath.toDegrees(cam.pitch),
+            });
+          }
+          ke.preventDefault();
+          return;
+        }
+
+        // Keys 1-6: bookmark recall if saved, else theater preset
+        if (!ke.metaKey && !ke.ctrlKey && !ke.altKey) {
+          const theater = THEATER_KEYS[ke.key];
+          const bm = (ke.key >= '1' && ke.key <= '5') ? loadBookmarks()[ke.key] : undefined;
+          if (bm) {
+            const viewer = this.globe?.cesiumViewer;
+            if (viewer) {
+              viewer.camera.flyTo({
+                destination: Cartesian3.fromDegrees(bm.lon, bm.lat, bm.alt),
+                orientation: {
+                  heading: CesiumMath.toRadians(bm.heading),
+                  pitch: CesiumMath.toRadians(bm.pitch),
+                  roll: 0,
+                },
+                duration: 2,
+              });
+              ke.preventDefault();
+              return;
+            }
+          }
+          if (theater) {
+            this.flyToTheater(theater);
+            return;
+          }
         }
 
         // +/- zoom

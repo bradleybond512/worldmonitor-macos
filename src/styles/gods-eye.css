@@ -689,3 +689,53 @@ body.gods-eye-lock {
   color: rgba(var(--ge-white), 0.45);
   white-space: nowrap;
 }
+
+/* ── Geocode search bar ──────────────────────────── */
+.ge-search-root {
+  position: absolute;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 20;
+  width: 280px;
+  pointer-events: auto;
+}
+.ge-search-input {
+  width: 100%;
+  box-sizing: border-box;
+  background: var(--ge-glass);
+  backdrop-filter: blur(var(--ge-blur));
+  -webkit-backdrop-filter: blur(var(--ge-blur));
+  border: 1px solid var(--ge-glass-border);
+  border-radius: 10px;
+  color: rgba(var(--ge-white), 0.9);
+  font-family: var(--ge-font);
+  font-size: 12px;
+  padding: 7px 12px;
+  outline: none;
+}
+.ge-search-input::placeholder { color: rgba(var(--ge-white), 0.35); }
+.ge-search-results {
+  margin-top: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.ge-search-result-item {
+  background: var(--ge-glass);
+  backdrop-filter: blur(var(--ge-blur));
+  -webkit-backdrop-filter: blur(var(--ge-blur));
+  border: 1px solid var(--ge-glass-border);
+  border-radius: 8px;
+  color: rgba(var(--ge-white), 0.85);
+  font-family: var(--ge-font);
+  font-size: 11px;
+  padding: 6px 10px;
+  text-align: left;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 100%;
+}
+.ge-search-result-item:hover { background: rgba(var(--ge-blue), 0.15); }

@@ -3,6 +3,7 @@ import { FreeFlyCamera } from './FreeFlyCamera';
 import { CinematicPath } from './CinematicPath';
 import { ChaseCamera } from './ChaseCamera';
 import { CityFlyMode } from './CityFlyMode';
+import { OrbitMode } from './OrbitMode';
 import { FLY_SUB_MODE_NAMES, type FlySubMode } from './flyModeKeybinds';
 import type { FollowTarget } from '@/components/gods-eye/AutoFollowEngine';
 import type { BuildingTileManager } from '@/services/building-tiles';
@@ -26,6 +27,7 @@ export class FlyModeController {
   private cinematic: CinematicPath | null = null;
   private chase: ChaseCamera | null = null;
   private cityFly: CityFlyMode | null = null;
+  private orbit: OrbitMode | null = null;
 
   private rafId: number | null = null;
   private lastFrameMs = 0;
@@ -161,6 +163,11 @@ export class FlyModeController {
         this.cityFly.activate();
         break;
       }
+      case 5: {
+        this.orbit = new OrbitMode(this.viewer);
+        this.orbit.activate();
+        break;
+      }
     }
 
     this.emitStatus();
@@ -175,6 +182,8 @@ export class FlyModeController {
     this.chase = null;
     this.cityFly?.deactivate();
     this.cityFly = null;
+    this.orbit?.deactivate();
+    this.orbit = null;
   }
 
   private onFrame(): void {
@@ -193,6 +202,8 @@ export class FlyModeController {
         case 3: { this.chase?.update(dt, time); break;
         }
         case 4: { this.cityFly?.update(dt); break;
+        }
+        case 5: { this.orbit?.update(dt); break;
         }
       }
     } catch {
