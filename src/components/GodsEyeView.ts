@@ -10,6 +10,7 @@ import { GlobeDataManager } from '@/components/GlobeDataManager';
 import { GlobeHUD } from '@/components/GlobeHUD';
 import { GlobeTimeMachine } from '@/components/GlobeTimeMachine';
 import { AutoFollowEngine } from '@/components/gods-eye/AutoFollowEngine';
+import { GlobeReactorBeacons } from '@/components/GlobeReactorBeacons';
 import type { CustomDataSource } from 'cesium';
 import { getMode, type AppMode, type ModeChangedDetail } from '@/services/mode-manager';
 
@@ -49,6 +50,7 @@ export class GodsEyeView {
   private hud: GlobeHUD | null = null;
   private timeMachine: GlobeTimeMachine | null = null;
   private autoFollow: AutoFollowEngine | null = null;
+  private reactorBeacons: GlobeReactorBeacons | null = null;
   private hudTickId: number | null = null;
   private orbitTickId: number | null = null;
   private idleTimer: number | null = null;
@@ -103,6 +105,8 @@ export class GodsEyeView {
     if (viewer) {
       this.dataManager = new GlobeDataManager(viewer);
       this.dataManager.initialize();
+      this.reactorBeacons = new GlobeReactorBeacons(viewer);
+      this.reactorBeacons.mount();
     }
 
     // Auto-follow engine
@@ -184,6 +188,9 @@ export class GodsEyeView {
     this.timeMachine?.destroy();
     this.timeMachine = null;
 
+    this.reactorBeacons?.destroy();
+    this.reactorBeacons = null;
+
     setTimeout(() => {
       this.hud?.destroy();
       this.hud = null;
@@ -205,6 +212,10 @@ export class GodsEyeView {
   destroy(): void {
     this.exit();
     this.container.remove();
+  }
+
+  flyToReactorAlert(alertId: string): boolean {
+    return this.reactorBeacons?.flyTo(alertId) ?? false;
   }
 
   // ── Mode theming ─────────────────────────────────────
