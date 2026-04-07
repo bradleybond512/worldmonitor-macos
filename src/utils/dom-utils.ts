@@ -81,7 +81,7 @@ export function safeHtml(html: string): DocumentFragment {
           continue;
         }
         // Strip unsafe attributes
-        for (const attr of el.attributes) {
+        for (const attr of [...el.attributes]) {
           if (!SAFE_ATTRS.has(attr.name.toLowerCase())) {
             el.removeAttribute(attr.name);
           }

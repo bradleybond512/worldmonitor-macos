@@ -411,17 +411,18 @@ fn get_local_api_token(webview: Webview, state: tauri::State<'_, LocalApiState>)
 }
 
 #[tauri::command]
-fn get_desktop_runtime_info(state: tauri::State<'_, LocalApiState>) -> DesktopRuntimeInfo {
+fn get_desktop_runtime_info(webview: Webview, state: tauri::State<'_, LocalApiState>) -> Result<DesktopRuntimeInfo, String> {
+    require_trusted_window(webview.label())?;
     let port = state.port.lock().ok().and_then(|g| *g);
     let username = resolve_runtime_user_name();
     let display_name = resolve_runtime_display_name(username.as_ref());
-    DesktopRuntimeInfo {
+    Ok(DesktopRuntimeInfo {
         os: env::consts::OS.to_string(),
         arch: env::consts::ARCH.to_string(),
         local_api_port: port,
         username,
         display_name,
-    }
+    })
 }
 
 #[tauri::command]
@@ -768,7 +769,8 @@ fn truncate_to_bytes(s: &str, max_bytes: usize) -> &str {
 /// Rate-limited to 1 notification per 30 seconds to prevent notification spam.
 /// Input fields are length-capped and sanitized before interpolation into AppleScript.
 #[tauri::command]
-fn send_notification(title: String, body: String, sound: Option<String>) -> Result<(), String> {
+fn send_notification(webview: Webview, title: String, body: String, sound: Option<String>) -> Result<(), String> {
+    require_trusted_window(webview.label())?;
     #[cfg(not(target_os = "macos"))]
     {
         let _ = (title, body, sound);
@@ -1015,6 +1017,9 @@ async fn fetch_polymarket(webview: Webview, path: String, params: String) -> Res
     // Guard against extremely long params strings that could be used for log injection
     if params.len() > 2048 {
         return Err("Polymarket query params exceed maximum allowed length".into());
+    }
+    if params.contains('\n') || params.contains('\r') || params.contains('#') {
+        return Err("invalid params".to_string());
     }
     let url = format!("https://gamma-api.polymarket.com/{}?{}", segment, params);
     let client = reqwest::Client::builder()
@@ -1812,13 +1817,17 @@ async fn copy_diagnostics(app: AppHandle) -> Result<String, String> {
     }
 
     // Fetch /api/diag from the live sidecar
-    let port = app.state::<LocalApiState>().port.lock().ok().and_then(|p| *p).unwrap_or(DEFAULT_LOCAL_API_PORT);
+    let local_state = app.state::<LocalApiState>();
+    let port = local_state.port.lock().ok().and_then(|p| *p).unwrap_or(DEFAULT_LOCAL_API_PORT);
+    let token = local_state.token.lock().ok().and_then(|t| t.clone()).unwrap_or_default();
     out.push_str(&format!("--- /api/diag (port {port}) ---\n"));
     let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(2))
         .build()
         .map_err(|e| e.to_string())?;
-    match client.get(format!("http://127.0.0.1:{port}/api/diag")).send().await {
+    match client.get(format!("http://127.0.0.1:{port}/api/diag"))
+        .header("Authorization", format!("Bearer {}", token))
+        .send().await {
         Ok(resp) => match resp.text().await {
             Ok(body) => out.push_str(&body),
             Err(e) => out.push_str(&format!("(diag body read failed: {e})")),
