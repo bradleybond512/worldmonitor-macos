@@ -5,6 +5,9 @@ import {
   UrlTemplateImageryProvider,
   SceneMode,
   Color,
+  Cartesian3,
+  HeadingPitchRange,
+  Matrix4,
   Math as CesiumMath,
   type Scene,
   type Camera,
@@ -120,19 +123,21 @@ export class CesiumGlobe {
 
     // Clamp camera pitch so the globe can't go more sideways than 45° from vertical.
     // Cesium pitch: -π/2 = straight down, 0 = horizontal. Cap at -π/4 (-45°).
+    // IMPORTANT: camera.setView() with only orientation rotates in camera-local space,
+    // decoupling it from the globe and causing a black-screen on next scroll. Instead,
+    // use lookAt() targeting the ground point below the camera so the orbit is preserved.
     const MAX_PITCH = CesiumMath.toRadians(-45);
     scene.postUpdate.addEventListener(() => {
-      const camera = this.viewer?.camera;
-      if (!camera) return;
-      if (camera.pitch > MAX_PITCH) {
-        camera.setView({
-          orientation: {
-            heading: camera.heading,
-            pitch: MAX_PITCH,
-            roll: 0,
-          },
-        });
-      }
+      const viewer = this.viewer;
+      if (!viewer) return;
+      const camera = viewer.camera;
+      if (camera.pitch <= MAX_PITCH) return;
+
+      const carto = camera.positionCartographic;
+      const groundPos = Cartesian3.fromRadians(carto.longitude, carto.latitude, 0);
+      const range = Cartesian3.distance(camera.positionWC, groundPos);
+      camera.lookAt(groundPos, new HeadingPitchRange(camera.heading, MAX_PITCH, range));
+      camera.lookAtTransform(Matrix4.IDENTITY);
     });
 
     // ── Imagery Layers ─────────────────────────────────
