@@ -79,12 +79,18 @@ export class GlobeHUD {
   private onClusterToggle: ((enabled: boolean) => void) | null = null;
   private onTerminatorToggle: ((enabled: boolean) => void) | null = null;
   private onBuildingsToggle: ((enabled: boolean) => void) | null = null;
+  private onArcsToggle: ((enabled: boolean) => void) | null = null;
+  private onHeatmapToggle: ((enabled: boolean) => void) | null = null;
   private onAlertClick: ((lat: number, lon: number, name: string) => void) | null = null;
   private onScreenshot: (() => void) | null = null;
   private terminatorBtn: HTMLButtonElement | null = null;
   private buildingsBtn: HTMLButtonElement | null = null;
+  private arcsBtn: HTMLButtonElement | null = null;
+  private heatmapBtn: HTMLButtonElement | null = null;
   private terminatorEnabled = false;
   private buildingsEnabled = false;
+  private arcsEnabled = false;
+  private heatmapEnabled = false;
   private clusteringEnabled = true;
   private clockId: number | null = null;
 
@@ -214,6 +220,8 @@ export class GlobeHUD {
     this.buildClusterButton(layerBar);
     this.buildTerminatorButton(layerBar);
     this.buildBuildingsButton(layerBar);
+    this.buildArcsButton(layerBar);
+    this.buildHeatmapButton(layerBar);
     this.buildScreenshotButton(layerBar);
     this.buildLayerButtons(layerBar);
     bottomCenter.append(layerBar);
@@ -362,6 +370,56 @@ export class GlobeHUD {
       this.onBuildingsToggle?.(this.buildingsEnabled);
     });
     this.buildingsBtn = btn;
+    bar.append(btn);
+  }
+
+  setOnArcsToggle(cb: (enabled: boolean) => void): void {
+    this.onArcsToggle = cb;
+  }
+
+  setArcsEnabled(enabled: boolean): void {
+    this.arcsEnabled = enabled;
+    this.arcsBtn?.classList.toggle('ge-layer-active', enabled);
+  }
+
+  private buildArcsButton(bar: HTMLElement): void {
+    const btn = document.createElement('button');
+    btn.className = 'ge-layer-btn';
+    btn.title = 'Toggle arc lines connecting conflicts to nearby disasters';
+    const nameSpan = document.createElement('span');
+    nameSpan.className = 'ge-layer-name';
+    nameSpan.textContent = 'ARCS';
+    btn.append(nameSpan);
+    btn.addEventListener('click', () => {
+      this.setArcsEnabled(!this.arcsEnabled);
+      this.onArcsToggle?.(this.arcsEnabled);
+    });
+    this.arcsBtn = btn;
+    bar.append(btn);
+  }
+
+  setOnHeatmapToggle(cb: (enabled: boolean) => void): void {
+    this.onHeatmapToggle = cb;
+  }
+
+  setHeatmapEnabled(enabled: boolean): void {
+    this.heatmapEnabled = enabled;
+    this.heatmapBtn?.classList.toggle('ge-layer-active', enabled);
+  }
+
+  private buildHeatmapButton(bar: HTMLElement): void {
+    const btn = document.createElement('button');
+    btn.className = 'ge-layer-btn';
+    btn.title = 'Toggle density heatmap overlay';
+    const nameSpan = document.createElement('span');
+    nameSpan.className = 'ge-layer-name';
+    nameSpan.textContent = 'HEAT';
+    btn.append(nameSpan);
+    btn.addEventListener('click', () => {
+      this.setHeatmapEnabled(!this.heatmapEnabled);
+      this.onHeatmapToggle?.(this.heatmapEnabled);
+    });
+    this.heatmapBtn = btn;
     bar.append(btn);
   }
 
