@@ -47,6 +47,7 @@ This is a survival-grade intelligence feature: it must be operational under the 
 ### Domain Card States
 
 Each of the three domain cards has:
+
 - **Label** (small caps): Security / Economics / Infrastructure
 - **Severity badge**: CRITICAL (red) / ELEVATED (amber) / NORMAL (green) / UNKNOWN (slate)
 - **Headline** (1 line): short summary from AI or rule-based engine
@@ -64,6 +65,7 @@ Only one domain may be expanded at a time. Expanded state shows the `analysis` f
 ### AI Source Indicator (panel footer)
 
 Always visible. One of:
+
 - `● Ollama · {model}` — blue dot
 - `● Groq · llama3-70b` — purple dot
 - `● OpenRouter` — purple dot
@@ -266,11 +268,13 @@ else:
 ## Sidecar Endpoint — `POST /api/intel-brief`
 
 Request body:
+
 ```json
 { "snapshot": { /* IntelBriefSnapshot */ } }
 ```
 
 Response (success — AI generated):
+
 ```json
 {
   "security":       { "severity": "critical", "headline": "...", "analysis": "..." },
@@ -282,6 +286,7 @@ Response (success — AI generated):
 ```
 
 Response (AI unavailable):
+
 ```json
 { "aiAvailable": false }
 ```
@@ -331,6 +336,7 @@ JSON parse failure from any provider → treat as unavailable, try next provider
 > **Note on War/Disaster urgency:** The `wm:mode-changed` listener fires `_generate()` immediately on every mode transition, providing instant re-analysis when conditions escalate. A separate 5-minute war/disaster scheduler interval is therefore unnecessary — the 15-minute base interval plus immediate mode-triggered regeneration is sufficient.
 
 Registered in `App.ts`:
+
 ```typescript
 this.refreshScheduler.scheduleRefresh(
   'intelBrief',
@@ -341,6 +347,7 @@ this.refreshScheduler.scheduleRefresh(
 ```
 
 Mode-change listener in `IntelBriefPanel` constructor:
+
 ```typescript
 document.addEventListener('wm:mode-changed', () => void this._generate());
 ```
@@ -408,6 +415,7 @@ export function getLastEconomicStress(): EconomicStressData | null { return _las
 ```
 
 `data-loader.ts` `loadCommsHealth()`:
+
 ```typescript
 async loadCommsHealth(): Promise<void> {
   try {

@@ -37,6 +37,7 @@
 `buildSnapshot()` in intel-brief.ts needs access to the last-fetched data from these services. Currently data is pushed to panels and discarded. Add module-level cache variables with getter/setter so `buildSnapshot()` can read them.
 
 **Files:**
+
 - Modify: `src/services/comms-health.ts`
 - Modify: `src/services/economic-stress.ts`
 
@@ -65,6 +66,7 @@ export function getLastEconomicStress(): EconomicStressData | null { return _las
 ```bash
 npm run typecheck:all
 ```
+
 Expected: zero errors.
 
 - [ ] **Step 1.4: Commit**
@@ -83,6 +85,7 @@ Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>"
 Core types, `buildSnapshot`, `computeGlobalScore`, `fetchIntelBrief`, and localStorage cache helpers.
 
 **Files:**
+
 - Create: `src/services/intel-brief.ts`
 
 - [ ] **Step 2.1: Create the file**
@@ -281,6 +284,7 @@ export async function fetchIntelBrief(snapshot: IntelBriefSnapshot): Promise<Int
 ```bash
 npm run typecheck:all
 ```
+
 Expected: zero errors.
 
 - [ ] **Step 2.3: Commit**
@@ -299,6 +303,7 @@ Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>"
 Pure rule-based synthesis engine. No async, no imports from external services. Always succeeds. `buildEmptySnapshot` is also defined here.
 
 **Files:**
+
 - Create: `src/services/intel-brief-rules.ts`
 - Create: `tests/intel-brief-rules.test.mts`
 
@@ -462,6 +467,7 @@ describe('computeGlobalScore', () => {
 ```bash
 npm run test:data -- tests/intel-brief-rules.test.mts
 ```
+
 Expected: FAIL — `intel-brief-rules.ts` does not exist yet.
 
 - [ ] **Step 3.3: Create src/services/intel-brief-rules.ts**
@@ -602,6 +608,7 @@ export function generateRuleBasedBrief(snapshot: IntelBriefSnapshot): IntelBrief
 ```bash
 npm run test:data -- tests/intel-brief-rules.test.mts
 ```
+
 Expected: all tests PASS.
 
 - [ ] **Step 3.5: Typecheck**
@@ -609,6 +616,7 @@ Expected: all tests PASS.
 ```bash
 npm run typecheck:all
 ```
+
 Expected: zero errors.
 
 - [ ] **Step 3.6: Commit**
@@ -629,6 +637,7 @@ Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>"
 Add the 3-provider AI chain (Ollama → Groq → OpenRouter) to the sidecar. Returns domain objects + source/model metadata when AI succeeds, or `{ aiAvailable: false }` when all providers are unavailable or unconfigured.
 
 **Files:**
+
 - Modify: `src-tauri/sidecar/local-api-server.mjs`
 - Modify: `src-tauri/sidecar/local-api-server.test.mjs` (add test)
 
@@ -673,6 +682,7 @@ test('POST /api/intel-brief — returns 400 on missing snapshot', async () => {
 ```bash
 node --test src-tauri/sidecar/local-api-server.test.mjs 2>&1 | tail -20
 ```
+
 Expected: new tests FAIL — route not found.
 
 - [ ] **Step 4.3: Add POST /api/intel-brief route to the sidecar**
@@ -803,6 +813,7 @@ Respond with ONLY valid JSON — no prose, no markdown:
 ```bash
 node --test src-tauri/sidecar/local-api-server.test.mjs 2>&1 | tail -30
 ```
+
 Expected: all tests PASS including the two new intel-brief tests.
 
 - [ ] **Step 4.5: Commit**
@@ -823,6 +834,7 @@ Panel renders immediately on construction from localStorage cache or a synchrono
 **XSS note:** All AI-sourced or API-sourced strings (`headline`, `analysis`, `sourceModel`) are passed through `esc()` before being placed in markup. Numbers and severity labels are code-controlled and do not need escaping.
 
 **Files:**
+
 - Create: `src/components/IntelBriefPanel.ts`
 - Modify: `src/components/index.ts`
 
@@ -998,6 +1010,7 @@ export class IntelBriefPanel extends Panel {
 - [ ] **Step 5.2: Export from components index**
 
 Open `src/components/index.ts`. Add:
+
 ```typescript
 export * from './IntelBriefPanel';
 ```
@@ -1007,6 +1020,7 @@ export * from './IntelBriefPanel';
 ```bash
 npm run typecheck:all
 ```
+
 Expected: zero errors.
 
 - [ ] **Step 5.4: Commit**
@@ -1023,6 +1037,7 @@ Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>"
 ### Task 6: Wiring — panels.ts, panel-layout.ts, data-loader.ts, App.ts
 
 **Files:**
+
 - Modify: `src/config/panels.ts`
 - Modify: `src/app/panel-layout.ts`
 - Modify: `src/app/data-loader.ts`
@@ -1033,11 +1048,13 @@ Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>"
 In `src/config/panels.ts`:
 
 1. After `'economic-stress': { name: 'Economic Stress Index', enabled: true, priority: 1 },` add:
+
 ```typescript
   'intel-brief': { name: 'Intel Brief', enabled: true, priority: 1 },
 ```
 
-2. Find the `intelligence` entry in `PANEL_CATEGORY_MAP`. Add `'intel-brief'` at the front of `panelKeys`:
+1. Find the `intelligence` entry in `PANEL_CATEGORY_MAP`. Add `'intel-brief'` at the front of `panelKeys`:
+
 ```typescript
   intelligence: {
     labelKey: 'header.panelCatIntelligence',
@@ -1049,21 +1066,25 @@ In `src/config/panels.ts`:
 - [ ] **Step 6.2: Add to priority lists and createPanels() in panel-layout.ts**
 
 1. Add import with the other component imports:
+
 ```typescript
 import { IntelBriefPanel } from '@/components/IntelBriefPanel';
 ```
 
-2. In `WAR_PRIORITY` (around line 114), append `'intel-brief'` after `'comms-health'`:
+1. In `WAR_PRIORITY` (around line 114), append `'intel-brief'` after `'comms-health'`:
+
 ```
 'cii', 'satellite-fires', 'ucdp-events', 'displacement', 'space-weather', 'comms-health', 'intel-brief',
 ```
 
-3. In `DISASTER_PRIORITY` (around line 121), append `'intel-brief'` after `'economic-stress'`:
+1. In `DISASTER_PRIORITY` (around line 121), append `'intel-brief'` after `'economic-stress'`:
+
 ```
 'oref-sirens', 'weather', 'air-quality', 'comms-health', 'economic-stress', 'intel-brief',
 ```
 
-4. In `createPanels()`, after the `economic-stress` panel line:
+1. In `createPanels()`, after the `economic-stress` panel line:
+
 ```typescript
       this.ctx.panels['intel-brief'] = new IntelBriefPanel();
 ```
@@ -1071,11 +1092,13 @@ import { IntelBriefPanel } from '@/components/IntelBriefPanel';
 - [ ] **Step 6.3: Update data-loader.ts**
 
 1. Add `getMode` to the existing mode-manager import (line 61):
+
 ```typescript
 import { evaluateWarThreat, evaluateFinanceTrigger, evaluateCommodityTrigger, evaluateDisasterTrigger, checkFinanceAutoTriggerTimeout, getMode } from '@/services/mode-manager';
 ```
 
-2. Add new service imports near the existing comms-health/economic-stress imports:
+1. Add new service imports near the existing comms-health/economic-stress imports:
+
 ```typescript
 import { fetchCommsHealth, setLastCommsHealth } from '@/services/comms-health';
 import { fetchEconomicStress, setLastEconomicStress } from '@/services/economic-stress';
@@ -1086,7 +1109,8 @@ import type { IntelBriefPanel } from '@/components/IntelBriefPanel';
 
 > **Note:** `fetchCommsHealth` and `fetchEconomicStress` are likely already imported. Only add the new names (`setLastCommsHealth`, `setLastEconomicStress`, and the intel-brief imports). Check the existing import lines and extend them.
 
-3. In `loadCommsHealth()`, add `setLastCommsHealth(data)` after the fetch:
+1. In `loadCommsHealth()`, add `setLastCommsHealth(data)` after the fetch:
+
 ```typescript
   async loadCommsHealth(): Promise<void> {
     try {
@@ -1100,7 +1124,8 @@ import type { IntelBriefPanel } from '@/components/IntelBriefPanel';
   }
 ```
 
-4. In `loadEconomicStress()`, add `setLastEconomicStress(data)` after the fetch:
+1. In `loadEconomicStress()`, add `setLastEconomicStress(data)` after the fetch:
+
 ```typescript
   async loadEconomicStress(): Promise<void> {
     try {
@@ -1114,7 +1139,8 @@ import type { IntelBriefPanel } from '@/components/IntelBriefPanel';
   }
 ```
 
-5. After `loadEconomicStress()`, add:
+1. After `loadEconomicStress()`, add:
+
 ```typescript
   async loadIntelBrief(): Promise<void> {
     const snapshot = buildSnapshot(this.ctx.intelligenceCache, getMode());
@@ -1134,16 +1160,19 @@ import type { IntelBriefPanel } from '@/components/IntelBriefPanel';
 - [ ] **Step 6.4: Wire scheduleRefresh and listeners in App.ts**
 
 1. Add import with the other panel type imports:
+
 ```typescript
 import type { IntelBriefPanel } from '@/components/IntelBriefPanel';
 ```
 
-2. In `setupRefreshIntervals()`, in the batch array after the `economicStress` entry (around line 538), add:
+1. In `setupRefreshIntervals()`, in the batch array after the `economicStress` entry (around line 538), add:
+
 ```typescript
         { name: 'intelBrief', fn: () => this.dataLoader.loadIntelBrief(), intervalMs: 15 * 60 * 1000, condition: () => SITE_VARIANT === 'full' },
 ```
 
-3. Near the end of `setupRefreshIntervals()` (after the batch `if` block closes), add:
+1. Near the end of `setupRefreshIntervals()` (after the batch `if` block closes), add:
+
 ```typescript
     if (SITE_VARIANT === 'full') {
       document.addEventListener('wm:mode-changed', () => {
@@ -1160,6 +1189,7 @@ import type { IntelBriefPanel } from '@/components/IntelBriefPanel';
 ```bash
 npm run typecheck:all
 ```
+
 Expected: zero errors. Fix any errors before continuing.
 
 - [ ] **Step 6.6: Run all tests**
@@ -1167,6 +1197,7 @@ Expected: zero errors. Fix any errors before continuing.
 ```bash
 npm run test:data && npm run test:sidecar
 ```
+
 Expected: all tests pass.
 
 - [ ] **Step 6.7: Commit wiring**
@@ -1187,6 +1218,7 @@ Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>"
 ```bash
 npm run typecheck:all
 ```
+
 Expected: zero errors.
 
 - [ ] **Step 7.2: All tests pass**
@@ -1194,11 +1226,13 @@ Expected: zero errors.
 ```bash
 npm run test:data && npm run test:sidecar
 ```
+
 Expected: all pass.
 
 - [ ] **Step 7.3: Manual acceptance criteria checklist**
 
 Launch dev mode (`npm run dev`) and verify:
+
 - [ ] Panel appears immediately on load (score bar + 3 domain cards visible — never blank)
 - [ ] Collapsed cards show severity badge + headline
 - [ ] Clicking a card expands it to show analysis text

@@ -102,6 +102,7 @@ export interface AdsbSnapshot {
 ### Type Changes
 
 `src/types/index.ts` — add `adsb` to `MapLayers` interface:
+
 ```ts
 adsb: boolean;
 ```
@@ -109,45 +110,54 @@ adsb: boolean;
 ### Config Changes
 
 `src/config/panels.ts`:
+
 - Add `'air-traffic': { name: 'Air Traffic', enabled: true, priority: 2 }` to `FULL_PANELS`
 - Add `adsb: false` to **all 8** `MapLayers` objects: `FULL_MAP_LAYERS`, `FULL_MOBILE_MAP_LAYERS`, `TECH_MAP_LAYERS`, `TECH_MOBILE_MAP_LAYERS`, `FINANCE_MAP_LAYERS`, `FINANCE_MOBILE_MAP_LAYERS`, `HAPPY_MAP_LAYERS`, `HAPPY_MOBILE_MAP_LAYERS` — all default `false`
 - Add `adsb` to `LAYER_TO_SOURCE`: `adsb: ['adsb']`
 - Add `air-traffic` to `PANEL_CATEGORY_MAP` `dataTracking.panelKeys` array (full variant)
 
 `src/services/data-freshness.ts`:
+
 - Add `'adsb'` to the `DataSourceId` string union
 - Add a corresponding entry to `SOURCE_METADATA` (e.g., `{ label: 'ADS-B', url: 'https://opensky-network.org' }`)
 - Add a corresponding entry to `INTELLIGENCE_GAP_MESSAGES` (e.g., `'ADS-B flight data unavailable'`)
   (Both `SOURCE_METADATA` and `INTELLIGENCE_GAP_MESSAGES` are `Record<DataSourceId, ...>` — omitting `adsb` will fail typecheck)
 
 `src/config/commands.ts`:
+
 - Add `{ id: 'layer:adsb', keywords: ['adsb', 'aircraft', 'planes', 'air traffic'], label: 'Toggle ADS-B aircraft', icon: '✈️', category: 'layers' }`
 
 `src/utils/urlState.ts`:
+
 - Add `'adsb'` to the `LAYER_KEYS` array
 
 `src/locales/en.json` (and all other locale files):
+
 - Add `"components.deckgl.layers.adsbAircraft": "ADS-B Aircraft"` (transport group layer label)
 - Add help-text i18n key `components.deckgl.layers.transportAdsb` (following the `transportShipping` / `transportDelays` naming pattern) with value e.g. `"Live aircraft positions from OpenSky Network. Updates every 60 seconds."`
 
 ### DeckGLMap layer menu
 
 `src/components/DeckGLMap.ts`:
+
 - Add `{ key: 'adsb', label: t('components.deckgl.layers.adsbAircraft'), icon: '&#9992;' }` to the transport/interference group (alongside `ais` and `flights`)
 
 ### App Context
 
 `src/app/app-context.ts`:
+
 - Add `airTrafficPanel?: AirTrafficPanel` to the `AppContext` interface
 
 ### Panel Layout
 
 `src/app/panel-layout.ts`:
+
 - Instantiate `AirTrafficPanel` and assign to `ctx.airTrafficPanel` when `air-traffic` is enabled
 
 ### Data Loader
 
 `src/app/data-loader.ts`:
+
 - Add `loadAdsb()` method: calls `fetchAdsbSnapshot()`, pushes to `map.setAdsbFlights()`, updates panel via `ctx.airTrafficPanel?.update(snapshot)`
 - Add to `loadLayerData()` switch: `case 'adsb': await this.loadAdsb(); break;`
 - Add to initial load tasks: `if (this.ctx.mapLayers.adsb) tasks.push({ name: 'adsb', task: ... })`
@@ -155,6 +165,7 @@ adsb: boolean;
 ### App.ts Refresh
 
 `scheduleRefresh` takes positional args, not an object literal:
+
 ```ts
 this.refreshScheduler.scheduleRefresh(
   'adsb',

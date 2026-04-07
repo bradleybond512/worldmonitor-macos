@@ -31,6 +31,7 @@
 ### Task 1: Install Cesium + Configure Vite
 
 **Files:**
+
 - Modify: `package.json`
 - Modify: `vite.config.ts`
 - Modify: `tsconfig.json`
@@ -38,6 +39,7 @@
 - [ ] **Step 1: Install cesium**
 
 Run:
+
 ```bash
 cd ~/developer/worldmonitor
 npm install cesium@^1.125.0
@@ -67,6 +69,7 @@ viteStaticCopy({
 ```
 
 Install the copy plugin:
+
 ```bash
 npm install -D vite-plugin-static-copy
 ```
@@ -90,9 +93,11 @@ export function initCesium(ionToken?: string): void {
 - [ ] **Step 4: Verify build works**
 
 Run:
+
 ```bash
 npm run typecheck:all
 ```
+
 Expected: Zero errors (Cesium types should resolve).
 
 - [ ] **Step 5: Commit**
@@ -115,6 +120,7 @@ EOF
 ### Task 2: Coordinate Bridge — cesium-three-bridge.ts (TDD)
 
 **Files:**
+
 - Create: `src/services/cesium-three-bridge.ts`
 - Create: `tests/cesium-three-bridge.test.mts`
 
@@ -180,9 +186,11 @@ describe('cesium-three-bridge', () => {
 - [ ] **Step 2: Run tests to verify they fail**
 
 Run:
+
 ```bash
 npx tsx --test tests/cesium-three-bridge.test.mts
 ```
+
 Expected: FAIL — module not found.
 
 - [ ] **Step 3: Implement cesium-three-bridge.ts**
@@ -250,9 +258,11 @@ export function extractCameraMatrices(
 - [ ] **Step 4: Run tests to verify they pass**
 
 Run:
+
 ```bash
 npx tsx --test tests/cesium-three-bridge.test.mts
 ```
+
 Expected: 4 tests PASS.
 
 - [ ] **Step 5: Commit**
@@ -275,6 +285,7 @@ EOF
 ### Task 3: God's Eye Layer Registry
 
 **Files:**
+
 - Create: `src/config/gods-eye-layers.ts`
 - Create: `tests/gods-eye-layers.test.mts`
 
@@ -337,9 +348,11 @@ describe('gods-eye-layers', () => {
 - [ ] **Step 2: Run test to verify it fails**
 
 Run:
+
 ```bash
 npx tsx --test tests/gods-eye-layers.test.mts
 ```
+
 Expected: FAIL — module not found.
 
 - [ ] **Step 3: Implement layer registry**
@@ -456,9 +469,11 @@ export function saveGodsEyeLayers(layers: GodsEyeLayers): void {
 - [ ] **Step 4: Run tests to verify they pass**
 
 Run:
+
 ```bash
 npx tsx --test tests/gods-eye-layers.test.mts
 ```
+
 Expected: 3 tests PASS.
 
 - [ ] **Step 5: Commit**
@@ -482,6 +497,7 @@ EOF
 ### Task 4: CesiumGlobe Component
 
 **Files:**
+
 - Create: `src/components/CesiumGlobe.ts`
 
 - [ ] **Step 1: Create CesiumGlobe.ts**
@@ -590,9 +606,11 @@ export class CesiumGlobe {
 - [ ] **Step 2: Verify typecheck**
 
 Run:
+
 ```bash
 npm run typecheck:all
 ```
+
 Expected: Zero errors.
 
 - [ ] **Step 3: Commit**
@@ -615,6 +633,7 @@ EOF
 ### Task 5: ThreeOverlay Component
 
 **Files:**
+
 - Create: `src/components/ThreeOverlay.ts`
 
 - [ ] **Step 1: Create ThreeOverlay.ts**
@@ -761,9 +780,11 @@ export class ThreeOverlay {
 - [ ] **Step 2: Verify typecheck**
 
 Run:
+
 ```bash
 npm run typecheck:all
 ```
+
 Expected: Zero errors.
 
 - [ ] **Step 3: Commit**
@@ -786,6 +807,7 @@ EOF
 ### Task 6: GlobeHUD Component
 
 **Files:**
+
 - Create: `src/components/GlobeHUD.ts`
 
 - [ ] **Step 1: Create GlobeHUD.ts**
@@ -972,9 +994,11 @@ export class GlobeHUD {
 - [ ] **Step 2: Verify typecheck**
 
 Run:
+
 ```bash
 npm run typecheck:all
 ```
+
 Expected: Zero errors.
 
 - [ ] **Step 3: Commit**
@@ -998,6 +1022,7 @@ EOF
 ### Task 7: God's Eye CSS
 
 **Files:**
+
 - Create: `src/styles/gods-eye.css`
 - Modify: `src/styles/main.css` (import)
 
@@ -1131,9 +1156,11 @@ Read `src/styles/main.css` to find the existing import section, then add at the 
 - [ ] **Step 3: Verify build**
 
 Run:
+
 ```bash
 npm run typecheck:all
 ```
+
 Expected: Zero errors.
 
 - [ ] **Step 4: Commit**
@@ -1156,6 +1183,7 @@ EOF
 ### Task 8: GodsEyeView Orchestrator
 
 **Files:**
+
 - Create: `src/components/GodsEyeView.ts`
 
 - [ ] **Step 1: Create GodsEyeView.ts**
@@ -1325,9 +1353,11 @@ export class GodsEyeView {
 - [ ] **Step 2: Verify typecheck**
 
 Run:
+
 ```bash
 npm run typecheck:all
 ```
+
 Expected: Zero errors.
 
 - [ ] **Step 3: Commit**
@@ -1351,6 +1381,7 @@ EOF
 ### Task 9: Wire God's Eye Into App
 
 **Files:**
+
 - Modify: `src/App.ts`
 - Modify: `src/app/event-handlers.ts`
 - Modify: `src/app/panel-layout.ts`
@@ -1359,6 +1390,7 @@ EOF
 - [ ] **Step 1: Read current files to find exact insertion points**
 
 Read these files to locate the exact lines:
+
 - `src/App.ts` lines 55-80 — manager property declarations and initialization
 - `src/app/event-handlers.ts` lines 100-120, 325-340 — existing keyboard shortcuts (TV Mode, Ghost Mode)
 - `src/app/panel-layout.ts` lines 460-475 — sidebar footer buttons (Ghost Mode button area)
@@ -1367,16 +1399,19 @@ Read these files to locate the exact lines:
 - [ ] **Step 2: Add GodsEyeView to App.ts**
 
 Add import at the top of `src/App.ts`:
+
 ```typescript
 import { GodsEyeView } from '@/components/GodsEyeView';
 ```
 
 Add property alongside other manager declarations (near line 63-70):
+
 ```typescript
 private godsEyeView: GodsEyeView | null = null;
 ```
 
 Add a public method to the App class:
+
 ```typescript
 toggleGodsEye(): void {
   if (!this.godsEyeView) {
@@ -1419,6 +1454,7 @@ godsEyeBtn.textContent = 'God\'s Eye';
 ```
 
 Wire up the click handler using the same delegation pattern as Ghost Mode:
+
 ```typescript
 godsEyeBtn.addEventListener('click', () => {
   this.app.toggleGodsEye();
@@ -1438,9 +1474,11 @@ In `src/services/settings-constants.ts` or `runtime-config.ts`, add `CESIUM_ION_
 - [ ] **Step 6: Verify typecheck**
 
 Run:
+
 ```bash
 npm run typecheck:all
 ```
+
 Expected: Zero errors.
 
 - [ ] **Step 7: Commit**
@@ -1463,6 +1501,7 @@ EOF
 ### Task 10: E2E Test — God's Eye Mode Toggle
 
 **Files:**
+
 - Create: `e2e/gods-eye-mode.spec.ts`
 
 - [ ] **Step 1: Create e2e test**
@@ -1525,6 +1564,7 @@ test.describe('God\'s Eye Mode', () => {
 - [ ] **Step 2: Run e2e test**
 
 Run:
+
 ```bash
 npx cross-env VITE_VARIANT=full playwright test e2e/gods-eye-mode.spec.ts
 ```
@@ -1553,25 +1593,31 @@ EOF
 - [ ] **Step 1: Run full typecheck**
 
 Run:
+
 ```bash
 npm run typecheck:all
 ```
+
 Expected: Zero errors.
 
 - [ ] **Step 2: Run data tests**
 
 Run:
+
 ```bash
 npm run test:data
 ```
+
 Expected: All existing tests still pass (plus new bridge + layer tests).
 
 - [ ] **Step 3: Run production build**
 
 Run:
+
 ```bash
 npm run desktop:build:full
 ```
+
 Expected: Build completes. Cesium assets copied to output directory.
 
 - [ ] **Step 4: If any failures, fix and commit**
@@ -1597,5 +1643,6 @@ Fix typecheck or build issues. Commit each fix separately with descriptive messa
 | 11 | Full build validation | none | build + typecheck + data tests |
 
 **Next plans after this foundation ships:**
+
 - `2026-04-05-gods-eye-visual-track.md` — Satellites, Terrain, Imagery, HUD
 - `2026-04-05-gods-eye-analytical-track.md` — Entity Graph, RF/SIGINT, Timeline

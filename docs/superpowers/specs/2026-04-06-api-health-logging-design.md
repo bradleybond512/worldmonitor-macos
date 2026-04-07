@@ -86,11 +86,13 @@ Not driven from the Rust `SUPPORTED_SECRET_KEYS` list on purpose: that list cont
 ### `/api/diag` output changes
 
 Replace:
+
 ```js
 host_failures: Object.fromEntries(wmHostFailures),
 ```
 
 With:
+
 ```js
 host_stats: Object.fromEntries(wmHostStats),
 missing_keys: wmMissingKeys(),

@@ -36,6 +36,7 @@ Add a `fill-extrusion` layer to the existing vector tile basemap. Buildings extr
 ### New API Key: GOOGLE_MAPS_API_KEY
 
 Added to:
+
 - `SUPPORTED_SECRET_KEYS` in `src-tauri/src/main.rs`
 - Feature definition in `src/services/runtime-config.ts` with `requiredSecrets: ['GOOGLE_MAPS_API_KEY']`
 - Human-readable label in `src/services/settings-constants.ts`
@@ -53,6 +54,7 @@ Gated identically to `OWM_API_KEY` — fallback message explains free alternativ
 **Service:** `src/services/model-loader.ts`
 
 A singleton `ModelLoader` that fetches, caches, and serves glTF models:
+
 - Models stored in `public/models/aircraft/` as `.glb` files
 - `Map<string, Promise<ArrayBuffer>>` deduplicates in-flight requests
 - Models cached in memory after first load
@@ -77,6 +79,7 @@ All models are CC0 or public domain (NASA). The fallback generic shape is used w
 ### Type-to-Model Mapping
 
 A lookup table in `model-loader.ts` maps:
+
 - `MilitaryAircraftType` enum values → military model files
 - Common ADS-B ICAO type codes (e.g., `B738`, `A320`, `C17`) → model files
 - Unknown types → generic fallback
@@ -84,6 +87,7 @@ A lookup table in `model-loader.ts` maps:
 ### God's Eye Globe (Cesium)
 
 Each flight entity uses `ModelGraphics` instead of the current `Billboard`:
+
 - Position at real altitude: `Cartesian3.fromDegrees(lon, lat, altitudeMeters)`
 - Orientation from flight data: `HeadingPitchRoll(heading, pitch, roll)`
 - Scale normalized: visible at globe zoom but not absurdly large
@@ -95,11 +99,13 @@ Each flight entity uses `ModelGraphics` instead of the current `Billboard`:
 New dependency: `@deck.gl/mesh-layers`
 
 Uses `SimpleMeshLayer` with the same glTF models:
+
 - Position includes altitude as z-coordinate
 - `getOrientation` maps heading/pitch/roll
 - `sizeScale` adjusts visibility per zoom level
 
 **Zoom-gated rendering for performance:**
+
 - Zoom < 5: existing 2D ScatterplotLayer icons (fast for global view)
 - Zoom 5-10: 3D models at reduced scale
 - Zoom 10+: 3D models at full scale
@@ -115,6 +121,7 @@ Max 200 simultaneous mesh instances on the 2D map.
 **Service:** `src/services/satellite-catalog.ts`
 
 Fetches TLE (Two-Line Element) data from CelesTrak's public GP API:
+
 - Endpoint: `https://celestrak.org/NORAD/elements/gp.php?GROUP=active&FORMAT=json`
 - ~5,000 active satellite objects
 - Refresh interval: every 4 hours (TLEs remain valid for days)
@@ -146,6 +153,7 @@ The intelligence overlay is a static lookup table — no additional API needed.
 New dependency: `satellite.js` (MIT license, ~15KB minified)
 
 Architecture:
+
 1. Main thread sends TLE data to Worker via `postMessage`
 2. Worker propagates all ~5,000 satellite positions using SGP4 every 1 second
 3. Worker posts back `{id, lat, lon, altKm, velocityKmS}[]` arrays
@@ -215,6 +223,7 @@ Added to `src/config/gods-eye-layers.ts`:
 ### File Structure
 
 **New files:**
+
 ```
 src/services/model-loader.ts                  — glTF cache + type→model mapping
 src/services/satellite-catalog.ts             — TLE fetch + intelligence annotations
@@ -225,6 +234,7 @@ public/models/aircraft/*.glb                  — ~15 glTF model files
 ```
 
 **Modified files:**
+
 ```
 src/types/index.ts                    — 3 new MapLayers boolean keys
 src/config/panels.ts                  — new layer defaults in all MapLayers objects

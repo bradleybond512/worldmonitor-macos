@@ -15,6 +15,7 @@
 ## Task 1: Install Dependencies & Add GOOGLE_MAPS_API_KEY
 
 **Files:**
+
 - Modify: `package.json` — add `satellite.js`, `@deck.gl/mesh-layers`
 - Modify: `src-tauri/src/main.rs:38-85` — add key to SUPPORTED_SECRET_KEYS
 - Modify: `src/services/runtime-config.ts` — add feature definition
@@ -102,6 +103,7 @@ git commit -m "feat: add satellite.js, mesh-layers deps and GOOGLE_MAPS_API_KEY 
 ## Task 2: Add MapLayers Toggles & God's Eye Layer Config
 
 **Files:**
+
 - Modify: `src/types/index.ts` — 3 new MapLayers keys
 - Modify: `src/config/panels.ts` — add defaults to all MapLayers objects
 - Modify: `src/config/variants/full.ts` — add defaults
@@ -133,6 +135,7 @@ aircraft3d: false,
 ```
 
 Files to update (add to each MapLayers object):
+
 - `src/config/panels.ts` — all 8 MapLayers objects (FULL_MAP_LAYERS gets `buildings3d: true, satellites: false, aircraft3d: false`)
 - `src/config/variants/full.ts` — 2 objects
 - `src/config/variants/tech.ts` — 2 objects
@@ -191,6 +194,7 @@ git commit -m "feat: add 3D buildings, satellites, aircraft3d MapLayers toggles 
 ## Task 3: Building Tiles Service — 5-Tier Fallback Chain
 
 **Files:**
+
 - Create: `src/services/building-tiles.ts`
 
 - [ ] **Step 1: Create building-tiles.ts**
@@ -326,6 +330,7 @@ git commit -m "feat: add BuildingTileManager with 5-tier redundant fallback chai
 ## Task 4: 3D Building Extrusions on 2D Map (MapLibre)
 
 **Files:**
+
 - Modify: `src/components/DeckGLMap.ts` — add fill-extrusion layer management
 
 - [ ] **Step 1: Add building extrusion sync method**
@@ -408,6 +413,7 @@ git commit -m "feat: add 3D building extrusions on 2D map via MapLibre fill-extr
 ## Task 5: Integrate BuildingTileManager into God's Eye Globe
 
 **Files:**
+
 - Modify: `src/components/GlobeDataManager.ts` — add building tile loading
 - Modify: `src/components/CesiumGlobe.ts` — expose viewer for building manager
 
@@ -468,6 +474,7 @@ git commit -m "feat: integrate BuildingTileManager into God's Eye globe"
 ## Task 6: Model Loader Service
 
 **Files:**
+
 - Create: `src/services/model-loader.ts`
 
 - [ ] **Step 1: Create model-loader.ts**
@@ -615,6 +622,7 @@ git commit -m "feat: add ModelLoader service with type-to-glTF mapping and lazy 
 ## Task 7: Satellite Catalog Service
 
 **Files:**
+
 - Create: `src/services/satellite-catalog.ts`
 
 - [ ] **Step 1: Create satellite-catalog.ts**
@@ -762,6 +770,7 @@ git commit -m "feat: add satellite catalog with CelesTrak TLE fetch and intellig
 ## Task 8: SGP4 Propagation Web Worker
 
 **Files:**
+
 - Create: `src/workers/satellite-propagator.worker.ts`
 - Create: `src/services/satellite-propagator.ts`
 
@@ -1037,6 +1046,7 @@ git commit -m "feat: add SGP4 satellite propagation Web Worker with 1Hz position
 ## Task 9: Satellite Layers on DeckGL 2D Map
 
 **Files:**
+
 - Modify: `src/components/DeckGLMap.ts` — add satellite ScatterplotLayer, TextLayer, PathLayer
 - Modify: `src/components/MapContainer.ts` — add proxy setter
 
@@ -1195,6 +1205,7 @@ git commit -m "feat: add satellite position, label, and orbit path layers to 2D 
 ## Task 10: Satellite Layers on God's Eye Globe
 
 **Files:**
+
 - Modify: `src/components/GlobeDataManager.ts` — add satellite primitives
 
 - [ ] **Step 1: Add satellite imports and fields**
@@ -1313,6 +1324,7 @@ git commit -m "feat: add real-time satellite visualization on God's Eye globe wi
 ## Task 11: Wire Satellite Data Loader
 
 **Files:**
+
 - Modify: `src/app/data-loader.ts` — add satellite catalog loading and worker lifecycle
 
 - [ ] **Step 1: Add imports**
@@ -1372,6 +1384,7 @@ git commit -m "feat: wire satellite catalog fetch and propagator to data loader"
 ## Task 12: 3D Aircraft on DeckGL (SimpleMeshLayer)
 
 **Files:**
+
 - Modify: `src/components/DeckGLMap.ts` — add SimpleMeshLayer for aircraft
 
 - [ ] **Step 1: Add SimpleMeshLayer import**
@@ -1481,6 +1494,7 @@ git commit -m "feat: add 3D aircraft rendering with SimpleMeshLayer on 2D map"
 ## Task 13: 3D Aircraft on God's Eye Globe (ModelGraphics)
 
 **Files:**
+
 - Modify: `src/components/GlobeDataManager.ts` — replace billboard with ModelGraphics for flights
 
 - [ ] **Step 1: Add Cesium Model imports**
@@ -1551,6 +1565,7 @@ git commit -m "feat: replace flight billboard icons with 3D glTF models on God's
 ## Task 14: Create Placeholder Aircraft Models
 
 **Files:**
+
 - Create: `public/models/aircraft/generic-arrow.glb`
 
 - [ ] **Step 1: Generate a minimal arrow glTF model**
@@ -1585,6 +1600,7 @@ git commit -m "feat: add placeholder aircraft 3D models"
 ## Task 15: Update Documentation
 
 **Files:**
+
 - Modify: `docs/API_KEYS.md` — add GOOGLE_MAPS_API_KEY
 - Modify: `docs/README.md` — update feature counts
 - Modify: `docs/DESKTOP_CONFIGURATION.md` — add 3D degradation notes

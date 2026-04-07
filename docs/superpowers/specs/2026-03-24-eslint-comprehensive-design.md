@@ -44,6 +44,7 @@ In ESLint 9 flat config with the `typescript-eslint` unified package:
 ### TypeScript source (`src/**/*.ts`)
 
 **Config spreads:**
+
 - `tseslint.configs.recommendedTypeChecked` — full type-aware rules (requires `parserOptions.projectService: true`)
 - `tseslint.configs.stylisticTypeChecked` — consistent type-level style
 

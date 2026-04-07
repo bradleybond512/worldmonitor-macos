@@ -15,6 +15,7 @@
 ## Task 1: Device Identity Service
 
 **Files:**
+
 - Create: `src/services/device-identity.ts`
 - Create: `src/services/__tests__/device-identity.test.ts`
 
@@ -37,6 +38,7 @@
 ## Task 2: Threat Reactor Core
 
 **Files:**
+
 - Create: `src/services/threat-reactor.ts`
 - Create: `src/services/__tests__/threat-reactor.test.ts`
 
@@ -67,6 +69,7 @@
 ## Task 3: Notification Router
 
 **Files:**
+
 - Create: `src/services/notification-router.ts`
 - Create: `src/services/__tests__/notification-router.test.ts`
 
@@ -102,6 +105,7 @@
 ## Task 4: Threat Inbox Panel
 
 **Files:**
+
 - Create: `src/components/ThreatInboxPanel.ts`
 - Modify: `src/config/panels.ts`
 
@@ -125,6 +129,7 @@
 ## Task 5: Wire Reactor Into Cyber Service + Bootstrap
 
 **Files:**
+
 - Modify: `src/services/cyber/index.ts`
 - Modify: `src/components/CyberThreatPanel.ts`
 - Modify: `src/services/runtime-config.ts`
@@ -140,10 +145,12 @@
   - Add feature definitions with `defaultEnabled: true`
   - No new `RuntimeSecretKey` — reactor needs no API key
 - [ ] **Step 5:** In the bootstrap file, after existing service init, add:
+
   ```ts
   import { startNotificationRouter } from '@/services/notification-router';
   startNotificationRouter();
   ```
+
   Store the returned unsubscribe in case future code needs to tear it down.
 - [ ] **Step 6:** Run `npm run typecheck:all` — green. Then run all reactor-related tests — green.
 - [ ] **Step 7:** Commit: `feat(cyber-reactor): wire reactor into cyber service + bootstrap`

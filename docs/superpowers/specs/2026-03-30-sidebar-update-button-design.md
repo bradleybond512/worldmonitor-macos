@@ -10,6 +10,7 @@ The auto-install update flow (`install_update` Tauri command) works end-to-end, 
 ## Goal
 
 Add a persistent update indicator to the macOS sidebar footer that:
+
 - Shows "up to date" (muted, non-interactive) when on the latest version
 - Shows a clickable install button when an update is available
 - Starts the install immediately on click (no confirmation)
@@ -66,6 +67,7 @@ Add `renderSidebarUpdateBtn()` method that reads `ctx.updateState` and sets `inn
 The `sidebarUpdateInstall` click handler calls `invokeTauri('install_update', { downloadUrl })` and immediately sets `ctx.updateState = { phase: 'installing' }` then re-renders.
 
 `renderSidebarUpdateBtn()` is called:
+
 1. During the initial sidebar render (reads from `ctx.updateState`, handles `null` gracefully)
 2. In the `wm:update-state` event listener added once in `init()`
 

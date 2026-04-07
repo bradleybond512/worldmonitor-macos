@@ -48,6 +48,7 @@ All HTML strings are built from trusted internal data (sidecar responses we cont
 Aggregates three upstream sources in parallel. Each fetch uses `AbortController` with a 10s timeout so one slow source does not block the others. Returns `Content-Type: application/json`. Individual source failures return partial data, not a 500.
 
 **Upstream calls:**
+
 ```
 Cloudflare Radar (CLOUDFLARE_API_TOKEN — reuse existing env var):
   GET https://api.cloudflare.com/client/v4/radar/bgp/hijacks/events?limit=50
@@ -63,6 +64,7 @@ Internet Health Report (no key) — use network endpoint, NOT hegemony:
 ```
 
 **Response shape:**
+
 ```json
 {
   "overall": "warning",
@@ -85,6 +87,7 @@ Internet Health Report (no key) — use network endpoint, NOT hegemony:
 Fetches 6 FRED series + World Bank food security. FRED data is daily. Add a **15-minute in-process cache** using a `Map<string, {data: unknown, ts: number}>` with a TTL helper function. This is the **first route to use sidecar-level caching** — add a `// CACHE PATTERN: copy this for future cached routes` comment to document it.
 
 **Upstream calls:**
+
 ```
 FRED API (FRED_API_KEY — reuse existing env var) — latest observation for each series:
   T10Y2Y  - 10Y-2Y Treasury yield curve spread
@@ -102,6 +105,7 @@ World Bank (no key):
 ```
 
 **Response shape:**
+
 ```json
 {
   "stressIndex": 62,

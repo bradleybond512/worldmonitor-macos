@@ -17,6 +17,7 @@
 ## Chunk 1: Foundation — Types, Config, Data Freshness
 
 **Files:**
+
 - Modify: `src/types/index.ts:558` — add `adsb` to `MapLayers`
 - Modify: `src/config/panels.ts` — add panel entry, 8× MapLayers, LAYER_TO_SOURCE, PANEL_CATEGORY_MAP
 - Modify: `src/services/data-freshness.ts:42,111,373` — add `adsb` DataSourceId
@@ -52,6 +53,7 @@ In `src/config/panels.ts`, add `adsb: false,` to each of the 8 MapLayers objects
 - `HAPPY_MOBILE_MAP_LAYERS`
 
 In each object, the insertion looks like:
+
 ```ts
   s2pimu: false,
   adsb: false,
@@ -69,16 +71,19 @@ All 8 must have `adsb: false` — TypeScript will error if any are missing.
 In `src/config/panels.ts`:
 
 1. Add to `FULL_PANELS` (after `'fuel-prices'`):
+
 ```ts
   'air-traffic': { name: 'Air Traffic', enabled: true, priority: 2 },
 ```
 
-2. Add to `LAYER_TO_SOURCE` (after existing entries):
+1. Add to `LAYER_TO_SOURCE` (after existing entries):
+
 ```ts
   adsb: ['adsb'],
 ```
 
-3. Add `'air-traffic'` to `PANEL_CATEGORY_MAP.dataTracking.panelKeys` array (after `'population-exposure'`):
+1. Add `'air-traffic'` to `PANEL_CATEGORY_MAP.dataTracking.panelKeys` array (after `'population-exposure'`):
+
 ```ts
 panelKeys: ['monitors', 'cyber-threats', 'comms-health', 'ucdp-events', 'airstrikes', 'displacement', 'security-advisories', 'oref-sirens', 'space-weather', 'population-exposure', 'air-traffic'],
 ```
@@ -90,17 +95,21 @@ panelKeys: ['monitors', 'cyber-threats', 'comms-health', 'ucdp-events', 'airstri
 In `src/services/data-freshness.ts`:
 
 1. Add to `DataSourceId` union (after `'s2_underground'` at line 42):
+
 ```ts
   | 'adsb';          // ADS-B live aircraft tracking
 ```
+
 (Remove the `;` from `'s2_underground'` and add it to `'adsb'`.)
 
-2. Add to `SOURCE_METADATA` (after `s2_underground` entry at line 111):
+1. Add to `SOURCE_METADATA` (after `s2_underground` entry at line 111):
+
 ```ts
   adsb: { name: 'ADS-B Aircraft', requiredForRisk: false, panelId: 'air-traffic' },
 ```
 
-3. Add to `INTELLIGENCE_GAP_MESSAGES` (after `s2_underground` entry at line 373):
+1. Add to `INTELLIGENCE_GAP_MESSAGES` (after `s2_underground` entry at line 373):
+
 ```ts
   adsb: 'Live aircraft positions unavailable—ADS-B tracking offline',
 ```
@@ -122,6 +131,7 @@ In `src/utils/urlState.ts`, add `'adsb',` to the `LAYER_KEYS` array after `'gpsJ
 - [ ] **Step 1.6 — Add `layer:adsb` command**
 
 In `src/config/commands.ts`, add after the existing `layer:ais` entry:
+
 ```ts
   { id: 'layer:adsb', keywords: ['adsb', 'aircraft', 'planes', 'air traffic', 'live flights'], label: 'Toggle ADS-B aircraft', icon: '✈️', category: 'layers' },
 ```
@@ -162,6 +172,7 @@ Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>"
 ## Chunk 2: Sidecar Route `/api/adsb`
 
 **Files:**
+
 - Modify: `src-tauri/sidecar/local-api-server.mjs` — add inline `/api/adsb` route
 
 ---
@@ -207,6 +218,7 @@ In `src-tauri/sidecar/local-api-server.mjs`, add the following block **after** t
 ```
 
 **Notes:**
+
 - `getCached`/`setCached` and `fetchWithTimeout`/`CHROME_UA`/`json` are all available in the inline sidecar scope — no imports needed.
 - `Buffer` is available in Node.js without import.
 - The `json()` helper returns a `Response` with `Content-Type: application/json`.
@@ -216,6 +228,7 @@ In `src-tauri/sidecar/local-api-server.mjs`, add the following block **after** t
 - [ ] **Step 2.2 — Smoke test the sidecar route manually**
 
 Start the dev server and hit the route:
+
 ```bash
 curl -s http://127.0.0.1:46123/api/adsb | head -c 500
 ```
@@ -238,6 +251,7 @@ Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>"
 ## Chunk 3: `src/services/adsb.ts`
 
 **Files:**
+
 - Create: `src/services/adsb.ts`
 
 ---
@@ -401,6 +415,7 @@ Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>"
 ## Chunk 4: `AirTrafficPanel` + Panel-Wiring Test
 
 **Files:**
+
 - Create: `src/components/AirTrafficPanel.ts`
 - Modify: `tests/panel-wiring.test.mjs` — add air-traffic assertions
 
@@ -607,6 +622,7 @@ Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>"
 ## Chunk 5: DeckGLMap Layer + Locales
 
 **Files:**
+
 - Modify: `src/components/DeckGLMap.ts` — private field, `setAdsbFlights`, `createAdsbLayer`, tooltip, layer menu entry
 - Modify: `src/locales/en.json` — add 2 i18n keys
 - Modify: all 18 other locale files — add same keys (English fallback text)
@@ -803,6 +819,7 @@ Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>"
 ## Chunk 6: App Wiring + Tests
 
 **Files:**
+
 - Modify: `src/app/panel-layout.ts` — import + instantiate `AirTrafficPanel`
 - Modify: `src/app/data-loader.ts` — import `fetchAdsbSnapshot`, add `loadAdsb()`, add `case 'adsb'`
 - Modify: `src/App.ts` — add `scheduleRefresh` for adsb
@@ -816,11 +833,13 @@ Note: no change needed to `app-context.ts` — the existing `ctx.panels` map han
 In `src/app/panel-layout.ts`:
 
 1. Add import (after the `FuelPricesPanel` import, around line 57):
+
 ```ts
 import { AirTrafficPanel } from '@/components/AirTrafficPanel';
 ```
 
-2. Add instantiation (after `this.ctx.panels['fuel-prices'] = new FuelPricesPanel();`, around line 828):
+1. Add instantiation (after `this.ctx.panels['fuel-prices'] = new FuelPricesPanel();`, around line 828):
+
 ```ts
       this.ctx.panels['air-traffic'] = new AirTrafficPanel();
 ```
@@ -832,12 +851,14 @@ import { AirTrafficPanel } from '@/components/AirTrafficPanel';
 In `src/app/data-loader.ts`:
 
 1. Add import (at the top with other service imports):
+
 ```ts
 import { fetchAdsbSnapshot } from '@/services/adsb';
 import type { AirTrafficPanel } from '@/components/AirTrafficPanel';
 ```
 
-2. Add `case 'adsb'` to `loadDataForLayer()` switch (after the `case 'flights'` block, around line 432):
+1. Add `case 'adsb'` to `loadDataForLayer()` switch (after the `case 'flights'` block, around line 432):
+
 ```ts
         case 'adsb': {
           await this.loadAdsb();
@@ -845,7 +866,8 @@ import type { AirTrafficPanel } from '@/components/AirTrafficPanel';
         }
 ```
 
-3. Add `loadAdsb()` method (after `loadFlightDelays()`):
+1. Add `loadAdsb()` method (after `loadFlightDelays()`):
+
 ```ts
   async loadAdsb(): Promise<void> {
     try {
@@ -860,7 +882,8 @@ import type { AirTrafficPanel } from '@/components/AirTrafficPanel';
   }
 ```
 
-4. Add to the initial load tasks block (find the section that has `if (SITE_VARIANT !== 'happy' && this.ctx.mapLayers.flights)`, add after it):
+1. Add to the initial load tasks block (find the section that has `if (SITE_VARIANT !== 'happy' && this.ctx.mapLayers.flights)`, add after it):
+
 ```ts
     if (SITE_VARIANT !== 'happy' && this.ctx.mapLayers.adsb) tasks.push({ name: 'adsb', task: runGuarded('adsb', () => this.loadAdsb()) });
 ```
