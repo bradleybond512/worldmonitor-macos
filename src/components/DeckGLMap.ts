@@ -47,6 +47,8 @@ import type { Earthquake } from '@/services/earthquakes';
 import type { ClimateAnomaly } from '@/services/climate';
 import { ArcLayer } from '@deck.gl/layers';
 import { HeatmapLayer } from '@deck.gl/aggregation-layers';
+import { SimpleMeshLayer } from '@deck.gl/mesh-layers';
+import { modelLoader } from '@/services/model-loader';
 import type { WeatherAlert } from '@/services/weather';
 import { escapeHtml } from '@/utils/sanitize';
 import { tokenizeForMatch, matchKeyword, matchesAnyKeyword, findMatchingKeywords } from '@/utils/keyword-match';
@@ -117,6 +119,9 @@ import { strikeColor, strikeOpacity, type LightningStrike } from '@/services/lig
 import { getGoesWmsTileUrl } from '@/services/satellite-weather';
 import { getOwmTileUrl, type OwmTileLayer } from '@/services/owm-weather-tiles';
 import type { RedFlagWarning } from '@/services/red-flag-warnings';
+import type { SatellitePosition, OrbitPath } from '@/services/satellite-propagator';
+import type { SatelliteTLE } from '@/services/satellite-catalog';
+import { filterNotable } from '@/services/satellite-catalog';
 
 export type TimeRange = '1h' | '6h' | '24h' | '48h' | '7d' | 'all';
 export type DeckMapView = 'global' | 'america' | 'mena' | 'eu' | 'asia' | 'latam' | 'africa' | 'oceania';
@@ -499,6 +504,9 @@ export class DeckGLMap {
   private radarState: RadarState | null = null;
   private lightningStrikes: LightningStrike[] = [];
   private redFlagWarnings: RedFlagWarning[] = [];
+  private satellitePositions: SatellitePosition[] = [];
+  private satelliteCatalog: SatelliteTLE[] = [];
+  private selectedOrbitPath: OrbitPath | null = null;
   private lastCableHighlightSignature = '';
   private lastCableHealthSignature = '';
   private lastPipelineHighlightSignature = '';
@@ -1291,6 +1299,15 @@ export class DeckGLMap {
       layers.push(this.createRedFlagWarningsLayer());
     }
 
+    // Satellite ground positions
+    if (mapLayers.satellites && this.satellitePositions.length > 0) {
+      layers.push(this.createSatelliteLayer());
+      layers.push(this.createSatelliteLabelLayer());
+      if (this.selectedOrbitPath) {
+        layers.push(this.createSatelliteOrbitLayer());
+      }
+    }
+
     // Internet outages layer + ghost for easier picking
     if (mapLayers.outages && filteredOutages.length > 0) {
       layers.push(this.createOutagesLayer(filteredOutages));
@@ -1318,7 +1335,11 @@ export class DeckGLMap {
 
     // ADS-B live aircraft layer
     if (mapLayers.adsb && this.adsbFlights.length > 0) {
-      layers.push(this.createAdsbLayer());
+      if (mapLayers.aircraft3d && (this.maplibreMap?.getZoom() ?? 0) >= 5) {
+        layers.push(this.createAdsb3DLayer());
+      } else {
+        layers.push(this.createAdsbLayer());
+      }
     }
 
     // Strategic ports layer (shown with AIS)
@@ -1388,7 +1409,11 @@ export class DeckGLMap {
 
     // Military flights layer
     if (mapLayers.military && filteredMilitaryFlights.length > 0) {
-      layers.push(this.createMilitaryFlightsLayer(filteredMilitaryFlights));
+      if (mapLayers.aircraft3d && (this.maplibreMap?.getZoom() ?? 0) >= 5) {
+        layers.push(this.createMilitary3DFlightsLayer(filteredMilitaryFlights));
+      } else {
+        layers.push(this.createMilitaryFlightsLayer(filteredMilitaryFlights));
+      }
     }
 
     // Military flight clusters layer
@@ -2254,6 +2279,22 @@ export class DeckGLMap {
     });
   }
 
+  private createAdsb3DLayer(): SimpleMeshLayer {
+    const data = this.adsbFlights.slice(0, 200);
+    const fallbackUrl = modelLoader.getFallbackUrl();
+
+    return new SimpleMeshLayer({
+      id: 'adsb-flights-3d',
+      data,
+      mesh: fallbackUrl,
+      getPosition: (d: typeof this.adsbFlights[0]) => [d.lon, d.lat, (d.altitude ?? 0) * 0.3048],
+      getOrientation: (d: typeof this.adsbFlights[0]) => [0, -(d.heading ?? 0), 0],
+      getColor: [200, 200, 200, 200],
+      sizeScale: 300,
+      pickable: true,
+    });
+  }
+
   private createCableAdvisoriesLayer(advisories: CableAdvisory[]): ScatterplotLayer {
     // Cable fault/maintenance advisories
     return new ScatterplotLayer({
@@ -2344,6 +2385,27 @@ export class DeckGLMap {
       },
       radiusMinPixels: 4,
       radiusMaxPixels: 12,
+      pickable: true,
+    });
+  }
+
+  private createMilitary3DFlightsLayer(flights: MilitaryFlight[]): SimpleMeshLayer {
+    const data = flights.slice(0, 200);
+    const fallbackUrl = modelLoader.getFallbackUrl();
+
+    return new SimpleMeshLayer({
+      id: 'military-flights-3d',
+      data,
+      mesh: fallbackUrl,
+      getPosition: (d: MilitaryFlight) => [d.lon, d.lat, d.altitude * 0.3048],
+      getOrientation: (d: MilitaryFlight) => [0, -d.heading, 0],
+      getColor: (d: MilitaryFlight) => {
+        if (d.operator === 'usaf' || d.operator === 'usn' || d.operator === 'usa' || d.operator === 'usmc') return [52, 211, 153, 255];
+        if (d.operatorCountry === 'Russia') return [248, 113, 113, 255];
+        if (d.operatorCountry === 'China') return [251, 191, 36, 255];
+        return [129, 140, 248, 255];
+      },
+      sizeScale: 500,
       pickable: true,
     });
   }
@@ -4268,6 +4330,7 @@ export class DeckGLMap {
     try {
       this.deckOverlay?.setProps({ layers: this.buildLayers() });
       this.syncWeatherRasterLayers();
+      this.syncBuildingExtrusions();
     } catch { /* map may be mid-teardown (null.getProjection) */ }
     const elapsed = performance.now() - startTime;
     if (import.meta.env.DEV && elapsed > 16) {
@@ -5645,6 +5708,49 @@ export class DeckGLMap {
     });
   }
 
+  // ── Building Extrusions (MapLibre GL native fill-extrusion) ──────
+
+  private syncBuildingExtrusions(): void {
+    if (!this.maplibreMap) return;
+    const map = this.maplibreMap;
+    const enabled = this.state.layers.buildings3d;
+    const layerId = 'wm-3d-buildings';
+    const zoom = map.getZoom();
+
+    if (!enabled || zoom < 14) {
+      if (map.getLayer(layerId)) {
+        map.setLayoutProperty(layerId, 'visibility', 'none');
+      }
+      return;
+    }
+
+    if (!map.getLayer(layerId)) {
+      const firstSymbolId = map.getStyle()?.layers?.find(l => l.type === 'symbol')?.id;
+      map.addLayer(
+        {
+          id: layerId,
+          type: 'fill-extrusion',
+          source: 'carto',
+          'source-layer': 'building',
+          minzoom: 14,
+          paint: {
+            'fill-extrusion-color': this.activeBaseMap === 'light' ? '#c8c8c8' : '#1a2744',
+            'fill-extrusion-height': ['get', 'render_height'],
+            'fill-extrusion-base': ['get', 'render_min_height'],
+            'fill-extrusion-opacity': [
+              'interpolate', ['linear'], ['zoom'],
+              14, 0,
+              15, 0.7,
+            ],
+          },
+        },
+        firstSymbolId,
+      );
+    } else {
+      map.setLayoutProperty(layerId, 'visibility', 'visible');
+    }
+  }
+
   // ── Weather Raster Tile Layers (MapLibre GL native) ──────────────
 
   private syncWeatherRasterLayers(): void {
@@ -5778,6 +5884,81 @@ export class DeckGLMap {
 
   public setRedFlagWarnings(warnings: RedFlagWarning[]): void {
     this.redFlagWarnings = warnings;
+    this.rafUpdateLayers();
+  }
+
+  // ── Satellite Layers ─────────────────────────────────────────────
+
+  private createSatelliteLayer(): ScatterplotLayer {
+    const zoom = this.maplibreMap?.getZoom() ?? 0;
+    const notable = this.satelliteCatalog.length > 0
+      ? new Set(filterNotable(this.satelliteCatalog).map(s => s.noradId))
+      : new Set<number>();
+
+    const data = zoom < 3
+      ? this.satellitePositions.filter(s => notable.has(s.noradId))
+      : this.satellitePositions;
+
+    return new ScatterplotLayer({
+      id: 'satellite-positions',
+      data,
+      getPosition: (d: SatellitePosition) => [d.lon, d.lat],
+      getRadius: (d: SatellitePosition) => notable.has(d.noradId) ? 20_000 : 8_000,
+      getFillColor: (d: SatellitePosition) => {
+        const cat = this.satelliteCatalog.find(s => s.noradId === d.noradId);
+        if (cat?.annotation) return [...cat.annotation.color, 200] as [number, number, number, number];
+        return [150, 150, 150, 100];
+      },
+      radiusUnits: 'meters' as const,
+      radiusMinPixels: 1,
+      radiusMaxPixels: 6,
+      pickable: true,
+    });
+  }
+
+  private createSatelliteLabelLayer(): TextLayer {
+    const notable = this.satelliteCatalog.filter(s => s.annotation && s.classification !== 'constellation');
+    const notableIds = new Set(notable.map(s => s.noradId));
+    const labeled = this.satellitePositions.filter(s => notableIds.has(s.noradId));
+
+    return new TextLayer({
+      id: 'satellite-labels',
+      data: labeled,
+      getPosition: (d: SatellitePosition) => [d.lon, d.lat],
+      getText: (d: SatellitePosition) => {
+        const cat = this.satelliteCatalog.find(s => s.noradId === d.noradId);
+        return cat?.annotation?.label ?? '';
+      },
+      getSize: 10,
+      getColor: [255, 255, 255, 180],
+      getTextAnchor: 'start' as const,
+      getAlignmentBaseline: 'center' as const,
+      getPixelOffset: [8, 0],
+      fontFamily: 'monospace',
+      billboard: true,
+    });
+  }
+
+  private createSatelliteOrbitLayer(): PathLayer {
+    if (!this.selectedOrbitPath) return new PathLayer({ id: 'satellite-orbit', data: [] });
+    return new PathLayer({
+      id: 'satellite-orbit',
+      data: [{ path: this.selectedOrbitPath.points.map(p => [p[0], p[1]]) }],
+      getPath: (d: { path: [number, number][] }) => d.path,
+      getColor: [255, 215, 0, 150],
+      getWidth: 2,
+      widthUnits: 'pixels' as const,
+    });
+  }
+
+  public setSatellitePositions(positions: SatellitePosition[], catalog: SatelliteTLE[]): void {
+    this.satellitePositions = positions;
+    this.satelliteCatalog = catalog;
+    this.rafUpdateLayers();
+  }
+
+  public setSelectedOrbitPath(path: OrbitPath | null): void {
+    this.selectedOrbitPath = path;
     this.rafUpdateLayers();
   }
 }

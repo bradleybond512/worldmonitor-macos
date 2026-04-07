@@ -157,7 +157,7 @@ export const DEFAULT_GODS_EYE_LAYERS: GodsEyeLayers = {
   // ── Future / Aesthetic ──
   satellites: {
     name: 'Satellite Tracking',
-    category: 'spatial',
+    category: 'intelligence',
     enabled: false,
     description: 'Real-time satellite positions and orbital paths',
   },
@@ -169,9 +169,15 @@ export const DEFAULT_GODS_EYE_LAYERS: GodsEyeLayers = {
   },
   buildings: {
     name: '3D Buildings',
-    category: 'spatial',
+    category: 'aesthetic',
     enabled: false,
     description: 'Google Photorealistic 3D Tiles / OSM Buildings',
+  },
+  aircraft3d: {
+    name: '3D Aircraft',
+    category: 'spatial',
+    enabled: false,
+    description: 'Detailed glTF aircraft models at real altitude with heading',
   },
   rfCoverage: {
     name: 'RF/SIGINT',

@@ -43,6 +43,7 @@ export const SIGNUP_URLS: Partial<Record<RuntimeSecretKey, string>> = {
   GEONAMES_USERNAME: 'https://www.geonames.org/login',
   IPINFO_TOKEN: 'https://ipinfo.io/signup',
   CESIUM_ION_TOKEN: 'https://ion.cesium.com/signup/',
+  GOOGLE_MAPS_API_KEY: 'https://console.cloud.google.com/apis/credentials',
 };
 
 export const PLAINTEXT_KEYS = new Set<RuntimeSecretKey>([
@@ -102,6 +103,7 @@ export const HUMAN_LABELS: Record<RuntimeSecretKey, string> = {
   GEONAMES_USERNAME: 'GeoNames Username',
   IPINFO_TOKEN: 'IPInfo Token',
   CESIUM_ION_TOKEN: 'Cesium Ion Token',
+  GOOGLE_MAPS_API_KEY: 'Google Maps API Key',
 };
 
 export interface SettingsCategory {

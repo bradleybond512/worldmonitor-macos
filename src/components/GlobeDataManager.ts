@@ -16,9 +16,17 @@ import {
   Math as CesiumMath,
   UrlTemplateImageryProvider,
   type ImageryLayer,
+  PointPrimitiveCollection,
+  PolylineCollection,
+  HeadingPitchRoll,
+  Transforms,
 } from 'cesium';
 
 import { applyClustering } from '@/components/globeClustering';
+import { modelLoader } from '@/services/model-loader';
+import { BuildingTileManager } from '@/services/building-tiles';
+import { fetchSatelliteCatalog, filterNotable, type SatelliteTLE } from '@/services/satellite-catalog';
+import { satellitePropagator, type SatellitePosition } from '@/services/satellite-propagator';
 import { fetchLightningStrikes } from '@/services/lightning';
 import { fetchRedFlagWarnings } from '@/services/red-flag-warnings';
 import { getRadarTileUrl, fetchRadarFrames } from '@/services/rainviewer-radar';
@@ -35,7 +43,6 @@ import {
 } from '@/config/geo';
 
 import {
-  AIRCRAFT_ICONS,
   VESSEL_ICONS,
   GDACS_ICONS,
   ICON_NUCLEAR,
@@ -46,7 +53,6 @@ import {
   ICON_CYBER_CRITICAL,
   ICON_PROTEST,
   ICON_CABLE_LANDING,
-  ICON_TRANSPORT,
   ICON_WARSHIP,
   ICON_FIRE,
   ICON_BASE,
@@ -265,6 +271,11 @@ export class GlobeDataManager {
   private layers = new Map<string, GlobeLayer>();
   private weatherImageryLayers: ImageryLayer[] = [];
   private clusterableLayers = new Set<string>();
+  private buildingManager: BuildingTileManager | null = null;
+  private satellitePoints: InstanceType<typeof PointPrimitiveCollection> | null = null;
+  private orbitLines: InstanceType<typeof PolylineCollection> | null = null;
+  private satelliteCatalog: SatelliteTLE[] = [];
+  private unsubPositions: (() => void) | null = null;
 
   constructor(viewer: Viewer) {
     this.viewer = viewer;
@@ -303,6 +314,13 @@ export class GlobeDataManager {
     this.registerLayer('weatherSatellite', () => this.loadWeatherSatellite());
     this.registerLayer('lightningStrikes', () => this.loadLightningStrikes());
     this.registerLayer('redFlagWarnings', () => this.loadRedFlagWarnings());
+
+    // 3D Building tiles (managed separately — uses Cesium primitives, not data sources)
+    this.buildingManager = new BuildingTileManager(this.viewer);
+    void this.buildingManager.initialize();
+
+    // Satellites (managed via PointPrimitiveCollection for performance, not data sources)
+    void this.initSatellites();
 
     for (const name of this.layers.keys()) {
       void this.loadLayer(name);
@@ -956,20 +974,25 @@ export class GlobeDataManager {
     const { flights } = await fetchMilitaryFlights();
 
     for (const f of flights) {
-      const icon = AIRCRAFT_ICONS[f.aircraftType] ?? ICON_TRANSPORT;
       const altMeters = f.altitude * 0.3048;
 
       layer.source.entities.add({
         position: Cartesian3.fromDegrees(f.lon, f.lat, altMeters),
-        billboard: {
-          image: icon,
+        orientation: Transforms.headingPitchRollQuaternion(
+          Cartesian3.fromDegrees(f.lon, f.lat, altMeters),
+          new HeadingPitchRoll(
+            CesiumMath.toRadians(f.heading),
+            0,
+            0,
+          ),
+        ) as unknown as import('cesium').Property,
+        model: {
+          uri: modelLoader.getUrlForMilitary(f.aircraftType),
+          minimumPixelSize: 24,
+          maximumScale: 5000,
           color: C.flight,
-          scale: 0.4,
-          rotation: CesiumMath.toRadians(-f.heading),
-          alignedAxis: Cartesian3.UNIT_Z,
-          scaleByDistance: new NearFarScalar(1e4, 1.5, 1e7, 0.5),
-          verticalOrigin: VerticalOrigin.CENTER,
-          horizontalOrigin: HorizontalOrigin.CENTER,
+          colorBlendMode: 2,
+          colorBlendAmount: 0.5,
         },
         label: {
           text: f.callsign ?? f.hexCode,
@@ -1533,14 +1556,72 @@ export class GlobeDataManager {
     return result;
   }
 
+  private async initSatellites(): Promise<void> {
+    try {
+      this.satelliteCatalog = await fetchSatelliteCatalog();
+      if (this.satelliteCatalog.length === 0) return;
+
+      this.satellitePoints = new PointPrimitiveCollection();
+      this.viewer.scene.primitives.add(this.satellitePoints);
+
+      this.orbitLines = new PolylineCollection();
+      this.viewer.scene.primitives.add(this.orbitLines);
+
+      satellitePropagator.start(this.satelliteCatalog);
+
+      this.unsubPositions = satellitePropagator.onPositions((positions) => {
+        this.updateSatellitePositions(positions);
+      });
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.warn('[GlobeDataManager] Satellite init failed:', error);
+    }
+  }
+
+  private updateSatellitePositions(positions: SatellitePosition[]): void {
+    if (!this.satellitePoints) return;
+    this.satellitePoints.removeAll();
+
+    const notableIds = new Set(filterNotable(this.satelliteCatalog).map(s => s.noradId));
+
+    for (const pos of positions) {
+      const isNotable = notableIds.has(pos.noradId);
+      const cat = this.satelliteCatalog.find(s => s.noradId === pos.noradId);
+      const rgb = cat?.annotation?.color ?? [150, 150, 150];
+
+      this.satellitePoints.add({
+        position: Cartesian3.fromDegrees(pos.lon, pos.lat, pos.altKm * 1000),
+        pixelSize: isNotable ? 4 : 1.5,
+        color: Color.fromBytes(rgb[0], rgb[1], rgb[2], isNotable ? 255 : 80),
+      });
+    }
+  }
+
   destroy(): void {
     for (const [, layer] of this.layers) {
       this.viewer.dataSources.remove(layer.source, true);
+    }
+    this.buildingManager?.destroy();
+    this.buildingManager = null;
+    this.unsubPositions?.();
+    this.unsubPositions = null;
+    satellitePropagator.stop();
+    if (this.satellitePoints) {
+      this.viewer.scene.primitives.remove(this.satellitePoints);
+      this.satellitePoints = null;
+    }
+    if (this.orbitLines) {
+      this.viewer.scene.primitives.remove(this.orbitLines);
+      this.orbitLines = null;
     }
     this.layers.clear();
     for (const imgLayer of this.weatherImageryLayers) {
       this.viewer.imageryLayers.remove(imgLayer, true);
     }
     this.weatherImageryLayers = [];
+  }
+
+  getBuildingTier(): string {
+    return this.buildingManager?.providerName ?? 'Not loaded';
   }
 }

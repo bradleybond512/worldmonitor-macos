@@ -280,6 +280,8 @@ import { fetchRecentSanctions } from '@/services/opensanctions';
 import { fetchRecentEdgarFilings } from '@/services/sec-edgar';
 import { showApiKeyGate } from '@/components/api-key-gate';
 import { detectCompoundThreats, toHazardSignal } from '@/services/compound-threat';
+import { fetchSatelliteCatalog } from '@/services/satellite-catalog';
+import { satellitePropagator } from '@/services/satellite-propagator';
 import { unifiedAlertStore } from '@/services/unified-alerts';
 import {
   normalizeBreakingAlert,
@@ -602,6 +604,7 @@ export class DataLoaderManager implements AppModule {
     if (SITE_VARIANT === 'full') tasks.push({ name: 'pollenData', task: runGuarded('pollenData', () => this.loadPollenData()) });
     if (SITE_VARIANT === 'full') tasks.push({ name: 'lightning', task: runGuarded('lightning', () => this.loadLightning()) });
     if (SITE_VARIANT === 'full') tasks.push({ name: 'redFlagWarnings', task: runGuarded('redFlagWarnings', () => this.loadRedFlagWarnings()) });
+    if (SITE_VARIANT === 'full') tasks.push({ name: 'satellites', task: runGuarded('satellites', () => this.loadSatellites()) });
     if (SITE_VARIANT !== 'happy') tasks.push({ name: 'threat-intel-hub', task: runGuarded('threat-intel-hub', () => this.loadThreatIntelHub()) });
     if (SITE_VARIANT !== 'happy') tasks.push({ name: 'geo-intel', task: runGuarded('geo-intel', () => this.loadGeoIntel()) });
     if (SITE_VARIANT !== 'happy') tasks.push({ name: 'dark-web', task: runGuarded('dark-web', () => this.loadDarkWeb()) });
@@ -3517,6 +3520,20 @@ export class DataLoaderManager implements AppModule {
       this.ctx.map?.setRedFlagWarnings(warnings);
     } catch (error) {
       console.warn('[red-flag-warnings] fetch failed', error);
+    }
+  }
+
+  async loadSatellites(): Promise<void> {
+    try {
+      const catalog = await fetchSatelliteCatalog();
+      if (catalog.length === 0) return;
+
+      satellitePropagator.start(catalog);
+      satellitePropagator.onPositions((positions) => {
+        this.ctx.map?.setSatellitePositions(positions, catalog);
+      });
+    } catch (error) {
+      console.warn('[satellites] fetch failed', error);
     }
   }
 
