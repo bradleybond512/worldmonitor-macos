@@ -646,3 +646,41 @@ body.gods-eye-lock {
 .ge-drag-strip:active {
   cursor: grabbing;
 }
+
+/* ── Fly Mode overlay bar ────────────────────────── */
+.ge-flymode-bar {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 20px;
+  background: rgba(0, 0, 0, 0.65);
+  border: 1px solid rgba(var(--ge-cyan), 0.5);
+  border-radius: 10px;
+  backdrop-filter: blur(8px);
+  pointer-events: none;
+  z-index: 20;
+}
+
+.ge-flymode-label {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  color: rgba(var(--ge-cyan), 0.6);
+  text-transform: uppercase;
+}
+
+.ge-flymode-sub {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: rgba(var(--ge-cyan), 1);
+  text-shadow: 0 0 12px rgba(var(--ge-cyan), 0.8);
+}
+
+.ge-flymode-hint {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  color: rgba(var(--ge-white), 0.45);
+  white-space: nowrap;
+}

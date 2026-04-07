@@ -1,6 +1,8 @@
 import { loadGodsEyeLayers, saveGodsEyeLayers, type GodsEyeLayers } from '@/config/gods-eye-layers';
 import type { AppMode } from '@/services/mode-manager';
 import type { FollowTarget } from '@/components/gods-eye/AutoFollowEngine';
+import type { FlyModeStatus } from '@/components/gods-eye/FlyMode/FlyModeController';
+import { FLY_SUB_MODE_NAMES } from '@/components/gods-eye/FlyMode/flyModeKeybinds';
 
 export interface HUDState {
   cameraAltitude: number;
@@ -10,6 +12,32 @@ export interface HUDState {
   activeHotspots: number;
   threatLevel: string;
   topAlerts?: { name: string; type: string; severity: number }[];
+  conflicts?: number;
+  disasters?: number;
+  nearestHotspot?: { name: string; distanceKm: number } | null;
+  tickerItems?: string[];
+}
+
+function sunAltitudeDeg(lat: number, lon: number, date: Date): number {
+  // Low-precision NOAA solar position — good enough for a phase badge.
+  const rad = Math.PI / 180;
+  const dayOfYear = Math.floor((date.getTime() - Date.UTC(date.getUTCFullYear(), 0, 0)) / 86_400_000);
+  const decl = 23.44 * rad * Math.sin(((360 / 365) * (dayOfYear - 81)) * rad);
+  const utcHours = date.getUTCHours() + date.getUTCMinutes() / 60;
+  const solarHour = utcHours + lon / 15;
+  const hourAngle = (solarHour - 12) * 15 * rad;
+  const latR = lat * rad;
+  const sinAlt = Math.sin(latR) * Math.sin(decl) + Math.cos(latR) * Math.cos(decl) * Math.cos(hourAngle);
+  return Math.asin(Math.max(-1, Math.min(1, sinAlt))) / rad;
+}
+
+function sunPhaseLabel(altDeg: number): { label: string; cls: string } {
+  if (altDeg > 6)   return { label: 'DAY',      cls: 'ge-sun-day' };
+  if (altDeg > -0.833) return { label: 'GOLDEN', cls: 'ge-sun-golden' };
+  if (altDeg > -6)  return { label: 'CIVIL',    cls: 'ge-sun-twilight' };
+  if (altDeg > -12) return { label: 'NAUTICAL', cls: 'ge-sun-twilight' };
+  if (altDeg > -18) return { label: 'ASTRO',    cls: 'ge-sun-twilight' };
+  return { label: 'NIGHT', cls: 'ge-sun-night' };
 }
 
 const MODE_LABELS: Record<AppMode, { label: string; cls: string }> = {
@@ -69,6 +97,16 @@ export class GlobeHUD {
   private layerCountEls = new Map<string, HTMLElement>();
   private alertListEl: HTMLElement | null = null;
   private tooltipEl: HTMLElement | null = null;
+  private conflictsEl: HTMLElement | null = null;
+  private disastersEl: HTMLElement | null = null;
+  private nearestEl: HTMLElement | null = null;
+  private localTimeEl: HTMLElement | null = null;
+  private sunPhaseEl: HTMLElement | null = null;
+  private tickerTrackEl: HTMLElement | null = null;
+  private flyModeBarEl: HTMLElement | null = null;
+  private flyModeSubEl: HTMLElement | null = null;
+  private lastLat = 0;
+  private lastLon = 0;
 
   constructor(container: HTMLElement) {
     this.layers = loadGodsEyeLayers();
@@ -96,16 +134,38 @@ export class GlobeHUD {
     this.hotspotsEl = this.statPill(statsRow, 'HOTSPOTS', '0');
     this.altEl = this.statPill(statsRow, 'ALT', '0 km');
     card.append(statsRow);
+    const statsRow2 = this.el('div', 'ge-hud-stats-row');
+    this.conflictsEl = this.statPill(statsRow2, 'CONFLICT', '—');
+    this.disastersEl = this.statPill(statsRow2, 'DISASTER', '—');
+    card.append(statsRow2);
     const coordRow = this.el('div', 'ge-hud-stats-row');
     this.coordsEl = this.el('span', 'ge-hud-coord', '0.00\u00B0N, 0.00\u00B0E');
     coordRow.append(this.coordsEl);
     card.append(coordRow);
+    const ctxRow = this.el('div', 'ge-hud-stats-row');
+    this.localTimeEl = this.el('span', 'ge-hud-ctx', '--:--');
+    this.sunPhaseEl = this.el('span', 'ge-hud-sun ge-sun-day', 'DAY');
+    ctxRow.append(this.localTimeEl, this.sunPhaseEl);
+    card.append(ctxRow);
+    this.nearestEl = this.el('div', 'ge-hud-nearest', 'Nearest: —');
+    card.append(this.nearestEl);
     const alertSep = this.el('div', 'ge-hud-separator');
     card.append(alertSep);
     this.alertListEl = this.el('div', 'ge-hud-alert-list');
     card.append(this.alertListEl);
     topLeft.append(card);
     this.element.append(topLeft);
+
+    // ── Top-center: Breaking news ticker ──
+    const topCenter = this.pos('top:16px;left:50%;transform:translateX(-50%);pointer-events:auto;max-width:46%;');
+    const ticker = this.el('div', 'ge-hud-ticker');
+    const tickerLabel = this.el('span', 'ge-hud-ticker-label', 'LIVE');
+    const tickerWin = this.el('div', 'ge-hud-ticker-window');
+    this.tickerTrackEl = this.el('div', 'ge-hud-ticker-track', 'Awaiting feeds…');
+    tickerWin.append(this.tickerTrackEl);
+    ticker.append(tickerLabel, tickerWin);
+    topCenter.append(ticker);
+    this.element.append(topCenter);
 
     // ── Top-right: Exit + theater legend ──
     const topRight = this.pos('top:16px;right:16px;pointer-events:auto;display:flex;flex-direction:column;align-items:flex-end;gap:8px;');
@@ -173,6 +233,16 @@ export class GlobeHUD {
     this.tooltipEl = document.createElement('div');
     this.tooltipEl.className = 'ge-tooltip ge-hidden';
     this.element.append(this.tooltipEl);
+
+    // ── Fly Mode overlay bar (hidden until fly mode is active) ──
+    const flyBar = this.pos('top:50%;left:50%;transform:translate(-50%,-50%);pointer-events:none;');
+    flyBar.className += ' ge-flymode-bar ge-hidden';
+    this.flyModeBarEl = flyBar;
+    const flyLabel = this.el('span', 'ge-flymode-label', 'FLY MODE');
+    this.flyModeSubEl = this.el('span', 'ge-flymode-sub', 'FREE FLY');
+    const flyHint = this.el('span', 'ge-flymode-hint', '[F] Exit  [1] Free  [2] Cinematic  [3] Chase  [4] City  [Shift] Boost  [Ctrl] Brake');
+    flyBar.append(flyLabel, this.flyModeSubEl, flyHint);
+    this.element.append(flyBar);
   }
 
   private pos(style: string): HTMLElement {
@@ -275,20 +345,30 @@ export class GlobeHUD {
     }
   }
 
+  private clockFmt = new Intl.DateTimeFormat(undefined, {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+    timeZoneName: 'short',
+  });
+
   private updateClock(): void {
     if (!this.clockEl) return;
-    const now = new Date();
-    const h = String(now.getUTCHours()).padStart(2, '0');
-    const m = String(now.getUTCMinutes()).padStart(2, '0');
-    const s = String(now.getUTCSeconds()).padStart(2, '0');
-    this.clockEl.textContent = `${h}:${m}:${s} UTC`;
+    // Intl picks the OS-configured timezone — shows local time + abbrev (CST, PST, etc.)
+    this.clockEl.textContent = this.clockFmt.format(new Date());
   }
 
   private startClock(): void {
     this.updateClock();
-    this.clockId = window.setInterval(() => this.updateClock(), 1000);
+    this.updateCameraContext();
+    this.clockId = window.setInterval(() => {
+      this.updateClock();
+      this.updateCameraContext();
+    }, 1000);
   }
 
+  // eslint-disable-next-line sonarjs/cognitive-complexity
   updateState(state: Partial<HUDState>): void {
     if (state.activeHotspots !== undefined) {
       if (this.hotspotsEl) this.hotspotsEl.textContent = String(state.activeHotspots);
@@ -303,11 +383,49 @@ export class GlobeHUD {
       this.altEl.textContent = km > 1000 ? `${(km / 1000).toFixed(1)}k km` : `${km} km`;
     }
     if (state.cameraLat !== undefined && state.cameraLon !== undefined && this.coordsEl) {
+      this.lastLat = state.cameraLat;
+      this.lastLon = state.cameraLon;
       this.coordsEl.textContent =
         `${formatCoord(state.cameraLat, 'N', 'S')}, ${formatCoord(state.cameraLon, 'E', 'W')}`;
+      this.updateCameraContext();
     }
     if (state.topAlerts !== undefined && this.alertListEl) {
       this.renderAlertList(this.alertListEl, state.topAlerts);
+    }
+    if (state.conflicts !== undefined && this.conflictsEl) {
+      this.conflictsEl.textContent = String(state.conflicts);
+    }
+    if (state.disasters !== undefined && this.disastersEl) {
+      this.disastersEl.textContent = String(state.disasters);
+    }
+    if (state.nearestHotspot !== undefined && this.nearestEl) {
+      const n = state.nearestHotspot;
+      this.nearestEl.textContent = n
+        // eslint-disable-next-line sonarjs/no-nested-conditional
+        ? `Nearest: ${n.name.length > 28 ? n.name.slice(0, 25) + '…' : n.name} · ${Math.round(n.distanceKm)} km`
+        : 'Nearest: —';
+    }
+    if (state.tickerItems !== undefined && this.tickerTrackEl) {
+      const items = state.tickerItems.length ? state.tickerItems : ['Awaiting feeds…'];
+      this.tickerTrackEl.textContent = items.join('   •   ') + '   •   ' + items.join('   •   ');
+    }
+  }
+
+  private updateCameraContext(): void {
+    const now = new Date();
+    if (this.localTimeEl) {
+      // Approximate local solar time at the camera point: UTC + lon/15 hours.
+      const offsetMs = (this.lastLon / 15) * 3_600_000;
+      const local = new Date(now.getTime() + offsetMs);
+      const hh = String(local.getUTCHours()).padStart(2, '0');
+      const mm = String(local.getUTCMinutes()).padStart(2, '0');
+      this.localTimeEl.textContent = `LOCAL ${hh}:${mm}`;
+    }
+    if (this.sunPhaseEl) {
+      const alt = sunAltitudeDeg(this.lastLat, this.lastLon, now);
+      const { label, cls } = sunPhaseLabel(alt);
+      this.sunPhaseEl.textContent = label;
+      this.sunPhaseEl.className = `ge-hud-sun ${cls}`;
     }
   }
 
@@ -413,6 +531,20 @@ export class GlobeHUD {
 
   setOnExit(cb: () => void): void {
     this.onExit = cb;
+  }
+
+  updateFlyMode(status: FlyModeStatus): void {
+    if (!this.flyModeBarEl) return;
+    if (status.active) {
+      this.flyModeBarEl.classList.remove('ge-hidden');
+      if (this.flyModeSubEl) {
+        let label = FLY_SUB_MODE_NAMES[status.subMode];
+        if (status.subMode === 3 && status.chaseCockpit) label += ' · COCKPIT';
+        this.flyModeSubEl.textContent = label;
+      }
+    } else {
+      this.flyModeBarEl.classList.add('ge-hidden');
+    }
   }
 
   destroy(): void {

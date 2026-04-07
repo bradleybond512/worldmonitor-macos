@@ -497,9 +497,16 @@ export class App {
     if (!this.godsEyeView) {
       // Cesium reads CESIUM_BASE_URL at module init — must be set before dynamic import
       (window as unknown as Record<string, unknown>).CESIUM_BASE_URL = '/cesium';
-      const { GodsEyeView } = await import('@/components/GodsEyeView');
-      const ionToken = getRuntimeConfigSnapshot().secrets.CESIUM_ION_TOKEN?.value;
-      this.godsEyeView = new GodsEyeView(ionToken);
+      try {
+        const { GodsEyeView } = await import('@/components/GodsEyeView');
+        const ionToken = getRuntimeConfigSnapshot().secrets.CESIUM_ION_TOKEN?.value;
+        this.godsEyeView = new GodsEyeView(ionToken);
+      } catch (error) {
+        // Surface the real failure to desktop.log instead of letting it bubble
+        // up to vite:preloadError → chunkReloadGuard → page reload → vault loop.
+        console.error('[GodsEye] dynamic import failed:', error, (error as Error)?.stack);
+        return;
+      }
     }
     this.godsEyeView.toggle();
   }

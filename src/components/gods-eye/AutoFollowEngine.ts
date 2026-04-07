@@ -245,6 +245,13 @@ export class AutoFollowEngine {
     this.onTargetChange?.(target, this.currentIndex, this.targets.length);
   }
 
+  /** Return the top-N priority targets using the current mode weights.
+   *  Safe to call at any time — triggers a fresh scoring pass. */
+  getPriorityTargets(n: number): FollowTarget[] {
+    this.refreshTargets();
+    return this.targets.slice(0, n);
+  }
+
   destroy(): void {
     this.stop();
     this.onTargetChange = null;

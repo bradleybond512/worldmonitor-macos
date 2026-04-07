@@ -11,6 +11,9 @@ import { GlobeHUD } from '@/components/GlobeHUD';
 import { GlobeTimeMachine } from '@/components/GlobeTimeMachine';
 import { AutoFollowEngine } from '@/components/gods-eye/AutoFollowEngine';
 import { GlobeReactorBeacons } from '@/components/GlobeReactorBeacons';
+import { FlyModeController } from '@/components/gods-eye/FlyMode/FlyModeController';
+import { BuildingTileManager } from '@/services/building-tiles';
+import type { FlySubMode } from '@/components/gods-eye/FlyMode/flyModeKeybinds';
 import type { CustomDataSource } from 'cesium';
 import { getMode, type AppMode, type ModeChangedDetail } from '@/services/mode-manager';
 import { tryInvokeTauri } from '@/services/tauri-bridge';
@@ -52,6 +55,8 @@ export class GodsEyeView {
   private timeMachine: GlobeTimeMachine | null = null;
   private autoFollow: AutoFollowEngine | null = null;
   private reactorBeacons: GlobeReactorBeacons | null = null;
+  private flyMode: FlyModeController | null = null;
+  private buildingTiles: BuildingTileManager | null = null;
   private hudTickId: number | null = null;
   private eventHandler: ScreenSpaceEventHandler | null = null;
   private active = false;
@@ -129,6 +134,26 @@ export class GodsEyeView {
       });
     }
 
+    // Fly Mode controller
+    if (viewer && this.globe.canvas) {
+      this.buildingTiles = new BuildingTileManager(viewer);
+      this.flyMode = new FlyModeController(
+        viewer,
+        this.globe.canvas,
+        this.buildingTiles,
+        (n) => this.autoFollow?.getPriorityTargets(n) ?? [],
+      );
+      this.flyMode.setOnStatusChange((status) => {
+        this.hud?.updateFlyMode(status);
+      });
+      this.cleanupHandlers.push(() => {
+        this.flyMode?.destroy();
+        this.flyMode = null;
+        this.buildingTiles?.destroy();
+        this.buildingTiles = null;
+      });
+    }
+
     // Time Machine scrubber (24h replay)
     if (viewer && this.dataManager) {
       this.timeMachine = new GlobeTimeMachine(viewer, this.dataManager, this.container);
@@ -155,12 +180,21 @@ export class GodsEyeView {
       const camera = this.globe?.camera;
       if (!camera || !this.hud) return;
       const carto = camera.positionCartographic;
+      const lat = CesiumMath.toDegrees(carto.latitude);
+      const lon = CesiumMath.toDegrees(carto.longitude);
+      const dm = this.dataManager;
+      const cats = dm?.getCategoryCounts();
+      const alerts = dm?.getTopAlerts(8) ?? [];
       this.hud.updateState({
         cameraAltitude: carto.height,
-        cameraLat: CesiumMath.toDegrees(carto.latitude),
-        cameraLon: CesiumMath.toDegrees(carto.longitude),
-        activeHotspots: this.dataManager?.getEntityCount() ?? 0,
-        topAlerts: this.dataManager?.getTopAlerts(5) ?? [],
+        cameraLat: lat,
+        cameraLon: lon,
+        activeHotspots: dm?.getEntityCount() ?? 0,
+        topAlerts: alerts.slice(0, 5),
+        conflicts: cats?.conflicts ?? 0,
+        disasters: cats?.disasters ?? 0,
+        nearestHotspot: dm?.getNearestHotspot(lat, lon) ?? null,
+        tickerItems: alerts.map(a => `[${a.type.toUpperCase()}] ${a.name}`),
       });
       if (this.dataManager) {
         this.hud.updateLayerCounts(this.dataManager.getLayerCounts());
@@ -258,8 +292,14 @@ export class GodsEyeView {
     this.eventHandler.setInputAction((click: { position: Cartesian2 }) => {
       const picked = viewer.scene.pick(click.position) as
         { id?: { position?: { getValue: (t: unknown) => Cartesian3 | undefined } } } | undefined;
+
+      // Chase mode: attach camera to the clicked entity
+      if (this.flyMode?.isActive && this.flyMode.currentSubMode === 3 && picked?.id) {
+        this.flyMode.attachChaseTarget(picked.id as import('cesium').Entity);
+        return;
+      }
+
       if (picked?.id?.position) {
-        
         const pos = picked.id.position.getValue(viewer.clock.currentTime);
         if (pos) {
           const carto = viewer.scene.globe.ellipsoid.cartesianToCartographic(pos);
@@ -309,9 +349,38 @@ export class GodsEyeView {
         if (!this.active) return;
         const ke = e as KeyboardEvent;
 
+        // ── Fly Mode key intercept ────────────────────────
+        if (this.flyMode?.isActive) {
+          if (ke.key === 'Escape' || ke.key === 'f' || ke.key === 'F') {
+            this.flyMode.exit();
+            this.hud?.updateFlyMode({ active: false, subMode: 1, subModeName: 'FREE FLY' });
+            return;
+          }
+          const flySubMap: Record<string, FlySubMode> = { '1': 1, '2': 2, '3': 3, '4': 4 };
+          const flySubMode = flySubMap[ke.key];
+          if (flySubMode !== undefined) {
+            this.flyMode.switchSubMode(flySubMode);
+            return;
+          }
+          if (ke.key === 'c' || ke.key === 'C') {
+            this.flyMode.toggleCockpit();
+            return;
+          }
+          // Block all other shortcuts (theater, zoom, etc.) while flying
+          return;
+        }
+
+        // ── Normal mode keys ──────────────────────────────
+
         // ESC exits God's Eye
         if (ke.key === 'Escape') {
           this.exit();
+          return;
+        }
+
+        // F enters Fly Mode
+        if (ke.key === 'f' || ke.key === 'F') {
+          this.flyMode?.enter(1);
           return;
         }
 
@@ -331,7 +400,6 @@ export class GodsEyeView {
         // Theater presets 1-6
         const theater = THEATER_KEYS[ke.key];
         if (theater) {
-          
           this.flyToTheater(theater);
           return;
         }
@@ -341,10 +409,8 @@ export class GodsEyeView {
         if (!camera) return;
         const alt = camera.positionCartographic.height;
         if (ke.key === '=' || ke.key === '+') {
-          
           camera.zoomIn(alt * 0.4);
         } else if (ke.key === '-' || ke.key === '_') {
-          
           camera.zoomOut(alt * 0.4);
         }
       }),

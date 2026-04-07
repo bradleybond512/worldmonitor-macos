@@ -82,6 +82,46 @@ export class BuildingTileManager {
     this._currentTier = 4;
   }
 
+  /** Force a specific tier, loading it fresh if not already active.
+   *  Returns true if the tier loaded successfully. */
+  async forceTier(tier: 1 | 2 | 3): Promise<boolean> {
+    if (this._currentTier === tier && this.tileset) return true;
+
+    // Remove existing tileset
+    if (this.tileset) {
+      this.viewer.scene.primitives.remove(this.tileset);
+      this.tileset = null;
+    }
+
+    if (tier === 1) {
+      const googleKey = getRuntimeConfigSnapshot().secrets.GOOGLE_MAPS_API_KEY?.value;
+      if (!googleKey) return false;
+      try {
+        this.tileset = await Cesium3DTileset.fromUrl(
+          `https://tile.googleapis.com/v1/3dtiles/root.json?key=${googleKey}`
+        );
+        this.viewer.scene.primitives.add(this.tileset);
+        this._currentTier = 1;
+        return true;
+      } catch {
+        return false;
+      }
+    }
+
+    if (tier === 2) {
+      try {
+        this.tileset = await Cesium3DTileset.fromIonAssetId(96_188);
+        this.viewer.scene.primitives.add(this.tileset);
+        this._currentTier = 2;
+        return true;
+      } catch {
+        return false;
+      }
+    }
+
+    return false;
+  }
+
   destroy(): void {
     if (this.tileset) {
       this.viewer.scene.primitives.remove(this.tileset);
