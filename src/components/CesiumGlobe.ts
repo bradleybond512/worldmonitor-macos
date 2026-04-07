@@ -310,17 +310,17 @@ export class CesiumGlobe {
 
   private addLabelsOverlay(): void {
     if (!this.viewer) return;
-    // CartoDB dark_only_labels — white/light place names with transparent background.
-    // Reads well over ArcGIS satellite and NASA GIBS Blue Marble base imagery.
+    // Esri World Boundaries and Places — white text with dark outlines on a transparent
+    // background, purpose-built as a satellite imagery overlay. No brightness hacks needed.
+    // Note: Esri tile URL uses {z}/{y}/{x} (row/col order), not {z}/{x}/{y}.
     const labelsImagery = new UrlTemplateImageryProvider({
-      url: 'https://a.basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}.png',
-      credit: 'CartoDB',
-      maximumLevel: 18,
+      url: 'https://server.arcgisonline.com/arcgis/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',
+      credit: 'Esri',
+      maximumLevel: 13,
       minimumLevel: 1,
     });
     const labelsLayer = this.viewer.imageryLayers.addImageryProvider(labelsImagery);
     labelsLayer.alpha = 1;
-    labelsLayer.brightness = 1.8;
   }
 
   private log(level: 'INFO' | 'WARN' | 'ERROR', msg: string): void {
