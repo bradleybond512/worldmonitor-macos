@@ -968,7 +968,7 @@ function _zeekFields(lines) {
 let _prevEconomicStressIndex = null;
 
 async function fetchFredSeries(seriesId, apiKey) {
-  const url = `https://api.stlouisfed.org/fred/series/observations?series_id=${seriesId}&api_key=${apiKey}&file_type=json&sort_order=desc&limit=1`;
+  const url = `https://api.stlouisfed.org/fred/series/observations?series_id=${seriesId}&api_key=${encodeURIComponent(apiKey)}&file_type=json&sort_order=desc&limit=1`;
   const res = await fetchWithTimeout(url);
   const text = await res.text();
   let data;
@@ -1244,6 +1244,8 @@ async function validateSecretAgainstProvider(key, rawValue, context = {}) {
       } catch {
         return fail('Invalid URL');
       }
+      const safe = await isSafeUrl(probeUrl);
+      if (!safe) return fail('URL points to a private or disallowed address');
       const response = await fetchWithTimeout(probeUrl, { method: 'GET' }, 8000);
       if (!response.ok) {
         // Fall back to native Ollama /api/tags endpoint
@@ -1268,6 +1270,8 @@ async function validateSecretAgainstProvider(key, rawValue, context = {}) {
     case 'VITE_OPENSKY_RELAY_URL': {
       const probeUrl = relayToHttpUrl(value);
       if (!probeUrl) return fail('Relay URL is invalid');
+      const safe = await isSafeUrl(probeUrl);
+      if (!safe) return fail('URL points to a private or disallowed address');
       const response = await fetchWithTimeout(probeUrl, { method: 'GET' });
       if (response.status >= 500) return fail(`Relay probe failed (${response.status})`);
       return ok('Relay URL is reachable');
@@ -1719,8 +1723,8 @@ async function dispatch(requestUrl, req, routes, context) {
       );
       const data = await resp.json();
       return json({ apiKey: data.apiKey ?? null, status: data.status, message: data.message });
-    } catch (error) {
-      return json({ error: String(error) }, 500);
+    } catch {
+      return json({ error: 'Request failed' }, 500);
     }
   }
 
@@ -1740,8 +1744,8 @@ async function dispatch(requestUrl, req, routes, context) {
       );
       const data = await resp.json().catch(() => ({}));
       return json({ apiKey: data.apikey ?? data.api_key ?? null, message: data.message ?? '' });
-    } catch (error) {
-      return json({ error: String(error) }, 500);
+    } catch {
+      return json({ error: 'Request failed' }, 500);
     }
   }
 
@@ -1768,8 +1772,8 @@ async function dispatch(requestUrl, req, routes, context) {
         15_000,
       );
       return json({ submitted: resp.ok, message: resp.ok ? 'Check your email for the API key' : 'Registration failed', status: resp.status });
-    } catch (error) {
-      return json({ error: String(error) }, 500);
+    } catch {
+      return json({ error: 'Request failed' }, 500);
     }
   }
 
@@ -1792,8 +1796,8 @@ async function dispatch(requestUrl, req, routes, context) {
       const data = await resp.json();
       if (!data.access_token) return json({ error: data.error_description ?? 'No access token returned' }, 401);
       return json({ accessToken: data.access_token, refreshToken: data.refresh_token ?? null, email });
-    } catch (error) {
-      return json({ error: String(error) }, 500);
+    } catch {
+      return json({ error: 'Request failed' }, 500);
     }
   }
 
@@ -1816,8 +1820,8 @@ async function dispatch(requestUrl, req, routes, context) {
       const data = await resp.json();
       if (!data.access_token) return json({ error: 'No access token in refresh response' }, 401);
       return json({ accessToken: data.access_token, refreshToken: data.refresh_token ?? refreshToken });
-    } catch (error) {
-      return json({ error: String(error) }, 500);
+    } catch {
+      return json({ error: 'Request failed' }, 500);
     }
   }
 
@@ -5848,6 +5852,15 @@ export async function createLocalApiServer(options = {}) {
 
     // ── /api/health — lightweight liveness probe ──────────────────────
     if (requestUrl.pathname === '/api/health') {
+      const expectedToken = process.env.LOCAL_API_TOKEN;
+      if (expectedToken) {
+        const authHeader = req.headers['authorization'] || '';
+        if (authHeader !== `Bearer ${expectedToken}`) {
+          res.writeHead(401, { 'content-type': 'application/json', ...makeCorsHeaders(req) });
+          res.end(JSON.stringify({ error: 'Unauthorized' }));
+          return;
+        }
+      }
       const mem = process.memoryUsage();
       res.writeHead(200, { 'content-type': 'application/json', ...makeCorsHeaders(req) });
       res.end(JSON.stringify({
@@ -5865,6 +5878,15 @@ export async function createLocalApiServer(options = {}) {
 
     // ── /api/diag — full diagnostics snapshot for bug reports ─────────
     if (requestUrl.pathname === '/api/diag') {
+      const expectedToken = process.env.LOCAL_API_TOKEN;
+      if (expectedToken) {
+        const authHeader = req.headers['authorization'] || '';
+        if (authHeader !== `Bearer ${expectedToken}`) {
+          res.writeHead(401, { 'content-type': 'application/json', ...makeCorsHeaders(req) });
+          res.end(JSON.stringify({ error: 'Unauthorized' }));
+          return;
+        }
+      }
       const mem = process.memoryUsage();
       const envKeys = Object.keys(process.env).filter(k =>
         /API|KEY|TOKEN|SECRET|URL|EMAIL/i.test(k)

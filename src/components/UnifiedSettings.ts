@@ -1127,7 +1127,7 @@ export class UnifiedSettings {
         if (e.status < 300) cls = 'ok';
         else if (e.status < 500) cls = 'warn';
         else cls = 'err';
-        return `<tr class="us-diag-${cls}"><td>${escapeHtml(ts)}</td><td>${e.method}</td><td title="${escapeHtml(e.path)}">${escapeHtml(e.path)}</td><td>${e.status}</td><td>${e.durationMs}ms</td></tr>`;
+        return `<tr class="us-diag-${cls}"><td>${escapeHtml(ts)}</td><td>${escapeHtml(e.method)}</td><td title="${escapeHtml(e.path)}">${escapeHtml(e.path)}</td><td>${e.status}</td><td>${e.durationMs}ms</td></tr>`;
       }).join('');
       logEl.innerHTML = `<table class="us-debug-table"><thead><tr><th>Time</th><th>Method</th><th>Path</th><th>Status</th><th>Duration</th></tr></thead><tbody>${rows}</tbody></table>`;
     } catch {
