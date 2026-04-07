@@ -52,8 +52,6 @@ export class GodsEyeView {
   private autoFollow: AutoFollowEngine | null = null;
   private reactorBeacons: GlobeReactorBeacons | null = null;
   private hudTickId: number | null = null;
-  private orbitTickId: number | null = null;
-  private idleTimer: number | null = null;
   private eventHandler: ScreenSpaceEventHandler | null = null;
   private active = false;
   private ionToken: string | undefined;
@@ -151,6 +149,7 @@ export class GodsEyeView {
         cameraLat: CesiumMath.toDegrees(carto.latitude),
         cameraLon: CesiumMath.toDegrees(carto.longitude),
         activeHotspots: this.dataManager?.getEntityCount() ?? 0,
+        topAlerts: this.dataManager?.getTopAlerts(5) ?? [],
       });
       if (this.dataManager) {
         this.hud.updateLayerCounts(this.dataManager.getLayerCounts());
@@ -176,8 +175,6 @@ export class GodsEyeView {
     document.body.classList.remove('gods-eye-lock');
 
     if (this.hudTickId != null) { clearInterval(this.hudTickId); this.hudTickId = null; }
-    if (this.orbitTickId != null) { cancelAnimationFrame(this.orbitTickId); this.orbitTickId = null; }
-    if (this.idleTimer != null) { clearTimeout(this.idleTimer); this.idleTimer = null; }
 
     this.autoFollow?.destroy();
     this.autoFollow = null;
@@ -234,11 +231,6 @@ export class GodsEyeView {
     this.hud?.setMode(mode);
   }
 
-  private onUserInteraction(): void {
-    if (this.orbitTickId != null) { cancelAnimationFrame(this.orbitTickId); this.orbitTickId = null; }
-    if (this.idleTimer != null) clearTimeout(this.idleTimer);
-  }
-
   // ── Click to fly ─────────────────────────────────────
 
   private attachClickToFly(): void {
@@ -250,7 +242,7 @@ export class GodsEyeView {
       const picked = viewer.scene.pick(click.position) as
         { id?: { position?: { getValue: (t: unknown) => Cartesian3 | undefined } } } | undefined;
       if (picked?.id?.position) {
-        this.onUserInteraction();
+        
         const pos = picked.id.position.getValue(viewer.clock.currentTime);
         if (pos) {
           const carto = viewer.scene.globe.ellipsoid.cartesianToCartographic(pos);
@@ -297,7 +289,7 @@ export class GodsEyeView {
         // Theater presets 1-6
         const theater = THEATER_KEYS[ke.key];
         if (theater) {
-          this.onUserInteraction();
+          
           this.flyToTheater(theater);
           return;
         }
@@ -307,10 +299,10 @@ export class GodsEyeView {
         if (!camera) return;
         const alt = camera.positionCartographic.height;
         if (ke.key === '=' || ke.key === '+') {
-          this.onUserInteraction();
+          
           camera.zoomIn(alt * 0.4);
         } else if (ke.key === '-' || ke.key === '_') {
-          this.onUserInteraction();
+          
           camera.zoomOut(alt * 0.4);
         }
       }),
@@ -342,7 +334,7 @@ export class GodsEyeView {
         const we = e as WheelEvent;
         if (!this.container.contains(we.target as Node)) return;
         we.preventDefault();
-        this.onUserInteraction();
+        
         const camera = this.globe?.camera;
         if (!camera) return;
         const delta = we.deltaY * 500;
@@ -354,7 +346,7 @@ export class GodsEyeView {
       addListener(this.container, 'wheel', (e: Event) => {
         const we = e as WheelEvent;
         we.preventDefault();
-        this.onUserInteraction();
+        
         const camera = this.globe?.camera;
         if (!camera) return;
         if (we.deltaY > 0) camera.zoomOut(we.deltaY * 500);
@@ -364,7 +356,7 @@ export class GodsEyeView {
       // 3. Legacy mousewheel
       addListener(this.container, 'mousewheel', (e: Event) => {
         e.preventDefault();
-        this.onUserInteraction();
+        
         const camera = this.globe?.camera;
         if (!camera) return;
         const delta = ((e as WheelEvent).deltaY ?? 0) * 500;
@@ -378,7 +370,7 @@ export class GodsEyeView {
       }),
       addListener(this.container, 'gesturechange', (e: Event) => {
         e.preventDefault();
-        this.onUserInteraction();
+        
         const ge = e as Event & { scale?: number };
         if (ge.scale == null) return;
         const camera = this.globe?.camera;
@@ -389,8 +381,6 @@ export class GodsEyeView {
       }),
 
       // 5. Mouse drag / touch — mark as user interaction
-      addListener(this.container, 'mousedown', () => this.onUserInteraction()),
-      addListener(this.container, 'touchstart', () => this.onUserInteraction()),
     );
   }
 }

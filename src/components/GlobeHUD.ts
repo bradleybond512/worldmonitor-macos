@@ -9,6 +9,7 @@ export interface HUDState {
   satelliteCount: number;
   activeHotspots: number;
   threatLevel: string;
+  topAlerts?: { name: string; type: string; severity: number }[];
 }
 
 const MODE_LABELS: Record<AppMode, { label: string; cls: string }> = {
@@ -66,6 +67,7 @@ export class GlobeHUD {
   private autoFollowCounter: HTMLElement | null = null;
   private autoFollowSkipBtn: HTMLElement | null = null;
   private layerCountEls = new Map<string, HTMLElement>();
+  private alertListEl: HTMLElement | null = null;
 
   constructor(container: HTMLElement) {
     this.layers = loadGodsEyeLayers();
@@ -97,6 +99,10 @@ export class GlobeHUD {
     this.coordsEl = this.el('span', 'ge-hud-coord', '0.00\u00B0N, 0.00\u00B0E');
     coordRow.append(this.coordsEl);
     card.append(coordRow);
+    const alertSep = this.el('div', 'ge-hud-separator');
+    card.append(alertSep);
+    this.alertListEl = this.el('div', 'ge-hud-alert-list');
+    card.append(this.alertListEl);
     topLeft.append(card);
     this.element.append(topLeft);
 
@@ -125,7 +131,7 @@ export class GlobeHUD {
 
     // ── Bottom-center: Layer toggle bar ──
     const bottomCenter = this.pos(
-      'bottom:16px;left:50%;transform:translateX(-50%);pointer-events:auto;max-width:90vw;',
+      'bottom:16px;left:16px;right:16px;pointer-events:auto;overflow-x:auto;',
     );
     const layerBar = document.createElement('div');
     layerBar.className = 'ge-layer-bar';
@@ -136,8 +142,8 @@ export class GlobeHUD {
     bottomCenter.append(layerBar);
     this.element.append(bottomCenter);
 
-    // ── Bottom-left: Auto-follow status ──
-    const bottomLeft = this.pos('bottom:16px;left:16px;pointer-events:auto;');
+    // ── Bottom-right: Auto-follow status ──
+    const bottomRight = this.pos('bottom:80px;right:16px;pointer-events:auto;');
     this.autoFollowCard = this.card('ge-autofollow-card ge-hidden');
     const afHeader = this.el('div', 'ge-autofollow-header');
     const afLabel = this.el('span', 'ge-hud-micro-label', 'AUTO-FOLLOW');
@@ -151,8 +157,8 @@ export class GlobeHUD {
     this.autoFollowSkipBtn.textContent = 'SKIP \u25B6';
     this.autoFollowSkipBtn.addEventListener('click', () => this.onAutoFollowSkip?.());
     this.autoFollowCard.append(this.autoFollowSkipBtn);
-    bottomLeft.append(this.autoFollowCard);
-    this.element.append(bottomLeft);
+    bottomRight.append(this.autoFollowCard);
+    this.element.append(bottomRight);
 
     // ── Overlays ──
     const scanlines = document.createElement('div');
@@ -295,6 +301,38 @@ export class GlobeHUD {
       this.coordsEl.textContent =
         `${formatCoord(state.cameraLat, 'N', 'S')}, ${formatCoord(state.cameraLon, 'E', 'W')}`;
     }
+    if (state.topAlerts !== undefined && this.alertListEl) {
+      this.renderAlertList(this.alertListEl, state.topAlerts);
+    }
+  }
+
+  private renderAlertList(
+    el: HTMLElement,
+    alerts: { name: string; type: string; severity: number }[],
+  ): void {
+    while (el.firstChild) el.firstChild.remove();
+    if (alerts.length === 0) {
+      el.textContent = 'No active alerts';
+      return;
+    }
+    for (const alert of alerts) {
+      const row = document.createElement('div');
+      row.className = 'ge-alert-row';
+      const dot = document.createElement('span');
+      dot.className = this.alertDotClass(alert.severity);
+      const text = document.createElement('span');
+      text.className = 'ge-alert-text';
+      text.textContent = alert.name.length > 48 ? alert.name.slice(0, 45) + '\u2026' : alert.name;
+      text.title = `${alert.type}: ${alert.name}`;
+      row.append(dot, text);
+      el.append(row);
+    }
+  }
+
+  private alertDotClass(severity: number): string {
+    if (severity >= 8) return 'ge-alert-dot-critical';
+    if (severity >= 5) return 'ge-alert-dot-elevated';
+    return 'ge-alert-dot-nominal';
   }
 
   updateLayerCounts(counts: Map<string, number>): void {

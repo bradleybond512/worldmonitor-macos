@@ -240,12 +240,12 @@ body.gods-eye-lock {
   padding: 0 4px;
 }
 
-/* ── Layer bar (bottom-center) ───────────────────── */
+/* ── Layer bar (bottom) ──────────────────────────── */
 .ge-layer-bar {
   display: flex;
   gap: 3px;
-  flex-wrap: wrap;
-  justify-content: center;
+  flex-wrap: nowrap;
+  justify-content: flex-start;
   background: var(--ge-glass);
   backdrop-filter: blur(var(--ge-blur)) saturate(1.4);
   -webkit-backdrop-filter: blur(var(--ge-blur)) saturate(1.4);
@@ -255,7 +255,11 @@ body.gods-eye-lock {
   box-shadow: var(--ge-glow);
   animation: ge-bar-in 0.8s cubic-bezier(0.16, 1, 0.3, 1) both;
   animation-delay: 0.6s;
+  overflow-x: auto;
+  scrollbar-width: none;
 }
+
+.ge-layer-bar::-webkit-scrollbar { display: none; }
 
 .ge-layer-btn {
   display: flex;
@@ -357,12 +361,12 @@ body.gods-eye-lock {
 @keyframes ge-bar-in {
   from {
     opacity: 0;
-    transform: translateX(-50%) translateY(12px);
+    transform: translateY(12px);
     filter: blur(4px);
   }
   to {
     opacity: 1;
-    transform: translateX(-50%) translateY(0);
+    transform: translateY(0);
     filter: blur(0);
   }
 }
@@ -534,12 +538,60 @@ body.gods-eye-lock {
   display: none !important;
 }
 
-/* ── Scrollbar hidden for layer bar overflow ─────── */
-.ge-layer-bar::-webkit-scrollbar {
-  display: none;
+/* ── Alert list (top-left card) ──────────────────── */
+.ge-hud-separator {
+  height: 1px;
+  background: rgba(var(--ge-white), 0.12);
+  margin: 8px 0 6px;
 }
 
-.ge-layer-bar {
-  -ms-overflow-style: none;
+.ge-hud-alert-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 120px;
+  overflow-y: auto;
   scrollbar-width: none;
+  font-size: 10px;
+  color: rgba(var(--ge-white), 0.8);
+}
+
+.ge-hud-alert-list::-webkit-scrollbar { display: none; }
+
+.ge-alert-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  line-height: 1.3;
+}
+
+.ge-alert-dot-critical {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgb(var(--ge-red));
+  flex-shrink: 0;
+}
+
+.ge-alert-dot-elevated {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgb(var(--ge-amber));
+  flex-shrink: 0;
+}
+
+.ge-alert-dot-nominal {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(var(--ge-white), 0.4);
+  flex-shrink: 0;
+}
+
+.ge-alert-text {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 220px;
 }
