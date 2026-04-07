@@ -319,7 +319,8 @@ export class CesiumGlobe {
       minimumLevel: 1,
     });
     const labelsLayer = this.viewer.imageryLayers.addImageryProvider(labelsImagery);
-    labelsLayer.alpha = 0.85;
+    labelsLayer.alpha = 1;
+    labelsLayer.brightness = 1.8;
   }
 
   private log(level: 'INFO' | 'WARN' | 'ERROR', msg: string): void {
