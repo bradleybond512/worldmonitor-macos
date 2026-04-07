@@ -1,5 +1,7 @@
 # World Monitor — API Keys & Data Sources
 
+*** Disclaimer *** This is heavily a work in progress and constantly under construction right now. It is rapidly improving but could see degradation temporalily. 
+
 World Monitor integrates with 40+ external data sources. Most features work out of the box with free public APIs, but some layers require API keys for full functionality. Keys are entered via **Settings (gear icon) > API Keys** and stored securely in your macOS keychain.
 
 ## Quick Start — Essential Free Keys
