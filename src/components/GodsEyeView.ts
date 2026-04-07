@@ -174,6 +174,10 @@ export class GodsEyeView {
     this.hud.setOnAutoFollowSkip(() => this.autoFollow?.skipToNext());
     this.hud.setOnClusterToggle((enabled) => this.dataManager?.setClusteringEnabled(enabled));
     this.hud.setOnTerminatorToggle((enabled) => this.globe?.setLightingEnabled(enabled));
+    this.hud.setOnBuildingsToggle((enabled) => {
+      if (enabled) void this.buildingTiles?.initialize();
+      else this.buildingTiles?.destroy();
+    });
 
     // Update HUD at ~10fps
     this.hudTickId = window.setInterval(() => {
