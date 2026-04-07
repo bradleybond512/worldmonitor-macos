@@ -14,5 +14,9 @@
   <!-- Shown in the "More Info" section of Finder Get Info -->
   <key>NSHumanReadableCopyright</key>
   <string>World Monitor — Open source, AGPL-3.0. Based on worldmonitor by Elie Habib (koala73).</string>
+
+  <!-- Required for macOS Core Location permission prompt -->
+  <key>NSLocationWhenInUseUsageDescription</key>
+  <string>World Monitor uses your location to center panels and weather data on your home.</string>
 </dict>
 </plist>

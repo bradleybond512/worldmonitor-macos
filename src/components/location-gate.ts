@@ -19,6 +19,8 @@ import {
 } from '@/services/proximity-filter';
 import type { UserLocation } from '@/services/proximity-filter';
 import { h, replaceChildren } from '@/utils/dom-utils';
+import { invokeTauri } from '@/services/tauri-bridge';
+import { isDesktopRuntime } from '@/services/runtime';
 
 /**
  * Show an inline "Set your home location" gate inside a panel.
@@ -57,8 +59,21 @@ export function showLocationGate(
       } catch (error) {
         gpsBtn.disabled = false;
         gpsBtn.textContent = '\u{1F4CD} Use My Location';
-        statusEl.textContent = error instanceof Error ? error.message : 'Could not detect location';
+        const msg = error instanceof Error ? error.message : 'Could not detect location.';
+        const isDenied = msg.toLowerCase().includes('permission denied');
+        statusEl.textContent = msg;
         statusEl.style.color = '#ef4444';
+        if (isDenied && isDesktopRuntime()) {
+          const openBtn = h('button', {
+            style: 'margin-left:6px;background:var(--accent-color);color:#fff;border:none;border-radius:3px;padding:2px 8px;font-size:10px;cursor:pointer;',
+          }, 'Open Location Settings') as HTMLButtonElement;
+          openBtn.addEventListener('click', () => {
+            void invokeTauri<void>('open_system_prefs_location').catch(() => {
+              alert('Couldn\'t open System Settings. Go to System Settings \u2192 Privacy & Security \u2192 Location Services and enable World Monitor.');
+            });
+          });
+          statusEl.appendChild(openBtn);
+        }
       }
     })();
   });

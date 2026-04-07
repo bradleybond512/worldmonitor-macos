@@ -685,6 +685,11 @@ fn open_url(url: String) -> Result<(), String> {
     open_in_shell(parsed.as_str())
 }
 
+#[tauri::command]
+fn open_system_prefs_location() -> Result<(), String> {
+    open_in_shell("x-apple.systempreferences:com.apple.preference.security?Privacy_LocationServices")
+}
+
 fn open_logs_folder_impl(app: &AppHandle) -> Result<PathBuf, String> {
     let dir = logs_dir_path(app)?;
     open_path_in_shell(&dir)?;
@@ -2067,6 +2072,7 @@ fn main() {
             open_live_channels_window_command,
             close_live_channels_window,
             open_url,
+            open_system_prefs_location,
             open_youtube_login,
             open_youtube_logout,
             fetch_polymarket,
