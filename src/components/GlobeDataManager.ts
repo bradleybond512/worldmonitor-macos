@@ -10,6 +10,9 @@ import {
   DistanceDisplayCondition,
   PolylineDashMaterialProperty,
   ColorMaterialProperty,
+  ConstantProperty,
+  PropertyBag,
+  JulianDate,
   Math as CesiumMath,
   UrlTemplateImageryProvider,
   type ImageryLayer,
@@ -229,6 +232,11 @@ function diseaseScale(casesPerM: number): number {
 
 const LABEL_OFFSET = new Cartesian3(0, -20, 0) as unknown as import('cesium').Cartesian2;
 const LABEL_OFFSET_SM = new Cartesian3(0, -18, 0) as unknown as import('cesium').Cartesian2;
+
+function setEntityTimestamp(entity: import('cesium').Entity, when: Date): void {
+  entity.properties ??= new PropertyBag();
+  entity.properties.addProperty('timestamp', new ConstantProperty(when));
+}
 
 interface GlobeLayer {
   source: CustomDataSource;
@@ -587,7 +595,7 @@ export class GlobeDataManager {
       const color = isMajor ? C.earthquake : C.earthquakeMinor;
       const scale = Math.max(0.25, eq.magnitude * 0.08);
 
-      layer.source.entities.add({
+      const eqEntity = layer.source.entities.add({
         position: Cartesian3.fromDegrees(lon, lat),
         billboard: {
           image: ICON_EARTHQUAKE,
@@ -613,6 +621,9 @@ export class GlobeDataManager {
         } : undefined,
         description: `${eq.place} — M${eq.magnitude} at ${eq.depthKm}km depth`,
       });
+      if (eq.occurredAt) {
+        setEntityTimestamp(eqEntity, new Date(eq.occurredAt));
+      }
     }
   }
 
@@ -758,7 +769,7 @@ export class GlobeDataManager {
       const color = fireColor(f.confidence ?? '');
       const scale = fireScale(f.confidence ?? '') * 0.7;
 
-      layer.source.entities.add({
+      const fireEntity = layer.source.entities.add({
         position: Cartesian3.fromDegrees(lon, lat),
         billboard: {
           image: ICON_FIRE,
@@ -784,6 +795,9 @@ export class GlobeDataManager {
         } : undefined,
         description: `Fire — FRP: ${f.frp.toFixed(1)} MW | Brightness: ${f.brightness.toFixed(0)} | ${f.region}`,
       });
+      if (f.detectedAt) {
+        setEntityTimestamp(fireEntity, new Date(f.detectedAt));
+      }
     }
   }
 
@@ -800,7 +814,7 @@ export class GlobeDataManager {
       const color = isExplosion ? C.conflictExplosion : C.conflict;
       const scale = Math.min(0.5, 0.25 + ev.fatalities * 0.02);
 
-      layer.source.entities.add({
+      const conflictEntity = layer.source.entities.add({
         position: Cartesian3.fromDegrees(ev.lon, ev.lat),
         billboard: {
           image: icon,
@@ -826,6 +840,9 @@ export class GlobeDataManager {
         } : undefined,
         description: `${ev.eventType} — ${ev.location}, ${ev.country}`,
       });
+      if (ev.time) {
+        setEntityTimestamp(conflictEntity, ev.time);
+      }
     }
   }
 
@@ -839,7 +856,7 @@ export class GlobeDataManager {
     for (const s of strikes) {
       const scale = Math.min(0.5, 0.3 + s.fatalities * 0.02);
 
-      layer.source.entities.add({
+      const strikeEntity = layer.source.entities.add({
         position: Cartesian3.fromDegrees(s.lon, s.lat),
         billboard: {
           image: ICON_AIRSTRIKE,
@@ -865,6 +882,10 @@ export class GlobeDataManager {
         },
         description: `Airstrike — ${s.actor} vs ${s.targetActor}\n${s.location}, ${s.country}\n${s.fatalities} fatalities\n${s.notes}`,
       });
+      if (s.date) {
+        const parsed = new Date(s.date);
+        if (!Number.isNaN(parsed.getTime())) setEntityTimestamp(strikeEntity, parsed);
+      }
     }
   }
 
@@ -1407,6 +1428,33 @@ export class GlobeDataManager {
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   // PUBLIC API
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  /**
+   * Filter time-bucketed layers to entities whose timestamp is <= currentTimeMs.
+   * Pass null to clear the filter (live mode).
+   */
+  applyTimeFilter(currentTimeMs: number | null): void {
+    const timeLayers = ['earthquakes', 'fires', 'conflicts', 'airstrikes'];
+    for (const name of timeLayers) {
+      const layer = this.layers.get(name);
+      if (!layer) continue;
+      const entities = layer.source.entities.values;
+      if (currentTimeMs == null) {
+        for (const e of entities) e.show = true;
+        continue;
+      }
+      const cutoff = currentTimeMs;
+      const floor = currentTimeMs - 24 * 60 * 60 * 1000;
+      const julian = JulianDate.fromDate(new Date(currentTimeMs));
+      for (const e of entities) {
+        const bag = e.properties?.getValue(julian) as { timestamp?: Date } | undefined;
+        const ts = bag?.timestamp;
+        if (!ts) { e.show = true; continue; }
+        const t = ts.getTime();
+        e.show = t <= cutoff && t >= floor;
+      }
+    }
+  }
 
   setLayerVisible(name: string, visible: boolean): void {
     const layer = this.layers.get(name);

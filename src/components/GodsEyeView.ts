@@ -8,6 +8,7 @@ import {
 import { CesiumGlobe } from '@/components/CesiumGlobe';
 import { GlobeDataManager } from '@/components/GlobeDataManager';
 import { GlobeHUD } from '@/components/GlobeHUD';
+import { GlobeTimeMachine } from '@/components/GlobeTimeMachine';
 import { AutoFollowEngine } from '@/components/gods-eye/AutoFollowEngine';
 import type { CustomDataSource } from 'cesium';
 import { getMode, type AppMode, type ModeChangedDetail } from '@/services/mode-manager';
@@ -46,6 +47,7 @@ export class GodsEyeView {
   private globe: CesiumGlobe | null = null;
   private dataManager: GlobeDataManager | null = null;
   private hud: GlobeHUD | null = null;
+  private timeMachine: GlobeTimeMachine | null = null;
   private autoFollow: AutoFollowEngine | null = null;
   private hudTickId: number | null = null;
   private orbitTickId: number | null = null;
@@ -115,6 +117,12 @@ export class GodsEyeView {
       });
     }
 
+    // Time Machine scrubber (24h replay)
+    if (viewer && this.dataManager) {
+      this.timeMachine = new GlobeTimeMachine(viewer, this.dataManager, this.container);
+      this.timeMachine.mount();
+    }
+
     // HUD overlay
     this.hud = new GlobeHUD(this.container);
     this.hud.setOnExit(() => this.exit());
@@ -171,6 +179,9 @@ export class GodsEyeView {
 
     this.eventHandler?.destroy();
     this.eventHandler = null;
+
+    this.timeMachine?.destroy();
+    this.timeMachine = null;
 
     setTimeout(() => {
       this.hud?.destroy();
@@ -290,6 +301,13 @@ export class GodsEyeView {
         // ESC exits God's Eye
         if (ke.key === 'Escape') {
           this.exit();
+          return;
+        }
+
+        // Space toggles Time Machine play/pause
+        if (ke.key === ' ' || ke.code === 'Space') {
+          ke.preventDefault();
+          this.timeMachine?.togglePlay();
           return;
         }
 
