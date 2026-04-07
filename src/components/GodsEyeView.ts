@@ -84,7 +84,7 @@ export class GodsEyeView {
       });
       await this.globe.initialize();
     } catch (error) {
-      // eslint-disable-next-line no-console -- surface GPU/WebGL crash diagnostics
+       
       console.error('[GodsEyeView] WebGL initialization failed:', error);
       this.globe?.destroy();
       this.globe = null;
@@ -210,6 +210,12 @@ export class GodsEyeView {
   }
 
   toggle(): void {
+    // If a previous enter() crashed past the globe-init catch block (e.g. HUD
+    // construction threw), `active` can be stuck true with no visible UI. Treat
+    // active-without-globe as broken state and force a clean re-enter.
+    if (this.active && !this.globe) {
+      this.exit();
+    }
     if (this.active) {
       this.exit();
     } else {
