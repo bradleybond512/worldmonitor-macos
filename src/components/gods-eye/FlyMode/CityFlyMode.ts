@@ -1,4 +1,5 @@
 import type { Viewer } from 'cesium';
+import { Cartesian3 } from 'cesium';
 import { FreeFlyCamera } from './FreeFlyCamera';
 import type { BuildingTileManager } from '@/services/building-tiles';
 
@@ -29,21 +30,10 @@ export class CityFlyMode extends FreeFlyCamera {
     const camera = this.viewer.camera;
     const alt = camera.positionCartographic.height;
     if (alt > 50_000) {
+      const carto = camera.positionCartographic;
       camera.flyTo({
-        destination: camera.positionWC,
-        // Stay at same lat/lon but drop to 2km above ground
-        duration: 2,
-        complete: () => {
-          const carto = camera.positionCartographic;
-          camera.flyTo({
-            destination: {
-              longitude: carto.longitude,
-              latitude: carto.latitude,
-              height: 2000,
-            } as unknown as import('cesium').Cartesian3,
-            duration: 3,
-          });
-        },
+        destination: Cartesian3.fromRadians(carto.longitude, carto.latitude, 2000),
+        duration: 3,
       });
     }
 

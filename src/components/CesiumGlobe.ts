@@ -133,6 +133,9 @@ export class CesiumGlobe {
       this.addFallbackImagery('post-init-safety');
     }
 
+    // Transparent labels overlay — country/state/city names on top of satellite imagery.
+    this.addLabelsOverlay();
+
     // ── Pink-Globe Pixel Sentinel ──────────────────────────
     // 3 s after init, sample a pixel near the globe's center. If it's in the
     // hot-magenta range, log diagnostics and force ArcGIS fallback so the user
@@ -303,6 +306,20 @@ export class CesiumGlobe {
     layer.brightness = 1.1;
     layer.contrast = 1.1;
     layer.saturation = 1.15;
+  }
+
+  private addLabelsOverlay(): void {
+    if (!this.viewer) return;
+    // CartoDB dark_only_labels — white/light place names with transparent background.
+    // Reads well over ArcGIS satellite and NASA GIBS Blue Marble base imagery.
+    const labelsImagery = new UrlTemplateImageryProvider({
+      url: 'https://a.basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}.png',
+      credit: 'CartoDB',
+      maximumLevel: 18,
+      minimumLevel: 1,
+    });
+    const labelsLayer = this.viewer.imageryLayers.addImageryProvider(labelsImagery);
+    labelsLayer.alpha = 0.85;
   }
 
   private log(level: 'INFO' | 'WARN' | 'ERROR', msg: string): void {

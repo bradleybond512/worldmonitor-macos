@@ -1,5 +1,6 @@
 import {
   Cartesian3,
+  Cartographic,
   Color,
   CustomDataSource,
   HeightReference,
@@ -1672,5 +1673,38 @@ export class GlobeDataManager {
 
   getBuildingTier(): string {
     return this.buildingManager?.providerName ?? 'Not loaded';
+  }
+
+  getCategoryCounts(): { conflicts: number; disasters: number } {
+    const counts = this.getLayerCounts();
+    return {
+      conflicts: (counts.get('conflicts') ?? 0) + (counts.get('airstrikes') ?? 0),
+      disasters: (counts.get('gdacs') ?? 0) + (counts.get('cyclones') ?? 0) + (counts.get('earthquakes') ?? 0) + (counts.get('fires') ?? 0),
+    };
+  }
+
+  getNearestHotspot(lat: number, lon: number): { name: string; distanceKm: number } | null {
+    const hotspotLayer = this.layers.get('hotspots');
+    if (!hotspotLayer) return null;
+    const entities = hotspotLayer.source.entities.values;
+    let nearest: { name: string; distanceKm: number } | null = null;
+    const now = JulianDate.now();
+    const latR = CesiumMath.toRadians(lat);
+    const lonR = CesiumMath.toRadians(lon);
+    const scratch = new Cartographic();
+    for (const entity of entities) {
+      if (!entity.name) continue;
+      const pos = entity.position?.getValue(now);
+      if (!pos) continue;
+      Cartographic.fromCartesian(pos, undefined, scratch);
+      const dLat = scratch.latitude - latR;
+      const dLon = scratch.longitude - lonR;
+      const a = Math.sin(dLat/2)**2 + Math.cos(latR) * Math.cos(scratch.latitude) * Math.sin(dLon/2)**2;
+      const distKm = 6371 * 2 * Math.asin(Math.sqrt(a));
+      if (!nearest || distKm < nearest.distanceKm) {
+        nearest = { name: entity.name, distanceKm: Math.round(distKm) };
+      }
+    }
+    return nearest;
   }
 }
