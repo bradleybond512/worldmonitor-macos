@@ -11,7 +11,7 @@ export interface HUDState {
   satelliteCount: number;
   activeHotspots: number;
   threatLevel: string;
-  topAlerts?: { name: string; type: string; severity: number }[];
+  topAlerts?: { name: string; type: string; severity: number; lat?: number; lon?: number }[];
   conflicts?: number;
   disasters?: number;
   nearestHotspot?: { name: string; distanceKm: number } | null;
@@ -79,6 +79,8 @@ export class GlobeHUD {
   private onClusterToggle: ((enabled: boolean) => void) | null = null;
   private onTerminatorToggle: ((enabled: boolean) => void) | null = null;
   private onBuildingsToggle: ((enabled: boolean) => void) | null = null;
+  private onAlertClick: ((lat: number, lon: number, name: string) => void) | null = null;
+  private onScreenshot: (() => void) | null = null;
   private terminatorBtn: HTMLButtonElement | null = null;
   private buildingsBtn: HTMLButtonElement | null = null;
   private terminatorEnabled = false;
@@ -110,6 +112,9 @@ export class GlobeHUD {
   private flyModeSubEl: HTMLElement | null = null;
   private lastLat = 0;
   private lastLon = 0;
+  private sparklineCanvas: HTMLCanvasElement | null = null;
+  private sparklineBuffer: number[] = [];
+  private readonly SPARKLINE_MAX = 30;
 
   constructor(container: HTMLElement) {
     this.layers = loadGodsEyeLayers();
@@ -133,6 +138,12 @@ export class GlobeHUD {
     card.append(threatLabel);
     this.threatEl = this.el('div', 'ge-hud-threat-value ge-threat-nominal', 'NOMINAL');
     card.append(this.threatEl);
+    const sparkCanvas = document.createElement('canvas');
+    sparkCanvas.className = 'ge-hud-sparkline';
+    sparkCanvas.width = 120;
+    sparkCanvas.height = 24;
+    card.append(sparkCanvas);
+    this.sparklineCanvas = sparkCanvas;
     const statsRow = this.el('div', 'ge-hud-stats-row');
     this.hotspotsEl = this.statPill(statsRow, 'HOTSPOTS', '0');
     this.altEl = this.statPill(statsRow, 'ALT', '0 km');
@@ -203,6 +214,7 @@ export class GlobeHUD {
     this.buildClusterButton(layerBar);
     this.buildTerminatorButton(layerBar);
     this.buildBuildingsButton(layerBar);
+    this.buildScreenshotButton(layerBar);
     this.buildLayerButtons(layerBar);
     bottomCenter.append(layerBar);
     this.element.append(bottomCenter);
@@ -324,6 +336,14 @@ export class GlobeHUD {
     this.onBuildingsToggle = cb;
   }
 
+  setOnAlertClick(cb: (lat: number, lon: number, name: string) => void): void {
+    this.onAlertClick = cb;
+  }
+
+  setOnScreenshot(cb: () => void): void {
+    this.onScreenshot = cb;
+  }
+
   setBuildingsEnabled(enabled: boolean): void {
     this.buildingsEnabled = enabled;
     this.buildingsBtn?.classList.toggle('ge-layer-active', enabled);
@@ -406,6 +426,11 @@ export class GlobeHUD {
         this.threatEl.textContent = label;
         this.threatEl.className = `ge-hud-threat-value ${cls}`;
       }
+      this.sparklineBuffer.push(state.activeHotspots);
+      if (this.sparklineBuffer.length > this.SPARKLINE_MAX) {
+        this.sparklineBuffer.shift();
+      }
+      this.drawSparkline();
     }
     if (state.cameraAltitude !== undefined && this.altEl) {
       const km = Math.round(state.cameraAltitude / 1000);
@@ -460,7 +485,7 @@ export class GlobeHUD {
 
   private renderAlertList(
     el: HTMLElement,
-    alerts: { name: string; type: string; severity: number }[],
+    alerts: { name: string; type: string; severity: number; lat?: number; lon?: number }[],
   ): void {
     while (el.firstChild) el.firstChild.remove();
     if (alerts.length === 0) {
@@ -470,6 +495,16 @@ export class GlobeHUD {
     for (const alert of alerts) {
       const row = document.createElement('div');
       row.className = 'ge-alert-row';
+      const hasPos = alert.lat !== undefined && alert.lon !== undefined;
+      if (hasPos) {
+        row.classList.add('ge-hud-alert-clickable');
+        row.title = 'Click to fly to this event';
+        row.addEventListener('click', () => {
+          if (alert.lat !== undefined && alert.lon !== undefined) {
+            this.onAlertClick?.(alert.lat, alert.lon, alert.name);
+          }
+        });
+      }
       const dot = document.createElement('span');
       dot.className = this.alertDotClass(alert.severity);
       const text = document.createElement('span');
@@ -479,6 +514,48 @@ export class GlobeHUD {
       row.append(dot, text);
       el.append(row);
     }
+  }
+
+  private buildScreenshotButton(bar: HTMLElement): void {
+    const btn = document.createElement('button');
+    btn.className = 'ge-layer-btn';
+    btn.title = 'Save screenshot to Downloads';
+    const nameSpan = document.createElement('span');
+    nameSpan.className = 'ge-layer-name';
+    nameSpan.textContent = 'SNAP';
+    btn.append(nameSpan);
+    btn.addEventListener('click', () => this.onScreenshot?.());
+    bar.append(btn);
+  }
+
+  private drawSparkline(): void {
+    const canvas = this.sparklineCanvas;
+    if (!canvas || this.sparklineBuffer.length < 2) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    const w = canvas.width;
+    const h = canvas.height;
+    ctx.clearRect(0, 0, w, h);
+    const max = Math.max(...this.sparklineBuffer, 1);
+    const min = Math.min(...this.sparklineBuffer);
+    const range = max - min || 1;
+    const pts = this.sparklineBuffer.map((v, i) => ({
+      x: (i / (this.sparklineBuffer.length - 1)) * w,
+      y: h - ((v - min) / range) * (h - 4) - 2,
+    }));
+    ctx.beginPath();
+    ctx.strokeStyle = 'rgba(96,165,250,0.7)';
+    ctx.lineWidth = 1.5;
+    const first = pts[0];
+    if (!first) return;
+    ctx.moveTo(first.x, first.y);
+    for (const pt of pts.slice(1)) ctx.lineTo(pt.x, pt.y);
+    ctx.stroke();
+    ctx.lineTo(w, h);
+    ctx.lineTo(0, h);
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(96,165,250,0.08)';
+    ctx.fill();
   }
 
   private alertDotClass(severity: number): string {

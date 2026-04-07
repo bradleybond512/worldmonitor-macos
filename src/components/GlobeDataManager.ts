@@ -15,6 +15,7 @@ import {
   PropertyBag,
   JulianDate,
   Math as CesiumMath,
+  Ellipsoid,
   UrlTemplateImageryProvider,
   type ImageryLayer,
   PointPrimitiveCollection,
@@ -1596,18 +1597,26 @@ export class GlobeDataManager {
     return counts;
   }
 
-  getTopAlerts(limit = 5): { name: string; type: string; severity: number }[] {
-    const results: { name: string; type: string; severity: number }[] = [];
+  getTopAlerts(limit = 5): { name: string; type: string; severity: number; lat?: number; lon?: number }[] {
+    const results: { name: string; type: string; severity: number; lat?: number; lon?: number }[] = [];
     const SEVERITY: Record<string, number> = {
       airstrikes: 10, conflicts: 8, cyber: 6, earthquakes: 5,
       gdacs: 7, cyclones: 6, fires: 4, gpsJamming: 5,
     };
     for (const [layerKey, layerData] of this.layers) {
       const sev = SEVERITY[layerKey] ?? 3;
-      const entities = layerData.source.entities.values;
+      const entities = [...layerData.source.entities.values];
       for (const entity of entities) {
         if (!entity.name) continue;
-        results.push({ name: entity.name, type: layerKey, severity: sev });
+        let lat: number | undefined;
+        let lon: number | undefined;
+        const pos = entity.position?.getValue(this.viewer.clock.currentTime);
+        if (pos) {
+          const carto = Ellipsoid.WGS84.cartesianToCartographic(pos);
+          lat = CesiumMath.toDegrees(carto.latitude);
+          lon = CesiumMath.toDegrees(carto.longitude);
+        }
+        results.push({ name: entity.name, type: layerKey, severity: sev, lat, lon });
       }
     }
     results.sort((a, b) => b.severity - a.severity);
