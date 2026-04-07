@@ -1580,6 +1580,23 @@ async function dispatch(requestUrl, req, routes, context) {
     }
   }
 
+  if (requestUrl.pathname === '/api/tle') {
+    try {
+      const tleRes = await fetch('https://celestrak.org/SOCRATES/stations-tle.txt', {
+        signal: AbortSignal.timeout(8000),
+        headers: { 'User-Agent': 'WorldMonitor/2.x (educational use)' },
+      });
+      if (!tleRes.ok) return json({ error: `CelesTrak ${tleRes.status}` }, 502, makeCorsHeaders(req));
+      const text = await tleRes.text();
+      return new Response(text, {
+        status: 200,
+        headers: { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'public, max-age=3600', ...makeCorsHeaders(req) },
+      });
+    } catch (error) {
+      return json({ error: String(error) }, 503, makeCorsHeaders(req));
+    }
+  }
+
   if (requestUrl.pathname === '/api/local-youtube-recent-videos') {
     const channelParam = requestUrl.searchParams.get('channel');
     if (!channelParam) return json({ error: 'Missing channel parameter', videoIds: [] }, 400);

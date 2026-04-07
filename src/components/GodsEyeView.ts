@@ -23,6 +23,9 @@ import { tryInvokeTauri } from '@/services/tauri-bridge';
 import { loadBookmarks, saveBookmark } from '@/services/camera-bookmarks';
 import { saveWaypoint, WaypointTour, loadWaypoints } from '@/services/globe-waypoints';
 import { GlobeSearch } from '@/components/gods-eye/GlobeSearch';
+import { GlobeSatellites } from '@/components/gods-eye/GlobeSatellites';
+import { GlobeMiniMap } from '@/components/gods-eye/GlobeMiniMap';
+import { GlobeAudio } from '@/components/gods-eye/GlobeAudio';
 
 // ── Theater camera presets (lat, lon, altitude meters, pitch degrees) ──
 const THEATERS = {
@@ -67,6 +70,9 @@ export class GodsEyeView {
   private flyMode: FlyModeController | null = null;
   private buildingTiles: BuildingTileManager | null = null;
   private globeSearch: GlobeSearch | null = null;
+  private globeSatellites: GlobeSatellites | null = null;
+  private globeMiniMap: GlobeMiniMap | null = null;
+  private globeAudio: GlobeAudio | null = null;
   private waypointTour: WaypointTour | null = null;
   private hudTickId: number | null = null;
   private eventHandler: ScreenSpaceEventHandler | null = null;
@@ -224,6 +230,33 @@ export class GodsEyeView {
     this.hud.setOnArcsToggle((enabled) => this.globeArcs?.setEnabled(enabled));
     this.hud.setOnHeatmapToggle((enabled) => this.globeHeatmap?.setEnabled(enabled));
 
+    // Satellite overlay
+    if (viewer) {
+      this.globeSatellites = new GlobeSatellites(viewer);
+      void this.globeSatellites.mount();
+      this.cleanupHandlers.push(() => { this.globeSatellites?.destroy(); this.globeSatellites = null; });
+    }
+    this.hud.setOnSatellitesToggle((enabled) => this.globeSatellites?.setEnabled(enabled));
+
+    // Mini-map overlay
+    if (viewer) {
+      this.globeMiniMap = new GlobeMiniMap(viewer, this.container);
+      this.globeMiniMap.mount();
+      this.cleanupHandlers.push(() => { this.globeMiniMap?.destroy(); this.globeMiniMap = null; });
+    }
+
+    // Ambient audio
+    this.globeAudio = new GlobeAudio();
+    this.cleanupHandlers.push(() => { this.globeAudio?.stop(); this.globeAudio = null; });
+    this.hud.setOnAudioToggle((enabled) => {
+      if (enabled) {
+        this.globeAudio?.start();
+        this.globeAudio?.setMode(this.currentMode);
+      } else {
+        this.globeAudio?.stop();
+      }
+    });
+
     // Update HUD at ~10fps
     this.hudTickId = window.setInterval(() => {
       const camera = this.globe?.camera;
@@ -354,6 +387,7 @@ export class GodsEyeView {
     for (const cls of modeClasses) this.container.classList.remove(cls);
     this.container.classList.add(`ge-mode-${mode}`);
     this.hud?.setMode(mode);
+    if (this.globeAudio?.isEnabled()) this.globeAudio.setMode(mode);
   }
 
   // ── Click to fly ─────────────────────────────────────
