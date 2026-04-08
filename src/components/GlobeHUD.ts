@@ -102,6 +102,9 @@ export class GlobeHUD {
 
   // Cached DOM refs
   private threatEl: HTMLElement | null = null;
+  private threatDetailEl: HTMLElement | null = null;
+  private lastHotspotCount = 0;
+  private lastTopAlerts: { name: string; type: string; severity: number }[] = [];
   private hotspotsEl: HTMLElement | null = null;
   private altEl: HTMLElement | null = null;
   private coordsEl: HTMLElement | null = null;
@@ -150,6 +153,8 @@ export class GlobeHUD {
     card.append(threatLabel);
     this.threatEl = this.el('div', 'ge-hud-threat-value ge-threat-nominal', 'NOMINAL');
     card.append(this.threatEl);
+    this.threatDetailEl = this.el('div', 'ge-hud-threat-detail', '');
+    card.append(this.threatDetailEl);
     const sparkCanvas = document.createElement('canvas');
     sparkCanvas.className = 'ge-hud-sparkline';
     sparkCanvas.width = 120;
@@ -537,12 +542,14 @@ export class GlobeHUD {
   // eslint-disable-next-line sonarjs/cognitive-complexity
   updateState(state: Partial<HUDState>): void {
     if (state.activeHotspots !== undefined) {
+      this.lastHotspotCount = state.activeHotspots;
       if (this.hotspotsEl) this.hotspotsEl.textContent = String(state.activeHotspots);
       if (this.threatEl) {
         const { label, cls } = threatFromHotspots(state.activeHotspots);
         this.threatEl.textContent = label;
         this.threatEl.className = `ge-hud-threat-value ${cls}`;
       }
+      this.updateThreatDetail();
       this.sparklineBuffer.push(state.activeHotspots);
       if (this.sparklineBuffer.length > this.SPARKLINE_MAX) {
         this.sparklineBuffer.shift();
@@ -560,8 +567,10 @@ export class GlobeHUD {
         `${formatCoord(state.cameraLat, 'N', 'S')}, ${formatCoord(state.cameraLon, 'E', 'W')}`;
       this.updateCameraContext();
     }
-    if (state.topAlerts !== undefined && this.alertListEl) {
-      this.renderAlertList(this.alertListEl, state.topAlerts);
+    if (state.topAlerts !== undefined) {
+      this.lastTopAlerts = state.topAlerts;
+      if (this.alertListEl) this.renderAlertList(this.alertListEl, state.topAlerts);
+      this.updateThreatDetail();
     }
     if (state.conflicts !== undefined && this.conflictsEl) {
       this.conflictsEl.textContent = String(state.conflicts);
@@ -643,6 +652,20 @@ export class GlobeHUD {
     btn.append(nameSpan);
     btn.addEventListener('click', () => this.onScreenshot?.());
     bar.append(btn);
+  }
+
+  private updateThreatDetail(): void {
+    if (!this.threatDetailEl) return;
+    const count = this.lastHotspotCount;
+    const top = this.lastTopAlerts[0];
+    const countStr = count > 0 ? `${count.toLocaleString()} events` : '';
+    if (top) {
+      const name = top.name.length > 30 ? top.name.slice(0, 27) + '…' : top.name;
+      const type = top.type.replace(/_/g, ' ');
+      this.threatDetailEl.textContent = countStr ? `${countStr} · ${name} (${type})` : `${name} (${type})`;
+    } else {
+      this.threatDetailEl.textContent = countStr;
+    }
   }
 
   private drawSparkline(): void {

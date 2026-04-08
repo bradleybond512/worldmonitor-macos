@@ -1613,8 +1613,10 @@ export class GlobeDataManager {
         const pos = entity.position?.getValue(this.viewer.clock.currentTime);
         if (pos) {
           const carto = Ellipsoid.WGS84.cartesianToCartographic(pos);
-          lat = CesiumMath.toDegrees(carto.latitude);
-          lon = CesiumMath.toDegrees(carto.longitude);
+          if (carto) {
+            lat = CesiumMath.toDegrees(carto.latitude);
+            lon = CesiumMath.toDegrees(carto.longitude);
+          }
         }
         results.push({ name: entity.name, type: layerKey, severity: sev, lat, lon });
       }
