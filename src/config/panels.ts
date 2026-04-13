@@ -80,6 +80,7 @@ const FULL_PANELS: Record<string, PanelConfig> = {
   'space-weather': { name: 'Space Weather', enabled: true, priority: 2 },
   'spaceflight-news': { name: 'Spaceflight News', enabled: true, priority: 2 },
   'space-launches': { name: 'Space Launches', enabled: true, priority: 2 },
+  'satellite-intel': { name: 'Satellite Intel', enabled: true, priority: 2 },
   'disease-outbreaks': { name: 'Disease Outbreaks', enabled: true, priority: 2 },
   'disease-intel': { name: 'Disease Intelligence', enabled: true, priority: 2 },
   'humanitarian-crisis': { name: 'Humanitarian Crises', enabled: true, priority: 2 },
