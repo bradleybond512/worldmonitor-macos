@@ -18,10 +18,11 @@ export interface SatelliteTLE {
 }
 
 export type SatelliteClassification =
-  | 'notable'   // ISS, spy sats, early warning — always rendered + labeled
-  | 'military'  // Kosmos, Yaogan, NROL — rendered with intel styling
-  | 'constellation' // GPS, Starlink, Iridium — rendered dimly, clustered
-  | 'normal';   // Everything else — small gray dot
+  | 'recon'          // NRO, CSO, Ofek, SBIRS, DSP — reconnaissance/ISR
+  | 'station'        // ISS, Tiangong — space stations
+  | 'military'       // Kosmos, Yaogan, LIANA — military (non-recon)
+  | 'constellation'  // GPS, Starlink, Iridium — rendered dimly
+  | 'normal';        // Everything else — small gray dot
 
 export interface SatelliteAnnotation {
   category: string;
@@ -65,16 +66,16 @@ export async function fetchSatelliteCatalog(): Promise<SatelliteTLE[]> {
   }, []);
 }
 
-/** Get only notable + military satellites for low-zoom rendering */
+/** Get only recon + station + military satellites for low-zoom rendering */
 export function filterNotable(catalog: SatelliteTLE[]): SatelliteTLE[] {
-  return catalog.filter(s => s.classification === 'notable' || s.classification === 'military');
+  return catalog.filter(s => s.classification === 'recon' || s.classification === 'station' || s.classification === 'military');
 }
 
 // ── Intelligence Annotation Tables ──────────────────────────────
 
 const NOTABLE_IDS: Record<number, SatelliteAnnotation> = {
-  25_544: { category: 'ISS', label: 'ISS (ZARYA)', color: [255, 215, 0], priority: 1 },
-  48_274: { category: 'CSS', label: 'Tiangong', color: [255, 215, 0], priority: 2 },
+  25_544: { category: 'station', label: 'ISS (ZARYA)', color: [50, 205, 50], priority: 1 },
+  48_274: { category: 'station', label: 'Tiangong', color: [50, 205, 50], priority: 2 },
 };
 
 interface PatternRule {
@@ -84,10 +85,13 @@ interface PatternRule {
 }
 
 const NAME_PATTERNS: PatternRule[] = [
-  { pattern: /^NROL-/i, classification: 'notable', annotation: { category: 'SIGINT/IMINT', color: [239, 68, 68], priority: 3 } },
+  { pattern: /^NROL-/i, classification: 'recon', annotation: { category: 'SIGINT/IMINT', color: [239, 50, 50], priority: 5 } },
   { pattern: /^USA \d+/i, classification: 'military', annotation: { category: 'US Military', color: [239, 68, 68], priority: 5 } },
-  { pattern: /^SBIRS/i, classification: 'notable', annotation: { category: 'Missile Warning', color: [239, 68, 68], priority: 2 } },
-  { pattern: /^DSP/i, classification: 'notable', annotation: { category: 'Missile Warning', color: [239, 68, 68], priority: 2 } },
+  { pattern: /^SBIRS/i, classification: 'recon', annotation: { category: 'Missile Warning', color: [239, 50, 50], priority: 3 } },
+  { pattern: /^DSP/i, classification: 'recon', annotation: { category: 'Missile Warning', color: [239, 50, 50], priority: 3 } },
+  { pattern: /^CSO-\d/i, classification: 'recon', annotation: { category: 'French Recon', color: [239, 50, 50], priority: 4 } },
+  { pattern: /^PLEIADES[\s-]NEO/i, classification: 'recon', annotation: { category: 'French ISR', color: [239, 50, 50], priority: 4 } },
+  { pattern: /^OFEK/i, classification: 'recon', annotation: { category: 'Israeli Recon', color: [239, 50, 50], priority: 4 } },
   { pattern: /^NAVSTAR/i, classification: 'constellation', annotation: { category: 'GPS', color: [96, 165, 250], priority: 10 } },
   { pattern: /^STARLINK/i, classification: 'constellation', annotation: { category: 'Starlink', color: [120, 120, 120], priority: 50 } },
   { pattern: /^IRIDIUM/i, classification: 'constellation', annotation: { category: 'Iridium', color: [120, 120, 120], priority: 50 } },
@@ -101,7 +105,7 @@ const NAME_PATTERNS: PatternRule[] = [
 ];
 
 function classifySatellite(name: string, noradId: number): SatelliteClassification {
-  if (NOTABLE_IDS[noradId]) return 'notable';
+  if (NOTABLE_IDS[noradId]) return 'station';
   for (const rule of NAME_PATTERNS) {
     if (rule.pattern.test(name)) return rule.classification;
   }
@@ -117,4 +121,19 @@ function annotateSatellite(name: string, noradId: number): SatelliteAnnotation |
     }
   }
   return null;
+}
+
+export function isReconOrMilitary(classification: SatelliteClassification): boolean {
+  return classification === 'recon' || classification === 'military';
+}
+
+export function getClassificationLabel(classification: SatelliteClassification): string {
+  const labels: Record<SatelliteClassification, string> = {
+    recon: 'RECON',
+    station: 'STATION',
+    military: 'MILITARY',
+    constellation: 'CONSTELLATION',
+    normal: 'CIVIL',
+  };
+  return labels[classification];
 }
