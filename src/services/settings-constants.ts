@@ -138,7 +138,7 @@ export const SETTINGS_CATEGORIES: SettingsCategory[] = [
   {
     id: 'tracking',
     label: 'Tracking & Sensing',
-    features: ['aisRelay', 'openskyRelay', 'wingbitsEnrichment', 'nasaFirms', 'aviationStack', 'icaoNotams', 'openWeatherMap', 'openAqMonitor', 'geoDbCities', 'geoNames', 'ipInfoLookup', 'windyWebcams', 'dotTrafficCams'],
+    features: ['aisRelay', 'openskyRelay', 'wingbitsEnrichment', 'nasaFirms', 'aviationStack', 'icaoNotams', 'openWeatherMap', 'openAqMonitor', 'geoDbCities', 'geoNames', 'ipInfoLookup', 'windyWebcams', 'dotTrafficCams', 'satelliteIntel'],
   },
   {
     id: 'news',

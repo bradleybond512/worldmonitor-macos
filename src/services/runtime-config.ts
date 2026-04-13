@@ -122,7 +122,8 @@ export type RuntimeFeatureId =
   | 'cyberReactorNotifyToast'
   | 'cyberReactorNotifyMap'
   | 'windyWebcams'
-  | 'dotTrafficCams';
+  | 'dotTrafficCams'
+  | 'satelliteIntel';
 
 export interface RuntimeFeatureDefinition {
   id: RuntimeFeatureId;
@@ -223,6 +224,7 @@ const defaultToggles: Record<RuntimeFeatureId, boolean> = {
   cyberReactorNotifyMap: true,
   windyWebcams: true,
   dotTrafficCams: true,
+  satelliteIntel: true,
 };
 
 export const RUNTIME_FEATURES: RuntimeFeatureDefinition[] = [
@@ -776,6 +778,13 @@ export const RUNTIME_FEATURES: RuntimeFeatureDefinition[] = [
     description: 'Public traffic cameras from US Department of Transportation 511 feeds.',
     requiredSecrets: [],
     fallback: 'DOT traffic cameras are hidden.',
+  },
+  {
+    id: 'satelliteIntel',
+    name: 'Satellite intelligence tracking',
+    description: 'Live satellite tracking with pass predictions using CelesTrak TLE data.',
+    requiredSecrets: [],
+    fallback: 'Satellite tracking disabled.',
   },
 ];
 
