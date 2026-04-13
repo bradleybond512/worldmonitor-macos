@@ -131,10 +131,9 @@ interface PassState {
   maxElTime: number;
 }
 
-function getElevationDeg(satrec: ReturnType<typeof twoline2satrec>, t: Date, observerGd: { longitude: number; latitude: number; height: number }): number | null {
+function getElevationDeg(satrec: ReturnType<typeof twoline2satrec>, t: Date, gmst: number, observerGd: { longitude: number; latitude: number; height: number }): number | null {
   const posVel = propagate(satrec, t);
   if (!posVel.position || typeof posVel.position === 'boolean') return null;
-  const gmst = gstime(t);
   const ecf = eciToEcf(posVel.position, gmst);
   const lookAngles = ecfToLookAngles(observerGd, ecf);
   return lookAngles.elevation * (180 / Math.PI);
@@ -167,42 +166,62 @@ function applyPassStep(state: PassState, elDeg: number, tMs: number, minElevatio
   }
 }
 
-function computePassesForSatLoc(satrec: ReturnType<typeof twoline2satrec>, sat: TLEInput, loc: PassLocation, totalSteps: number, stepMs: number, minElevation: number, passes: PassRecord[]): void {
+function computePassesForSatLoc(satrec: ReturnType<typeof twoline2satrec>, sat: TLEInput, loc: PassLocation, totalSteps: number, stepMs: number, minElevation: number, passes: PassRecord[], startMs: number): void {
   const observerGd = {
     longitude: loc.lon * (Math.PI / 180),
     latitude: loc.lat * (Math.PI / 180),
     height: (loc.alt ?? 0) / 1000,
   };
   const state: PassState = { inPass: false, riseTime: 0, maxEl: 0, maxElTime: 0 };
-  const startMs = Date.now();
 
   for (let step = 0; step <= totalSteps; step++) {
     const t = new Date(startMs + step * stepMs);
-    const elDeg = getElevationDeg(satrec, t, observerGd);
+    const gmst = gstime(t);
+    const elDeg = getElevationDeg(satrec, t, gmst, observerGd);
     if (elDeg === null) continue;
     applyPassStep(state, elDeg, t.getTime(), minElevation, sat, loc, passes);
   }
+
+  // Flush open pass at window boundary
+  if (state.inPass) {
+    const endMs = startMs + totalSteps * stepMs;
+    passes.push({
+      satelliteId: String(sat.noradId),
+      satelliteName: sat.name,
+      locationId: loc.id,
+      locationName: loc.name,
+      riseTime: state.riseTime,
+      maxElevationTime: state.maxElTime,
+      setTime: endMs,
+      maxElevation: Math.round(state.maxEl * 10) / 10,
+      duration: Math.round((endMs - state.riseTime) / 1000),
+    });
+  }
 }
 
-function computePasses(
+async function computePasses(
   satellites: TLEInput[],
   locations: PassLocation[],
   durationHours: number,
-): void {
+): Promise<void> {
   const passes: PassRecord[] = [];
   const stepMs = 30_000;
   const totalSteps = Math.floor((durationHours * 3_600_000) / stepMs);
   const minElevation = 10;
+  const startMs = Date.now();
 
-  for (const sat of satellites) {
+  for (const [i, satellite] of satellites.entries()) {
+    const sat = satellite!;
     try {
       const satrec = twoline2satrec(sat.line1, sat.line2);
       for (const loc of locations) {
-        computePassesForSatLoc(satrec, sat, loc, totalSteps, stepMs, minElevation, passes);
+        computePassesForSatLoc(satrec, sat, loc, totalSteps, stepMs, minElevation, passes, startMs);
       }
     } catch {
       // Skip satellites with bad TLEs
     }
+    // Yield every 10 satellites so 1Hz position updates can fire
+    if (i % 10 === 9) await new Promise<void>(r => setTimeout(r, 0));
   }
   self.postMessage({ type: 'passes', passes });
 }
@@ -225,7 +244,7 @@ self.addEventListener('message', (e: MessageEvent<WorkerMessage>) => {
   }
 
   if (msg.type === 'computePasses') {
-    computePasses(msg.satellites, msg.locations, msg.durationHours);
+    void computePasses(msg.satellites, msg.locations, msg.durationHours);
   }
 
   if (msg.type === 'stop') {

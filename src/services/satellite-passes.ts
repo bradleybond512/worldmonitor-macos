@@ -5,6 +5,7 @@ let cachedPasses: SatellitePass[] = [];
 let lastComputed = 0;
 const RECOMPUTE_INTERVAL = 15 * 60 * 1000;
 const listeners = new Set<(passes: SatellitePass[]) => void>();
+let unsubPasses: (() => void) | null = null;
 
 export function getUpcomingPasses(): SatellitePass[] {
   return cachedPasses
@@ -27,15 +28,30 @@ export async function computePasses(locations: { id: string; name: string; lat: 
   if (locations.length === 0) return;
 
   const catalog = await fetchSatelliteCatalog();
-  const notable = catalog.filter(s => isReconOrMilitary(s.classification));
+  // Include recon, military, and stations (ISS passes are valuable intel)
+  const notable = catalog.filter(s => isReconOrMilitary(s.classification) || s.classification === 'station');
 
   satellitePropagator.requestPasses(notable, locations, 6);
   lastComputed = Date.now();
 }
 
-satellitePropagator.onPasses((passes) => {
-  cachedPasses = passes;
-  for (const listener of listeners) {
-    listener(passes);
-  }
-});
+export function teardown(): void {
+  unsubPasses?.();
+  unsubPasses = null;
+  cachedPasses = [];
+  lastComputed = 0;
+  listeners.clear();
+}
+
+function init(): void {
+  // Guard against HMR double-registration
+  unsubPasses?.();
+  unsubPasses = satellitePropagator.onPasses((passes) => {
+    cachedPasses = passes;
+    for (const listener of listeners) {
+      listener(passes);
+    }
+  });
+}
+
+init();
