@@ -178,7 +178,9 @@ export function getCustomWebcams(): WebcamFeed[] {
   try {
     const stored = localStorage.getItem(CUSTOM_WEBCAMS_KEY);
     if (!stored) return [];
-    return JSON.parse(stored) as WebcamFeed[];
+    const parsed: unknown = JSON.parse(stored);
+    if (!Array.isArray(parsed)) return [];
+    return (parsed as WebcamFeed[]).filter(f => f && typeof f.id === 'string' && typeof f.embedUrl === 'string');
   } catch {
     return [];
   }

@@ -1,6 +1,5 @@
 import { Panel } from './Panel';
 import { isDesktopRuntime, getApiBaseUrl } from '@/services/runtime';
-import { escapeHtml } from '@/utils/sanitize';
 import { t } from '../services/i18n';
 import { trackWebcamSelected, trackWebcamRegionFiltered } from '@/services/analytics';
 import { getStreamQuality, subscribeStreamQualityChange } from '@/services/ai-flow-settings';
@@ -35,6 +34,8 @@ export class LiveWebcamsPanel extends Panel {
   private _boundYtMsg!: (e: MessageEvent) => void;
   private cachedFeeds: WebcamFeed[] = [];
   private isLoading = false;
+  private loadGeneration = 0;
+  private staggeredTimeouts: ReturnType<typeof setTimeout>[] = [];
 
   constructor() {
     super({ id: 'live-webcams', title: t('panels.liveWebcams'), className: 'panel-wide' });
@@ -61,9 +62,12 @@ export class LiveWebcamsPanel extends Panel {
   }
 
   private async loadFeeds(): Promise<void> {
+    const gen = ++this.loadGeneration;
     this.isLoading = true;
     const region = this.regionFilter === 'all' ? undefined : this.regionFilter as WebcamRegion;
-    this.cachedFeeds = await getWebcamFeeds(region, 24);
+    const feeds = await getWebcamFeeds(region, 24);
+    if (gen !== this.loadGeneration) return;
+    this.cachedFeeds = feeds;
     this.isLoading = false;
   }
 
@@ -257,7 +261,7 @@ export class LiveWebcamsPanel extends Panel {
 
       const citySpan = document.createElement('span');
       citySpan.className = 'webcam-city';
-      citySpan.textContent = escapeHtml(feed.city.toUpperCase());
+      citySpan.textContent = feed.city.toUpperCase();
 
       const badgeSpan = document.createElement('span');
       badgeSpan.className = 'webcam-source-badge';
@@ -301,7 +305,7 @@ export class LiveWebcamsPanel extends Panel {
       };
 
       if (desktop && i > 0) {
-        setTimeout(appendEmbed, i * 800);
+        this.staggeredTimeouts.push(setTimeout(appendEmbed, i * 800));
       } else {
         appendEmbed();
       }
@@ -422,6 +426,9 @@ export class LiveWebcamsPanel extends Panel {
       const country = countryInput.value.trim() || 'Custom';
       const region = regionSelect.value as WebcamRegion;
       if (!url) return;
+      let parsed: URL;
+      try { parsed = new URL(url); } catch { return; }
+      if (!['https:', 'http:'].includes(parsed.protocol)) return;
       addCustomWebcam(url, title || city, city, country, region);
       overlay.remove();
       clearWebcamCache();
@@ -440,6 +447,8 @@ export class LiveWebcamsPanel extends Panel {
   }
 
   private destroyIframes(): void {
+    this.staggeredTimeouts.forEach(id => clearTimeout(id));
+    this.staggeredTimeouts = [];
     this.iframes.forEach(iframe => {
       iframe.src = 'about:blank';
       iframe.remove();
