@@ -509,6 +509,7 @@ export class DeckGLMap {
   private satelliteCatalog: SatelliteTLE[] = [];
   private selectedOrbitPath: OrbitPath | null = null;
   private selectedSatNoradId: number | null = null;
+  private unsubOrbitPath: (() => void) | null = null;
   private lastCableHighlightSignature = '';
   private lastCableHealthSignature = '';
   private lastPipelineHighlightSignature = '';
@@ -547,7 +548,7 @@ export class DeckGLMap {
       }
     });
 
-    satellitePropagator.onOrbitPath((path) => {
+    this.unsubOrbitPath = satellitePropagator.onOrbitPath((path) => {
       this.setSelectedOrbitPath(path);
     });
 
@@ -5507,6 +5508,9 @@ export class DeckGLMap {
 
     this.layerCache.clear();
 
+    this.unsubOrbitPath?.();
+    this.unsubOrbitPath = null;
+
     this.deckOverlay?.finalize();
     this.deckOverlay = null;
     this.maplibreMap?.remove();
@@ -5900,6 +5904,7 @@ export class DeckGLMap {
     const notable = this.satelliteCatalog.length > 0
       ? new Set(filterNotable(this.satelliteCatalog).map(s => s.noradId))
       : new Set<number>();
+    const catalogMap = new Map(this.satelliteCatalog.map(s => [s.noradId, s]));
 
     const data = zoom < 3
       ? this.satellitePositions.filter(s => notable.has(s.noradId))
@@ -5914,9 +5919,13 @@ export class DeckGLMap {
         return notable.has(d.noradId) ? 20_000 : 8_000;
       },
       getFillColor: (d: SatellitePosition) => {
-        const cat = this.satelliteCatalog.find(s => s.noradId === d.noradId);
+        const cat = catalogMap.get(d.noradId);
         if (cat?.annotation) return [...cat.annotation.color, 200] as [number, number, number, number];
         return [150, 150, 150, 100];
+      },
+      updateTriggers: {
+        getRadius: [this.selectedSatNoradId],
+        getFillColor: [this.satelliteCatalog.length],
       },
       radiusUnits: 'meters' as const,
       radiusMinPixels: 1,
@@ -5924,10 +5933,9 @@ export class DeckGLMap {
       pickable: true,
       autoHighlight: true,
       highlightColor: [255, 255, 100, 200],
-      onClick: (info: { object?: SatellitePosition }) => {
-        if (info.object) {
-          this.selectSatellite(info.object.noradId);
-        }
+      onClick: (info: PickingInfo) => {
+        const sat = info.object as SatellitePosition | undefined;
+        if (sat) this.selectSatellite(sat.noradId);
       },
     });
   }
