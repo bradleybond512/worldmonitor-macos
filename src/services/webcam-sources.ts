@@ -78,29 +78,42 @@ const CUSTOM_WEBCAMS_KEY = 'worldmonitor-custom-webcams';
 const cache = new Map<string, { feeds: WebcamFeed[]; expiresAt: number }>();
 const CACHE_TTL_MS = 5 * 60 * 1000;
 
+const REGION_TO_COUNTRIES: Record<WebcamRegion, string[]> = {
+  iran: ['IR'],
+  'middle-east': ['IL', 'SA', 'JO', 'LB', 'IQ', 'SY', 'YE', 'AE', 'QA', 'BH', 'KW', 'OM'],
+  europe: ['UA', 'RU', 'FR', 'GB', 'DE', 'PL', 'IT', 'ES', 'NL', 'BE', 'CZ', 'RO', 'SE', 'NO'],
+  americas: ['US', 'CA', 'MX', 'BR', 'AR', 'CL', 'CO'],
+  asia: ['CN', 'JP', 'KR', 'TW', 'AU', 'IN', 'TH', 'VN', 'PH', 'SG'],
+};
+
 export async function fetchWindyWebcams(region?: WebcamRegion): Promise<WebcamFeed[]> {
   try {
-    const params = region ? `?region=${region}` : '';
-    const res = await fetch(`${getApiBaseUrl()}/api/windy-webcams${params}`);
+    const base = getApiBaseUrl();
+    // Windy sidecar requires lat+lon or country — translate region to country codes
+    const countries = region ? REGION_TO_COUNTRIES[region] : undefined;
+    if (region && (!countries || countries.length === 0)) return [];
+    // Fetch by country (use first country for now; Windy accepts comma-separated)
+    const countryParam = countries ? `&country=${countries.join(',')}` : '&country=US';
+    const res = await fetch(`${base}/api/windy-webcams?limit=20${countryParam}`);
     if (!res.ok) return [];
-    const data = await res.json() as { webcams?: { id: string; title: string; player: { day: { embed: string } }; location: { city: string; country: string; country_code: string; latitude: number; longitude: number }; thumbnail?: string }[] };
+    const data = await res.json() as { webcams?: { id: string; title: string; playerUrl: string; city: string; country: string; countryCode: string; lat: number; lon: number; thumbnail?: string }[] };
     const webcams = data.webcams ?? [];
     const feeds: WebcamFeed[] = [];
     for (const cam of webcams) {
-      const countryCode = cam.location?.country_code ?? '';
-      const camRegion = WINDY_COUNTRY_TO_REGION[countryCode] ?? 'europe';
+      const cc = cam.countryCode ?? '';
+      const camRegion = WINDY_COUNTRY_TO_REGION[cc] ?? 'europe';
       if (region && camRegion !== region) continue;
       feeds.push({
         id: `windy-${cam.id}`,
         source: 'windy',
         title: cam.title ?? '',
-        city: cam.location?.city ?? '',
-        country: cam.location?.country ?? '',
+        city: cam.city ?? '',
+        country: cam.country ?? '',
         region: camRegion,
-        lat: cam.location?.latitude ?? 0,
-        lon: cam.location?.longitude ?? 0,
+        lat: cam.lat ?? 0,
+        lon: cam.lon ?? 0,
         thumbnailUrl: cam.thumbnail,
-        embedUrl: cam.player?.day?.embed ?? '',
+        embedUrl: cam.playerUrl ?? '',
         embedType: 'iframe',
         isLive: true,
         lastVerified: Date.now(),
@@ -139,18 +152,17 @@ export async function fetchDotCams(region?: WebcamRegion): Promise<WebcamFeed[]>
   try {
     const res = await fetch(`${getApiBaseUrl()}/api/dot-traffic-cams`);
     if (!res.ok) return [];
-    const data = await res.json() as { cams?: { id: string; title: string; city: string; country: string; lat: number; lon: number; imageUrl: string; thumbnailUrl?: string }[] };
-    const cams = data.cams ?? [];
+    const data = await res.json() as { cameras?: { id: string; title: string; state: string; lat: number; lon: number; imageUrl: string; direction: string }[] };
+    const cams = data.cameras ?? [];
     return cams.map(cam => ({
       id: `dot-${cam.id}`,
       source: 'dot' as WebcamSource,
       title: cam.title ?? '',
-      city: cam.city ?? '',
-      country: cam.country ?? 'USA',
+      city: cam.title ?? '',
+      country: 'USA',
       region: 'americas' as WebcamRegion,
       lat: cam.lat ?? 0,
       lon: cam.lon ?? 0,
-      thumbnailUrl: cam.thumbnailUrl,
       embedUrl: cam.imageUrl,
       embedType: 'image' as EmbedType,
       refreshIntervalMs: 30_000,
