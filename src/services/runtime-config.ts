@@ -119,7 +119,8 @@ export type RuntimeFeatureId =
   | 'cyberReactor'
   | 'cyberReactorNotifyNative'
   | 'cyberReactorNotifyToast'
-  | 'cyberReactorNotifyMap';
+  | 'cyberReactorNotifyMap'
+  | 'satelliteIntel';
 
 export interface RuntimeFeatureDefinition {
   id: RuntimeFeatureId;
@@ -218,6 +219,7 @@ const defaultToggles: Record<RuntimeFeatureId, boolean> = {
   cyberReactorNotifyNative: true,
   cyberReactorNotifyToast: true,
   cyberReactorNotifyMap: true,
+  satelliteIntel: true,
 };
 
 export const RUNTIME_FEATURES: RuntimeFeatureDefinition[] = [
@@ -756,6 +758,13 @@ export const RUNTIME_FEATURES: RuntimeFeatureDefinition[] = [
     description: 'Route Cyber Reactor alerts to map pings.',
     requiredSecrets: [],
     fallback: 'Map pings disabled for Cyber Reactor alerts.',
+  },
+  {
+    id: 'satelliteIntel',
+    name: 'Satellite intelligence tracking',
+    description: 'Live satellite tracking with pass predictions using CelesTrak TLE data.',
+    requiredSecrets: [],
+    fallback: 'Satellite tracking disabled.',
   },
 ];
 

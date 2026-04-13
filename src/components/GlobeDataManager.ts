@@ -22,12 +22,16 @@ import {
   PolylineCollection,
   HeadingPitchRoll,
   Transforms,
+  ScreenSpaceEventHandler,
+  ScreenSpaceEventType,
+  Cartesian2,
+  Material,
 } from 'cesium';
 
 import { applyClustering } from '@/components/globeClustering';
 import { modelLoader } from '@/services/model-loader';
 import { BuildingTileManager } from '@/services/building-tiles';
-import { fetchSatelliteCatalog, filterNotable, type SatelliteTLE } from '@/services/satellite-catalog';
+import { fetchSatelliteCatalog, filterNotable, type SatelliteTLE, type SatelliteClassification } from '@/services/satellite-catalog';
 import { satellitePropagator, type SatellitePosition } from '@/services/satellite-propagator';
 import { fetchLightningStrikes } from '@/services/lightning';
 import { fetchRedFlagWarnings } from '@/services/red-flag-warnings';
@@ -283,6 +287,11 @@ export class GlobeDataManager {
   private orbitLines: InstanceType<typeof PolylineCollection> | null = null;
   private satelliteCatalog: SatelliteTLE[] = [];
   private unsubPositions: (() => void) | null = null;
+  private satClickHandler: InstanceType<typeof ScreenSpaceEventHandler> | null = null;
+  private unsubOrbitPath: (() => void) | null = null;
+  private activeSatelliteFilters: Set<SatelliteClassification> | null = null;
+  private satelliteFilterHandler: EventListener | null = null;
+  private satelliteCatalogMap = new Map<number, SatelliteTLE>();
 
   constructor(viewer: Viewer) {
     this.viewer = viewer;
@@ -1667,6 +1676,7 @@ export class GlobeDataManager {
   private async initSatellites(): Promise<void> {
     try {
       this.satelliteCatalog = await fetchSatelliteCatalog();
+      this.satelliteCatalogMap = new Map(this.satelliteCatalog.map(s => [s.noradId, s]));
       if (this.satelliteCatalog.length === 0) return;
 
       this.satellitePoints = new PointPrimitiveCollection();
@@ -1680,6 +1690,41 @@ export class GlobeDataManager {
       this.unsubPositions = satellitePropagator.onPositions((positions) => {
         this.updateSatellitePositions(positions);
       });
+
+      // Click handler for satellite selection (primitive identity check gates against GodsEyeView's handler)
+      this.satClickHandler = new ScreenSpaceEventHandler(this.viewer.canvas);
+      this.satClickHandler.setInputAction((click: { position: Cartesian2 }) => {
+        const picked = this.viewer.scene.pick(click.position) as { primitive: unknown; id: unknown } | undefined;
+        if (picked?.primitive === this.satellitePoints && picked.id != null) {
+          const noradId = picked.id as number;
+          const sat = this.satelliteCatalogMap.get(noradId);
+          if (sat) {
+            satellitePropagator.requestOrbitPath(sat, 90);
+            window.dispatchEvent(new CustomEvent('satellite-selected', { detail: { noradId, satellite: sat } }));
+          }
+        }
+      }, ScreenSpaceEventType.LEFT_CLICK);
+
+      this.satelliteFilterHandler = ((e: CustomEvent<{ enabled: SatelliteClassification[] }>) => {
+        this.activeSatelliteFilters = new Set(e.detail.enabled);
+      }) as EventListener;
+      window.addEventListener('satellite-filter-changed', this.satelliteFilterHandler);
+
+      // Orbit path rendering
+      this.unsubOrbitPath = satellitePropagator.onOrbitPath((path) => {
+        if (!this.orbitLines) return;
+        this.orbitLines.removeAll();
+        const positions = path.points.map(([lon, lat, altKm]) =>
+          Cartesian3.fromDegrees(lon, lat, altKm * 1000)
+        );
+        this.orbitLines.add({
+          positions,
+          width: 2,
+          material: Material.fromType('Color', {
+            color: Color.fromBytes(255, 215, 0, 180),
+          }),
+        });
+      });
     } catch (error) {
       // eslint-disable-next-line no-console
       console.warn('[GlobeDataManager] Satellite init failed:', error);
@@ -1691,16 +1736,25 @@ export class GlobeDataManager {
     this.satellitePoints.removeAll();
 
     const notableIds = new Set(filterNotable(this.satelliteCatalog).map(s => s.noradId));
+    const activeFilters = this.activeSatelliteFilters;
 
-    for (const pos of positions) {
+    const filtered = activeFilters
+      ? positions.filter(pos => {
+          const cat = this.satelliteCatalogMap.get(pos.noradId);
+          return cat ? activeFilters.has(cat.classification) : true;
+        })
+      : positions;
+
+    for (const pos of filtered) {
       const isNotable = notableIds.has(pos.noradId);
-      const cat = this.satelliteCatalog.find(s => s.noradId === pos.noradId);
+      const cat = this.satelliteCatalogMap.get(pos.noradId);
       const rgb = cat?.annotation?.color ?? [150, 150, 150];
 
       this.satellitePoints.add({
         position: Cartesian3.fromDegrees(pos.lon, pos.lat, pos.altKm * 1000),
         pixelSize: isNotable ? 4 : 1.5,
         color: Color.fromBytes(rgb[0], rgb[1], rgb[2], isNotable ? 255 : 80),
+        id: pos.noradId,
       });
     }
   }
@@ -1713,6 +1767,14 @@ export class GlobeDataManager {
     this.buildingManager = null;
     this.unsubPositions?.();
     this.unsubPositions = null;
+    this.satClickHandler?.destroy();
+    this.satClickHandler = null;
+    this.unsubOrbitPath?.();
+    this.unsubOrbitPath = null;
+    if (this.satelliteFilterHandler) {
+      window.removeEventListener('satellite-filter-changed', this.satelliteFilterHandler);
+      this.satelliteFilterHandler = null;
+    }
     satellitePropagator.stop();
     if (this.satellitePoints) {
       this.viewer.scene.primitives.remove(this.satellitePoints);
