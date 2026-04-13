@@ -290,6 +290,8 @@ export class GlobeDataManager {
   private satClickHandler: InstanceType<typeof ScreenSpaceEventHandler> | null = null;
   private unsubOrbitPath: (() => void) | null = null;
   private activeSatelliteFilters: Set<SatelliteClassification> | null = null;
+  private satelliteFilterHandler: EventListener | null = null;
+  private satelliteCatalogMap = new Map<number, SatelliteTLE>();
 
   constructor(viewer: Viewer) {
     this.viewer = viewer;
@@ -1674,6 +1676,7 @@ export class GlobeDataManager {
   private async initSatellites(): Promise<void> {
     try {
       this.satelliteCatalog = await fetchSatelliteCatalog();
+      this.satelliteCatalogMap = new Map(this.satelliteCatalog.map(s => [s.noradId, s]));
       if (this.satelliteCatalog.length === 0) return;
 
       this.satellitePoints = new PointPrimitiveCollection();
@@ -1694,7 +1697,7 @@ export class GlobeDataManager {
         const picked = this.viewer.scene.pick(click.position) as { primitive: unknown; id: unknown } | undefined;
         if (picked?.primitive === this.satellitePoints && picked.id != null) {
           const noradId = picked.id as number;
-          const sat = this.satelliteCatalog.find(s => s.noradId === noradId);
+          const sat = this.satelliteCatalogMap.get(noradId);
           if (sat) {
             satellitePropagator.requestOrbitPath(sat, 90);
             window.dispatchEvent(new CustomEvent('satellite-selected', { detail: { noradId, satellite: sat } }));
@@ -1702,9 +1705,10 @@ export class GlobeDataManager {
         }
       }, ScreenSpaceEventType.LEFT_CLICK);
 
-      window.addEventListener('satellite-filter-changed', ((e: CustomEvent<{ enabled: SatelliteClassification[] }>) => {
+      this.satelliteFilterHandler = ((e: CustomEvent<{ enabled: SatelliteClassification[] }>) => {
         this.activeSatelliteFilters = new Set(e.detail.enabled);
-      }) as EventListener);
+      }) as EventListener;
+      window.addEventListener('satellite-filter-changed', this.satelliteFilterHandler);
 
       // Orbit path rendering
       this.unsubOrbitPath = satellitePropagator.onOrbitPath((path) => {
@@ -1732,17 +1736,18 @@ export class GlobeDataManager {
     this.satellitePoints.removeAll();
 
     const notableIds = new Set(filterNotable(this.satelliteCatalog).map(s => s.noradId));
+    const activeFilters = this.activeSatelliteFilters;
 
-    const filtered = this.activeSatelliteFilters
+    const filtered = activeFilters
       ? positions.filter(pos => {
-          const cat = this.satelliteCatalog.find(s => s.noradId === pos.noradId);
-          return cat ? this.activeSatelliteFilters!.has(cat.classification) : true;
+          const cat = this.satelliteCatalogMap.get(pos.noradId);
+          return cat ? activeFilters.has(cat.classification) : true;
         })
       : positions;
 
     for (const pos of filtered) {
       const isNotable = notableIds.has(pos.noradId);
-      const cat = this.satelliteCatalog.find(s => s.noradId === pos.noradId);
+      const cat = this.satelliteCatalogMap.get(pos.noradId);
       const rgb = cat?.annotation?.color ?? [150, 150, 150];
 
       this.satellitePoints.add({
@@ -1766,6 +1771,10 @@ export class GlobeDataManager {
     this.satClickHandler = null;
     this.unsubOrbitPath?.();
     this.unsubOrbitPath = null;
+    if (this.satelliteFilterHandler) {
+      window.removeEventListener('satellite-filter-changed', this.satelliteFilterHandler);
+      this.satelliteFilterHandler = null;
+    }
     satellitePropagator.stop();
     if (this.satellitePoints) {
       this.viewer.scene.primitives.remove(this.satellitePoints);

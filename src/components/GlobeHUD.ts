@@ -91,6 +91,7 @@ export class GlobeHUD {
   private arcsBtn: HTMLButtonElement | null = null;
   private heatmapBtn: HTMLButtonElement | null = null;
   private satBtn: HTMLButtonElement | null = null;
+  private satFilterGroup: HTMLElement | null = null;
   private audioBtn: HTMLButtonElement | null = null;
   private terminatorEnabled = false;
   private buildingsEnabled = false;
@@ -459,13 +460,14 @@ export class GlobeHUD {
     const group = document.createElement('div');
     group.className = 'ge-sat-filters';
     group.style.display = this.satellitesEnabled ? 'flex' : 'none';
+    this.satFilterGroup = group;
 
     const filters: { key: SatelliteClassification; label: string; color: string }[] = [
       { key: 'recon', label: 'RECON', color: '#ef3232' },
       { key: 'military', label: 'MIL', color: '#f97316' },
       { key: 'station', label: 'ISS', color: '#32cd32' },
       { key: 'constellation', label: 'NAV', color: '#60a5fa' },
-      { key: 'normal', label: 'ALL', color: '#9ca3af' },
+      { key: 'normal', label: 'CIVIL', color: '#9ca3af' },
     ];
 
     for (const f of filters) {
@@ -494,8 +496,7 @@ export class GlobeHUD {
   setSatellitesEnabled(enabled: boolean): void {
     this.satellitesEnabled = enabled;
     this.satBtn?.classList.toggle('ge-layer-active', enabled);
-    const filterGroup = this.element.querySelector('.ge-sat-filters') as HTMLElement | null;
-    if (filterGroup) filterGroup.style.display = enabled ? 'flex' : 'none';
+    if (this.satFilterGroup) this.satFilterGroup.style.display = enabled ? 'flex' : 'none';
   }
 
   setOnSatellitesToggle(cb: (enabled: boolean) => void): void {
