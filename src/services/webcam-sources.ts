@@ -1,6 +1,5 @@
 import { getApiBaseUrl } from '@/services/runtime';
 import { dataFreshness } from '@/services/data-freshness';
-import type { DataSourceId } from '@/services/data-freshness';
 
 export type WebcamSource = 'windy' | 'youtube' | 'dot' | 'custom';
 export type WebcamRegion = 'iran' | 'middle-east' | 'europe' | 'asia' | 'americas';
@@ -243,7 +242,7 @@ export async function getWebcamFeeds(region?: WebcamRegion, limit = 24): Promise
   cache.set(cacheKey, { feeds: merged, expiresAt: Date.now() + CACHE_TTL_MS });
 
   if (result.length > 0) {
-    dataFreshness.recordUpdate('faa_weather_cams' as DataSourceId, result.length);
+    dataFreshness.recordUpdate('webcams', result.length);
   }
 
   return result;
