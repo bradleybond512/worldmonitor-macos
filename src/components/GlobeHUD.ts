@@ -1,5 +1,6 @@
 import { loadGodsEyeLayers, saveGodsEyeLayers, type GodsEyeLayers } from '@/config/gods-eye-layers';
 import type { AppMode } from '@/services/mode-manager';
+import type { SatelliteClassification } from '@/services/satellite-catalog';
 import type { FollowTarget } from '@/components/gods-eye/AutoFollowEngine';
 import type { FlyModeStatus } from '@/components/gods-eye/FlyMode/FlyModeController';
 import { FLY_SUB_MODE_NAMES } from '@/components/gods-eye/FlyMode/flyModeKeybinds';
@@ -96,6 +97,7 @@ export class GlobeHUD {
   private arcsEnabled = false;
   private heatmapEnabled = false;
   private satellitesEnabled = false;
+  private satelliteFilters = new Set<SatelliteClassification>(['recon', 'station', 'military', 'constellation', 'normal']);
   private audioEnabled = false;
   private clusteringEnabled = true;
   private clockId: number | null = null;
@@ -450,11 +452,50 @@ export class GlobeHUD {
     });
     this.satBtn = btn;
     bar.append(btn);
+    bar.append(this.createSatelliteFilterButtons());
+  }
+
+  private createSatelliteFilterButtons(): HTMLElement {
+    const group = document.createElement('div');
+    group.className = 'ge-sat-filters';
+    group.style.display = this.satellitesEnabled ? 'flex' : 'none';
+
+    const filters: { key: SatelliteClassification; label: string; color: string }[] = [
+      { key: 'recon', label: 'RECON', color: '#ef3232' },
+      { key: 'military', label: 'MIL', color: '#f97316' },
+      { key: 'station', label: 'ISS', color: '#32cd32' },
+      { key: 'constellation', label: 'NAV', color: '#60a5fa' },
+      { key: 'normal', label: 'ALL', color: '#9ca3af' },
+    ];
+
+    for (const f of filters) {
+      const btn = document.createElement('button');
+      btn.className = 'ge-sat-filter-btn active';
+      btn.textContent = f.label;
+      btn.style.borderColor = f.color;
+      btn.dataset.category = f.key;
+      btn.addEventListener('click', () => {
+        if (this.satelliteFilters.has(f.key)) {
+          this.satelliteFilters.delete(f.key);
+          btn.classList.remove('active');
+        } else {
+          this.satelliteFilters.add(f.key);
+          btn.classList.add('active');
+        }
+        window.dispatchEvent(new CustomEvent('satellite-filter-changed', {
+          detail: { enabled: [...this.satelliteFilters] },
+        }));
+      });
+      group.append(btn);
+    }
+    return group;
   }
 
   setSatellitesEnabled(enabled: boolean): void {
     this.satellitesEnabled = enabled;
     this.satBtn?.classList.toggle('ge-layer-active', enabled);
+    const filterGroup = this.element.querySelector('.ge-sat-filters') as HTMLElement | null;
+    if (filterGroup) filterGroup.style.display = enabled ? 'flex' : 'none';
   }
 
   setOnSatellitesToggle(cb: (enabled: boolean) => void): void {

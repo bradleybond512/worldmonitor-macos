@@ -31,7 +31,7 @@ import {
 import { applyClustering } from '@/components/globeClustering';
 import { modelLoader } from '@/services/model-loader';
 import { BuildingTileManager } from '@/services/building-tiles';
-import { fetchSatelliteCatalog, filterNotable, type SatelliteTLE } from '@/services/satellite-catalog';
+import { fetchSatelliteCatalog, filterNotable, type SatelliteTLE, type SatelliteClassification } from '@/services/satellite-catalog';
 import { satellitePropagator, type SatellitePosition } from '@/services/satellite-propagator';
 import { fetchLightningStrikes } from '@/services/lightning';
 import { fetchRedFlagWarnings } from '@/services/red-flag-warnings';
@@ -289,6 +289,7 @@ export class GlobeDataManager {
   private unsubPositions: (() => void) | null = null;
   private satClickHandler: InstanceType<typeof ScreenSpaceEventHandler> | null = null;
   private unsubOrbitPath: (() => void) | null = null;
+  private activeSatelliteFilters: Set<SatelliteClassification> | null = null;
 
   constructor(viewer: Viewer) {
     this.viewer = viewer;
@@ -1701,6 +1702,10 @@ export class GlobeDataManager {
         }
       }, ScreenSpaceEventType.LEFT_CLICK);
 
+      window.addEventListener('satellite-filter-changed', ((e: CustomEvent<{ enabled: SatelliteClassification[] }>) => {
+        this.activeSatelliteFilters = new Set(e.detail.enabled);
+      }) as EventListener);
+
       // Orbit path rendering
       this.unsubOrbitPath = satellitePropagator.onOrbitPath((path) => {
         if (!this.orbitLines) return;
@@ -1728,7 +1733,14 @@ export class GlobeDataManager {
 
     const notableIds = new Set(filterNotable(this.satelliteCatalog).map(s => s.noradId));
 
-    for (const pos of positions) {
+    const filtered = this.activeSatelliteFilters
+      ? positions.filter(pos => {
+          const cat = this.satelliteCatalog.find(s => s.noradId === pos.noradId);
+          return cat ? this.activeSatelliteFilters!.has(cat.classification) : true;
+        })
+      : positions;
+
+    for (const pos of filtered) {
       const isNotable = notableIds.has(pos.noradId);
       const cat = this.satelliteCatalog.find(s => s.noradId === pos.noradId);
       const rgb = cat?.annotation?.color ?? [150, 150, 150];
