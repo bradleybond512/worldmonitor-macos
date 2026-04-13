@@ -5863,52 +5863,56 @@ async function dispatch(requestUrl, req, routes, context) {
         { state: 'NY', url: 'https://511ny.org/api/getTransportationConditions?key=public&format=json&eventCategory=cameras', parser: 'ny511' },
       ];
       const targetFeeds = state === 'all' ? feeds : feeds.filter(f => f.state === state.toUpperCase());
-      const allCams = [];
-      for (const feed of targetFeeds) {
-        try {
-          const resp = await fetchWithTimeout(feed.url, {
-            headers: { 'User-Agent': 'WorldMonitor/1.0', Accept: 'application/json' },
-          }, 10_000);
-          if (!resp.ok) continue;
-          const data = await resp.json();
-          if (feed.parser === 'caltrans') {
-            const cams = Array.isArray(data) ? data : data?.data ?? [];
-            for (const c of cams) {
-              if (!c.cctv?.imageUrl) continue;
-              allCams.push({
-                id: `dot-ca-${c.cctv?.index ?? allCams.length}`,
-                title: c.cctv?.location?.locationName ?? `CA Camera ${allCams.length + 1}`,
-                state: 'CA',
-                lat: c.cctv?.location?.latitude ?? 0,
-                lon: c.cctv?.location?.longitude ?? 0,
-                imageUrl: c.cctv.imageUrl,
-                direction: c.cctv?.location?.direction ?? '',
-              });
-            }
-          } else if (feed.parser === 'ny511') {
-            const cams = Array.isArray(data) ? data : data?.cameras ?? data?.features ?? [];
-            for (const c of cams) {
-              const props = c.properties ?? c;
-              if (!props.imageUrl && !props.url) continue;
-              allCams.push({
-                id: `dot-ny-${props.id ?? allCams.length}`,
-                title: props.name ?? props.description ?? `NY Camera ${allCams.length + 1}`,
-                state: 'NY',
-                lat: props.latitude ?? c.geometry?.coordinates?.[1] ?? 0,
-                lon: props.longitude ?? c.geometry?.coordinates?.[0] ?? 0,
-                imageUrl: props.imageUrl ?? props.url ?? '',
-                direction: props.direction ?? '',
-              });
-            }
+      const results = await Promise.allSettled(targetFeeds.map(async (feed) => {
+        const resp = await fetchWithTimeout(feed.url, {
+          headers: { 'User-Agent': 'WorldMonitor/1.0', Accept: 'application/json' },
+        }, 10_000);
+        if (!resp.ok) return [];
+        const data = await resp.json();
+        const cams = [];
+        if (feed.parser === 'caltrans') {
+          const items = Array.isArray(data) ? data : data?.data ?? [];
+          let idx = 0;
+          for (const c of items) {
+            if (!c.cctv?.imageUrl) continue;
+            cams.push({
+              id: `dot-ca-${c.cctv?.index ?? idx}`,
+              title: c.cctv?.location?.locationName ?? `CA Camera ${idx + 1}`,
+              state: 'CA',
+              lat: c.cctv?.location?.latitude ?? 0,
+              lon: c.cctv?.location?.longitude ?? 0,
+              imageUrl: c.cctv.imageUrl,
+              direction: c.cctv?.location?.direction ?? '',
+            });
+            idx++;
           }
-        } catch {
-          // Skip failed individual feeds
+        } else if (feed.parser === 'ny511') {
+          const items = Array.isArray(data) ? data : data?.cameras ?? data?.features ?? [];
+          let idx = 0;
+          for (const c of items) {
+            const props = c.properties ?? c;
+            if (!props.imageUrl && !props.url) continue;
+            cams.push({
+              id: `dot-ny-${props.id ?? idx}`,
+              title: props.name ?? props.description ?? `NY Camera ${idx + 1}`,
+              state: 'NY',
+              lat: props.latitude ?? c.geometry?.coordinates?.[1] ?? 0,
+              lon: props.longitude ?? c.geometry?.coordinates?.[0] ?? 0,
+              imageUrl: props.imageUrl ?? props.url ?? '',
+              direction: props.direction ?? '',
+            });
+            idx++;
+          }
         }
-      }
+        return cams;
+      }));
+      const allCams = results.flatMap(r => r.status === 'fulfilled' ? r.value : []);
       const result = { cameras: allCams, updatedAt: Math.floor(Date.now() / 1000) };
       setCached(cacheKey, result, 5 * 60 * 1000);
       return json(result);
     } catch (error) {
+      const stale = getCachedStale(cacheKey);
+      if (stale) return json({ ...stale, stale: true, error: error?.message ?? 'unknown' });
       return json({ cameras: [], error: error?.message ?? 'unknown' }, 502);
     }
   }
