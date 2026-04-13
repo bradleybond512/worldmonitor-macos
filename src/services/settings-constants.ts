@@ -44,6 +44,7 @@ export const SIGNUP_URLS: Partial<Record<RuntimeSecretKey, string>> = {
   IPINFO_TOKEN: 'https://ipinfo.io/signup',
   CESIUM_ION_TOKEN: 'https://ion.cesium.com/signup/',
   GOOGLE_MAPS_API_KEY: 'https://console.cloud.google.com/apis/credentials',
+  WINDY_WEBCAMS_API_KEY: 'https://api.windy.com/keys',
 };
 
 export const PLAINTEXT_KEYS = new Set<RuntimeSecretKey>([
@@ -104,6 +105,7 @@ export const HUMAN_LABELS: Record<RuntimeSecretKey, string> = {
   IPINFO_TOKEN: 'IPInfo Token',
   CESIUM_ION_TOKEN: 'Cesium Ion Token',
   GOOGLE_MAPS_API_KEY: 'Google Maps API Key',
+  WINDY_WEBCAMS_API_KEY: 'Windy Webcams API Key',
 };
 
 export interface SettingsCategory {
@@ -136,7 +138,7 @@ export const SETTINGS_CATEGORIES: SettingsCategory[] = [
   {
     id: 'tracking',
     label: 'Tracking & Sensing',
-    features: ['aisRelay', 'openskyRelay', 'wingbitsEnrichment', 'nasaFirms', 'aviationStack', 'icaoNotams', 'openWeatherMap', 'openAqMonitor', 'geoDbCities', 'geoNames', 'ipInfoLookup', 'satelliteIntel'],
+    features: ['aisRelay', 'openskyRelay', 'wingbitsEnrichment', 'nasaFirms', 'aviationStack', 'icaoNotams', 'openWeatherMap', 'openAqMonitor', 'geoDbCities', 'geoNames', 'ipInfoLookup', 'windyWebcams', 'dotTrafficCams', 'satelliteIntel'],
   },
   {
     id: 'news',

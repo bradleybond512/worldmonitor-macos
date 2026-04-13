@@ -107,6 +107,7 @@ const SECRET_ANALYTICS_NAMES: Record<RuntimeSecretKey, string> = {
   IPINFO_TOKEN: 'ipinfo',
   CESIUM_ION_TOKEN: 'cesium',
   GOOGLE_MAPS_API_KEY: 'google_maps',
+  WINDY_WEBCAMS_API_KEY: 'windy_webcams',
 };
 
 // ── Typed event schemas (allowlisted properties per event) ──

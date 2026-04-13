@@ -48,7 +48,8 @@ export type RuntimeSecretKey =
   | 'GEONAMES_USERNAME'
   | 'IPINFO_TOKEN'
   | 'CESIUM_ION_TOKEN'
-  | 'GOOGLE_MAPS_API_KEY';
+  | 'GOOGLE_MAPS_API_KEY'
+  | 'WINDY_WEBCAMS_API_KEY';
 
 export type RuntimeFeatureId =
   | 'cloudApiFallbackAuth'
@@ -120,6 +121,8 @@ export type RuntimeFeatureId =
   | 'cyberReactorNotifyNative'
   | 'cyberReactorNotifyToast'
   | 'cyberReactorNotifyMap'
+  | 'windyWebcams'
+  | 'dotTrafficCams'
   | 'satelliteIntel';
 
 export interface RuntimeFeatureDefinition {
@@ -219,6 +222,8 @@ const defaultToggles: Record<RuntimeFeatureId, boolean> = {
   cyberReactorNotifyNative: true,
   cyberReactorNotifyToast: true,
   cyberReactorNotifyMap: true,
+  windyWebcams: true,
+  dotTrafficCams: true,
   satelliteIntel: true,
 };
 
@@ -758,6 +763,21 @@ export const RUNTIME_FEATURES: RuntimeFeatureDefinition[] = [
     description: 'Route Cyber Reactor alerts to map pings.',
     requiredSecrets: [],
     fallback: 'Map pings disabled for Cyber Reactor alerts.',
+  },
+  {
+    id: 'windyWebcams',
+    name: 'Windy webcam search',
+    description: 'Global webcam search and playback via Windy Webcams API v3.',
+    requiredSecrets: ['WINDY_WEBCAMS_API_KEY'],
+    desktopRequiredSecrets: [],
+    fallback: 'Windy webcam search is disabled. YouTube webcams remain available.',
+  },
+  {
+    id: 'dotTrafficCams',
+    name: 'US DOT traffic cameras',
+    description: 'Public traffic cameras from US Department of Transportation 511 feeds.',
+    requiredSecrets: [],
+    fallback: 'DOT traffic cameras are hidden.',
   },
   {
     id: 'satelliteIntel',
