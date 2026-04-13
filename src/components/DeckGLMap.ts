@@ -120,6 +120,7 @@ import { getGoesWmsTileUrl } from '@/services/satellite-weather';
 import { getOwmTileUrl, type OwmTileLayer } from '@/services/owm-weather-tiles';
 import type { RedFlagWarning } from '@/services/red-flag-warnings';
 import type { SatellitePosition, OrbitPath } from '@/services/satellite-propagator';
+import { satellitePropagator } from '@/services/satellite-propagator';
 import type { SatelliteTLE } from '@/services/satellite-catalog';
 import { filterNotable } from '@/services/satellite-catalog';
 
@@ -507,6 +508,7 @@ export class DeckGLMap {
   private satellitePositions: SatellitePosition[] = [];
   private satelliteCatalog: SatelliteTLE[] = [];
   private selectedOrbitPath: OrbitPath | null = null;
+  private selectedSatNoradId: number | null = null;
   private lastCableHighlightSignature = '';
   private lastCableHealthSignature = '';
   private lastPipelineHighlightSignature = '';
@@ -543,6 +545,10 @@ export class DeckGLMap {
         }
         this.render(); // Rebuilds Deck.GL layers with new theme-aware colors
       }
+    });
+
+    satellitePropagator.onOrbitPath((path) => {
+      this.setSelectedOrbitPath(path);
     });
 
     this.initMapLibre();
@@ -5903,7 +5909,10 @@ export class DeckGLMap {
       id: 'satellite-positions',
       data,
       getPosition: (d: SatellitePosition) => [d.lon, d.lat],
-      getRadius: (d: SatellitePosition) => notable.has(d.noradId) ? 20_000 : 8_000,
+      getRadius: (d: SatellitePosition) => {
+        if (d.noradId === this.selectedSatNoradId) return 30_000;
+        return notable.has(d.noradId) ? 20_000 : 8_000;
+      },
       getFillColor: (d: SatellitePosition) => {
         const cat = this.satelliteCatalog.find(s => s.noradId === d.noradId);
         if (cat?.annotation) return [...cat.annotation.color, 200] as [number, number, number, number];
@@ -5913,7 +5922,24 @@ export class DeckGLMap {
       radiusMinPixels: 1,
       radiusMaxPixels: 6,
       pickable: true,
+      autoHighlight: true,
+      highlightColor: [255, 255, 100, 200],
+      onClick: (info: { object?: SatellitePosition }) => {
+        if (info.object) {
+          this.selectSatellite(info.object.noradId);
+        }
+      },
     });
+  }
+
+  private selectSatellite(noradId: number): void {
+    this.selectedSatNoradId = noradId;
+    const sat = this.satelliteCatalog.find(s => s.noradId === noradId);
+    if (sat) {
+      satellitePropagator.requestOrbitPath(sat, 90);
+    }
+    this.rafUpdateLayers();
+    window.dispatchEvent(new CustomEvent('satellite-selected', { detail: { noradId, satellite: sat } }));
   }
 
   private createSatelliteLabelLayer(): TextLayer {
