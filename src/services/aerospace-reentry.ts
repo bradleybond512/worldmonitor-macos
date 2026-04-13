@@ -9,6 +9,7 @@ export interface DebrisReentry {
   id: string;
   objectName: string;
   cosparId: string;
+  noradId: number | null;
   massKg: number | null;
   objectType: ReentryObjectType;
   country: string;
@@ -16,10 +17,13 @@ export interface DebrisReentry {
   uncertainty: string;
   predictedLat: number | null;
   predictedLon: number | null;
-  survivability: 'high' | 'partial' | 'low';
+  survivability: SurvivabilityLevel;
   isAdversaryObject: boolean;
-  severity: 'critical' | 'high' | 'medium' | 'low';
+  severity: SeverityLevel;
 }
+
+type SurvivabilityLevel = 'high' | 'partial' | 'low';
+type SeverityLevel = 'critical' | 'high' | 'medium' | 'low';
 
 export interface ReentryReport {
   predictions: DebrisReentry[];
@@ -43,9 +47,12 @@ function proxyUrl(url: string): string {
   return `/api/rss-proxy?url=${encodeURIComponent(url)}`;
 }
 
+// eslint-disable-next-line sonarjs/slow-regex
+const STRIP_TAGS_RE = /<[^>]+>/g;
+
 function stripHtml(html: string): string {
   return html
-    .replace(/<[^>]+>/g, ' ')
+    .replace(STRIP_TAGS_RE, ' ')
     .replace(/&amp;/g, '&')
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')
@@ -72,6 +79,7 @@ function detectCountry(_cosparId: string, objectName: string): string {
   const name = objectName.toUpperCase();
 
   // Russian/Soviet origin
+  // eslint-disable-next-line sonarjs/regex-complexity
   if (/\b(COSMOS|KOSMOS|PROTON|SOYUZ|PROGRESS|MOLNIYA|ZENIT|ROKOT|STRELA|RADUGA|GORIZONT|EKSPRESS|LUCH|YAMAL|MERIDIAN|GONETS|URAGAN|GLONASS|ELEKTRO|RESURS|SICH|OKEAN|METEOR|TSELINA|PARUS|TSIKLON|TSIKADA)\b/.test(name)) {
     return 'Russia';
   }
@@ -109,7 +117,7 @@ function isAdversaryCountry(country: string): boolean {
   return /russia|soviet|china|prc|dprk|north korea|iran/i.test(country);
 }
 
-function computeSurvivability(massKg: number | null, objectType: ReentryObjectType): 'high' | 'partial' | 'low' {
+function computeSurvivability(massKg: number | null, objectType: ReentryObjectType): SurvivabilityLevel {
   const mass = massKg ?? 0;
   if (objectType === 'rocket-body') {
     // Rocket bodies are generally dense metal, higher survivability
@@ -123,11 +131,12 @@ function computeSurvivability(massKg: number | null, objectType: ReentryObjectTy
 }
 
 function computeSeverity(
-  survivability: 'high' | 'partial' | 'low',
+  survivability: SurvivabilityLevel,
   isAdversaryObject: boolean,
   predictedLat: number | null,
+  /* eslint-disable-next-line @typescript-eslint/no-unused-vars */
   _predictedLon: number | null,
-): 'critical' | 'high' | 'medium' | 'low' {
+): SeverityLevel {
   // Populated area heuristic: roughly equatorial/mid-latitude belt
   const isPopulatedLatitude = predictedLat !== null && Math.abs(predictedLat) < 60;
 
@@ -137,8 +146,15 @@ function computeSeverity(
   return 'low';
 }
 
+function getCellText(cells: Element[], idx: number): string {
+  return idx >= 0 && idx < cells.length
+    ? stripHtml(cells[idx]?.textContent ?? '').trim()
+    : '';
+}
+
 // Parse Aerospace Corporation HTML reentry table
 // Expected columns (0-indexed): Object | COSPAR ID | Mass (kg) | Reentry Time (UTC) | Latitude (°) | Longitude (°)
+// eslint-disable-next-line sonarjs/cognitive-complexity
 function parseAerospaceHtml(html: string): DebrisReentry[] {
   const parser = new DOMParser();
   const doc = parser.parseFromString(html, 'text/html');
@@ -185,23 +201,18 @@ function parseAerospaceHtml(html: string): DebrisReentry[] {
       const cells = [...row.querySelectorAll('td')];
       if (cells.length < 3) continue;
 
-      const getText = (idx: number): string =>
-        idx >= 0 && idx < cells.length
-          ? stripHtml(cells[idx]?.textContent ?? '').trim()
-          : '';
-
-      const objectName = getText(colObject);
-      const cosparId = getText(colCospar);
-      const massStr = getText(colMass);
-      const timeStr = getText(colTime);
-      const latStr = getText(colLat);
-      const lonStr = getText(colLon);
+      const objectName = getCellText(cells, colObject);
+      const cosparId = getCellText(cells, colCospar);
+      const massStr = getCellText(cells, colMass);
+      const timeStr = getCellText(cells, colTime);
+      const latStr = getCellText(cells, colLat);
+      const lonStr = getCellText(cells, colLon);
 
       if (!objectName && !cosparId) continue;
 
       const massKg = massStr ? Number.parseFloat(massStr.replace(/[^\d.]/g, '')) || null : null;
       const predictedTime = timeStr ? new Date(timeStr) : null;
-      const validTime = predictedTime && !isNaN(predictedTime.getTime()) ? predictedTime : null;
+      const validTime = predictedTime && !Number.isNaN(predictedTime.getTime()) ? predictedTime : null;
       const predictedLat = latStr ? Number.parseFloat(latStr) : null;
       const predictedLon = lonStr ? Number.parseFloat(lonStr) : null;
 
@@ -209,7 +220,7 @@ function parseAerospaceHtml(html: string): DebrisReentry[] {
       const country = detectCountry(cosparId, objectName);
       const isAdversaryObject = isAdversaryCountry(country);
       const survivability = computeSurvivability(
-        isFinite(massKg ?? Number.NaN) ? massKg : null,
+        Number.isFinite(massKg ?? Number.NaN) ? massKg : null,
         objectType,
       );
       const severity = computeSeverity(survivability, isAdversaryObject, predictedLat, predictedLon);
@@ -218,13 +229,14 @@ function parseAerospaceHtml(html: string): DebrisReentry[] {
         id: cosparId || `aero-${objectName.replace(/\W/g, '').slice(0, 20)}-${i}`,
         objectName: objectName || 'Unknown Object',
         cosparId: cosparId || '',
-        massKg: isFinite(massKg ?? Number.NaN) ? massKg : null,
+        noradId: null,
+        massKg: Number.isFinite(massKg ?? Number.NaN) ? massKg : null,
         objectType,
         country,
         predictedTime: validTime,
         uncertainty: '',
-        predictedLat: isFinite(predictedLat ?? Number.NaN) ? predictedLat : null,
-        predictedLon: isFinite(predictedLon ?? Number.NaN) ? predictedLon : null,
+        predictedLat: Number.isFinite(predictedLat ?? Number.NaN) ? predictedLat : null,
+        predictedLon: Number.isFinite(predictedLon ?? Number.NaN) ? predictedLon : null,
         survivability,
         isAdversaryObject,
         severity,
@@ -254,7 +266,7 @@ function parseCelesTrakDecay(entries: CelesTrakSatCatEntry[]): DebrisReentry[] {
     if (!decayStr) return [];
 
     const decayDate = new Date(decayStr);
-    if (isNaN(decayDate.getTime())) return [];
+    if (Number.isNaN(decayDate.getTime())) return [];
 
     // Only include recent decays (last 30 days) — these are confirmed reentries
     // Skip if older than 30 days (historical)
@@ -264,7 +276,7 @@ function parseCelesTrakDecay(entries: CelesTrakSatCatEntry[]): DebrisReentry[] {
     const cosparId = (entry.INTLDES ?? '').trim();
     const rawType = (entry.OBJECT_TYPE ?? '').toUpperCase();
 
-    let objectType: ReentryObjectType = 'unknown';
+    let objectType: ReentryObjectType;
     if (rawType === 'PAYLOAD') objectType = 'satellite';
     else if (rawType === 'ROCKET BODY') objectType = 'rocket-body';
     else if (rawType === 'DEBRIS') objectType = 'debris';
@@ -274,7 +286,8 @@ function parseCelesTrakDecay(entries: CelesTrakSatCatEntry[]): DebrisReentry[] {
     const isAdversaryObject = isAdversaryCountry(country);
 
     // CelesTrak doesn't give mass — use type heuristics
-    const massKg = objectType === 'rocket-body' ? 2000 : (objectType === 'satellite' ? 500 : 100);
+    const massKgByType: Record<ReentryObjectType, number> = { 'rocket-body': 2000, satellite: 500, debris: 100, unknown: 100 };
+    const massKg = massKgByType[objectType];
     const survivability = computeSurvivability(massKg, objectType);
     const severity = computeSeverity(survivability, isAdversaryObject, null, null);
 
@@ -282,6 +295,7 @@ function parseCelesTrakDecay(entries: CelesTrakSatCatEntry[]): DebrisReentry[] {
       id: cosparId || `ct-${entry.NORAD_CAT_ID ?? objectName.replace(/\W/g, '').slice(0, 20)}`,
       objectName: objectName || 'Unknown Object',
       cosparId,
+      noradId: entry.NORAD_CAT_ID ?? null,
       massKg: null, // not provided by CelesTrak SATCAT
       objectType,
       country,
@@ -303,15 +317,15 @@ export async function fetchDebrisReentries(): Promise<ReentryReport> {
     fetch(proxyUrl(AEROSPACE_ORG_URL), {
       signal: AbortSignal.timeout(12_000),
       headers: { Accept: 'text/html,*/*' },
-    }).then(res => {
-      if (!res.ok) return [] as DebrisReentry[];
+    }).then(async (res): Promise<DebrisReentry[]> => {
+      if (!res.ok) return [];
       return res.text().then(parseAerospaceHtml);
     }),
     fetch(CELESTRAK_DECAY_URL, {
       signal: AbortSignal.timeout(12_000),
       headers: { Accept: 'application/json' },
-    }).then(res => {
-      if (!res.ok) return [] as DebrisReentry[];
+    }).then(async (res): Promise<DebrisReentry[]> => {
+      if (!res.ok) return [];
       return res.json().then((data: CelesTrakSatCatEntry[]) =>
         Array.isArray(data) ? parseCelesTrakDecay(data) : [],
       );

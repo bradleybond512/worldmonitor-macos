@@ -4,6 +4,7 @@ import { satellitePropagator, type SatellitePosition } from '@/services/satellit
 import { type SatelliteTLE, getClassificationLabel } from '@/services/satellite-catalog';
 import { getUpcomingPasses, getOverheadNow, computePasses, onPassesUpdated } from '@/services/satellite-passes';
 import { getSavedPlaces } from '@/services/saved-places';
+import { fetchDebrisReentries, type DebrisReentry } from '@/services/aerospace-reentry';
 
 const BADGE_COLORS: Record<string, string> = {
   recon: '#ef3232',
@@ -30,6 +31,7 @@ export class SatelliteIntelPanel extends Panel {
   private lastRenderedLat = 0;
   private lastRenderedLon = 0;
   private lastRenderedAlt = 0;
+  private reentryPredictions: DebrisReentry[] = [];
 
   private readonly onSatSelected = (e: Event) => {
     const detail = (e as CustomEvent<{ satellite: SatelliteTLE; noradId: number }>).detail;
@@ -48,6 +50,8 @@ export class SatelliteIntelPanel extends Panel {
     });
 
     window.addEventListener('satellite-selected', this.onSatSelected);
+
+    this.loadReentryPredictions();
 
     this.unsubPasses = onPassesUpdated(() => {
       this.render();
@@ -75,6 +79,13 @@ export class SatelliteIntelPanel extends Panel {
   private triggerComputePasses(): void {
     const places = getSavedPlaces().map(p => ({ id: p.id, name: p.name, lat: p.lat, lon: p.lon }));
     void computePasses(places);
+  }
+
+  private loadReentryPredictions(): void {
+    fetchDebrisReentries().then(report => {
+      this.reentryPredictions = report.predictions;
+      this.render();
+    }).catch(() => { /* silently ignore — reentry data is supplemental */ });
   }
 
   private classificationBadge(classification: string): string {
@@ -107,6 +118,17 @@ export class SatelliteIntelPanel extends Panel {
       this.lastRenderedAlt = pos.altKm;
     }
 
+    const reentry = this.reentryPredictions.find(r => r.noradId === sat.noradId);
+    const decayDateStr = reentry?.predictedTime
+      ? ` — predicted ${escapeHtml(reentry.predictedTime.toLocaleDateString())}`
+      : '';
+    const decayUncertaintyStr = reentry?.uncertainty
+      ? `<span style="opacity:0.7;font-weight:400"> (${escapeHtml(reentry.uncertainty)})</span>`
+      : '';
+    const decayBadge = reentry
+      ? `<div style="margin-top:6px;padding:4px 8px;background:#ef323222;border:1px solid #ef323255;border-radius:4px;font-size:11px;color:#ef3232;font-weight:700">⚠ DECAYING${decayDateStr}${decayUncertaintyStr}</div>`
+      : '';
+
     return `
       <div style="background:rgba(255,255,255,0.04);border-radius:6px;padding:10px 12px;margin-bottom:8px">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
@@ -119,6 +141,7 @@ export class SatelliteIntelPanel extends Panel {
           <div><div style="opacity:0.55;font-size:10px">LAT/LON</div>${escapeHtml(latStr)} / ${escapeHtml(lonStr)}</div>
           <div><div style="opacity:0.55;font-size:10px">ALT</div>${escapeHtml(altStr)}</div>
         </div>
+        ${decayBadge}
       </div>`;
   }
 
