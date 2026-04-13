@@ -26,8 +26,10 @@ export class SatelliteIntelPanel extends Panel {
   private selectedNoradId: number | null = null;
   private unsubPositions: (() => void) | null = null;
   private unsubPasses: (() => void) | null = null;
-  private passRefreshTimer: ReturnType<typeof setInterval> | null = null;
   private latestPositions: SatellitePosition[] = [];
+  private lastRenderedLat = 0;
+  private lastRenderedLon = 0;
+  private lastRenderedAlt = 0;
 
   private readonly onSatSelected = (e: Event) => {
     const detail = (e as CustomEvent<{ satellite: SatelliteTLE; noradId: number }>).detail;
@@ -54,13 +56,17 @@ export class SatelliteIntelPanel extends Panel {
     this.unsubPositions = satellitePropagator.onPositions((positions) => {
       this.latestPositions = positions;
       if (this.selectedNoradId !== null) {
-        this.render();
+        const pos = positions.find(p => p.noradId === this.selectedNoradId);
+        if (pos) {
+          const latChanged = Math.abs(pos.lat - this.lastRenderedLat) > 0.01;
+          const lonChanged = Math.abs(pos.lon - this.lastRenderedLon) > 0.01;
+          const altChanged = Math.abs(pos.altKm - this.lastRenderedAlt) > 1;
+          if (latChanged || lonChanged || altChanged) {
+            this.render();
+          }
+        }
       }
     });
-
-    this.passRefreshTimer = setInterval(() => {
-      this.triggerComputePasses();
-    }, 15 * 60 * 1000);
 
     this.render();
     this.triggerComputePasses();
@@ -87,12 +93,19 @@ export class SatelliteIntelPanel extends Panel {
       ? undefined
       : this.latestPositions.find(p => p.noradId === this.selectedNoradId);
 
+    // TLE Line 2 columns 9-16 = inclination (degrees)
     const inclination = Number.parseFloat(sat.line2.slice(8, 16).trim());
     const incStr = Number.isNaN(inclination) ? '—' : `${inclination.toFixed(2)}°`;
 
     const latStr = pos ? `${pos.lat.toFixed(3)}°` : '—';
     const lonStr = pos ? `${pos.lon.toFixed(3)}°` : '—';
     const altStr = pos ? `${pos.altKm.toFixed(0)} km` : '—';
+
+    if (pos) {
+      this.lastRenderedLat = pos.lat;
+      this.lastRenderedLon = pos.lon;
+      this.lastRenderedAlt = pos.altKm;
+    }
 
     return `
       <div style="background:rgba(255,255,255,0.04);border-radius:6px;padding:10px 12px;margin-bottom:8px">
@@ -117,7 +130,6 @@ export class SatelliteIntelPanel extends Panel {
     const rows = overhead.map(p => `
       <div style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.05);font-size:12px">
         <div style="flex:1;font-weight:600">${escapeHtml(p.satelliteName)}</div>
-        <div>${this.classificationBadge('normal')}</div>
         <div style="opacity:0.7;font-size:11px">${escapeHtml(p.locationName)}</div>
         <div style="opacity:0.7;font-size:11px;white-space:nowrap">${p.maxElevation.toFixed(0)}° el</div>
       </div>`).join('');
@@ -172,10 +184,6 @@ export class SatelliteIntelPanel extends Panel {
     window.removeEventListener('satellite-selected', this.onSatSelected);
     this.unsubPositions?.();
     this.unsubPasses?.();
-    if (this.passRefreshTimer !== null) {
-      clearInterval(this.passRefreshTimer);
-      this.passRefreshTimer = null;
-    }
     super.destroy();
   }
 }

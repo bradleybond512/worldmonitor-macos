@@ -5943,9 +5943,8 @@ export class DeckGLMap {
   private selectSatellite(noradId: number): void {
     this.selectedSatNoradId = noradId;
     const sat = this.satelliteCatalog.find(s => s.noradId === noradId);
-    if (sat) {
-      satellitePropagator.requestOrbitPath(sat, 90);
-    }
+    if (!sat) return;
+    satellitePropagator.requestOrbitPath(sat, 90);
     this.rafUpdateLayers();
     window.dispatchEvent(new CustomEvent('satellite-selected', { detail: { noradId, satellite: sat } }));
   }
