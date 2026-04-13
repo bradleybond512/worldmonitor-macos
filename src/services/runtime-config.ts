@@ -110,6 +110,7 @@ export type RuntimeFeatureId =
   | 'gacTravelWarnings'
   | 'govWarningConvergence'
   | 'stateDeptTravelWarnings'
+  | 'rsoeEdis'
   | 'dodNewsRss'
   | 'natoNewsRss'
   | 'acapsCrisisSeverity'
@@ -209,6 +210,7 @@ const defaultToggles: Record<RuntimeFeatureId, boolean> = {
   gacTravelWarnings: true,
   govWarningConvergence: true,
   stateDeptTravelWarnings: true,
+  rsoeEdis: true,
   dodNewsRss: true,
   natoNewsRss: true,
   acapsCrisisSeverity: true,
@@ -675,6 +677,13 @@ export const RUNTIME_FEATURES: RuntimeFeatureDefinition[] = [
     description: 'Travel advisories and demonstration alerts from the US Department of State.',
     requiredSecrets: [],
     fallback: 'US State Dept travel warnings are hidden.',
+  },
+  {
+    id: 'rsoeEdis',
+    name: 'RSOE EDIS emergency events',
+    description: 'Emergency and Disaster Information Service — civil unrest, riots, and emergency alerts worldwide.',
+    requiredSecrets: [],
+    fallback: 'RSOE EDIS emergency feed is hidden.',
   },
   {
     id: 'govWarningConvergence',

@@ -5205,6 +5205,55 @@ async function dispatch(requestUrl, req, routes, context) {
     }
   }
 
+  // ── RSOE EDIS emergency & civil unrest events ─────────────────────────
+  if (requestUrl.pathname === '/api/rsoe-edis') {
+    const cached = getCached('rsoe-edis', 15 * 60 * 1000);
+    if (cached) return json(cached);
+    try {
+      const res = await fetchWithTimeout('https://rsoe-edis.org/eventList', {
+        headers: {
+          'User-Agent': CHROME_UA,
+          Accept: 'application/json',
+        },
+      }, 15_000);
+      if (!res.ok) throw new Error(`RSOE EDIS HTTP ${res.status}`);
+      const text = await res.text();
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch {
+        // RSOE may return HTML — fall back to scraping event titles
+        const events = [];
+        for (const m of text.matchAll(/<a[^>]*href="\/eventPage\/(\d+)"[^>]*>([\s\S]*?)<\/a>/g)) {
+          events.push({ id: m[1], title: m[2].replace(/<[^>]+>/g, '').trim() });
+        }
+        const result = { events, source: 'rsoe-edis-html', updatedAt: Math.floor(Date.now() / 1000) };
+        setCached('rsoe-edis', result, 15 * 60 * 1000);
+        return json(result);
+      }
+      // If JSON, normalize the response
+      const events = (Array.isArray(data) ? data : data?.events ?? []).map(e => ({
+        id: String(e.id ?? e.eventId ?? ''),
+        title: e.title ?? e.name ?? '',
+        type: e.type ?? e.eventType ?? '',
+        country: e.country ?? '',
+        location: e.location ?? e.city ?? '',
+        lat: parseFloat(e.latitude ?? e.lat ?? 0),
+        lon: parseFloat(e.longitude ?? e.lon ?? 0),
+        date: e.date ?? e.startDate ?? '',
+        severity: e.severity ?? e.alertLevel ?? '',
+        description: (e.description ?? e.summary ?? '').slice(0, 500),
+      }));
+      const result = { events, updatedAt: Math.floor(Date.now() / 1000) };
+      setCached('rsoe-edis', result, 15 * 60 * 1000);
+      return json(result);
+    } catch (error) {
+      const stale = getCachedStale('rsoe-edis');
+      if (stale) return json({ ...stale, stale: true, error: error?.message ?? 'unknown' });
+      return json({ events: [], error: error?.message ?? 'unknown' }, 502);
+    }
+  }
+
   // ── Fear & Greed Index (alternative.me, no key required) ─────────────────
   if (requestUrl.pathname === '/api/fear-greed') {
     const cached = getCached('fear-greed', 60 * 60 * 1000); // 1 hour
