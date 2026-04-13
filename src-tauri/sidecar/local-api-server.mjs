@@ -1934,6 +1934,51 @@ async function dispatch(requestUrl, req, routes, context) {
     }
   }
 
+  // ── ACLED protests, riots & civilian-targeting events (last 30 days) ───
+  if (requestUrl.pathname === '/api/acled-protests') {
+    const key = process.env.ACLED_ACCESS_TOKEN;
+    const email = process.env.ACLED_EMAIL;
+    if (!key || !email) {
+      return json({ events: [], error: 'ACLED_ACCESS_TOKEN and ACLED_EMAIL are required' });
+    }
+    const cached = getCached('acled-protests', 15 * 60 * 1000);
+    if (cached) return json(cached);
+    const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    const today = new Date().toISOString().slice(0, 10);
+    const fields = 'event_id_cnty|event_date|event_type|sub_event_type|actor1|actor2|country|admin1|location|latitude|longitude|fatalities|notes';
+    const eventTypes = 'Protests|Riots|Violence against civilians';
+    const acledUrl = `https://api.acleddata.com/acled/read?key=${encodeURIComponent(key)}&email=${encodeURIComponent(email)}&event_type=${encodeURIComponent(eventTypes)}&event_date=${since}%7C${today}&event_date_where=BETWEEN&fields=${encodeURIComponent(fields)}&limit=300&sort=event_date&order=desc&_format=json`;
+    try {
+      const resp = await fetchWithTimeout(acledUrl, {}, 15_000);
+      if (!resp.ok) {
+        return json({ events: [], error: `ACLED error: ${resp.status}` });
+      }
+      const data = await resp.json();
+      const events = (data.data ?? []).map(e => ({
+        id: e.event_id_cnty,
+        date: e.event_date,
+        type: e.event_type,
+        subType: e.sub_event_type,
+        actor1: e.actor1,
+        actor2: e.actor2 || null,
+        country: e.country,
+        admin1: e.admin1,
+        location: e.location,
+        lat: parseFloat(e.latitude),
+        lon: parseFloat(e.longitude),
+        fatalities: parseInt(e.fatalities, 10) || 0,
+        notes: e.notes?.slice(0, 500) ?? '',
+      }));
+      const result = { events, updatedAt: Math.floor(Date.now() / 1000) };
+      setCached('acled-protests', result, 15 * 60 * 1000);
+      return json(result);
+    } catch (error) {
+      const stale = getCachedStale('acled-protests');
+      if (stale) return json({ ...stale, stale: true, error: error?.message ?? 'unknown' });
+      return json({ events: [], error: String(error.message ?? error) });
+    }
+  }
+
   // ── ThreatFox IOC feed ───────────────────────────────────────────────────
   if (requestUrl.pathname === '/api/threatfox-iocs') {
     const apiKey = process.env.THREATFOX_API_KEY;
