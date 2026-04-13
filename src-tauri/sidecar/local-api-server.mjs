@@ -5138,6 +5138,44 @@ async function dispatch(requestUrl, req, routes, context) {
     }
   }
 
+  // ── GDELT protest/civil unrest document search ────────────────────────
+  if (requestUrl.pathname === '/api/gdelt-protests') {
+    const cached = getCached('gdelt-protests', 15 * 60 * 1000);
+    if (cached) return json(cached);
+    try {
+      const params = new URLSearchParams({
+        query: '(protest OR demonstration OR riot OR "civil unrest" OR blockade OR "general strike" OR "fuel protest") sourcelang:eng',
+        mode: 'artlist',
+        maxrecords: '30',
+        format: 'json',
+        sort: 'DateDesc',
+        timespan: '24h',
+      });
+      const res = await fetchWithTimeout(`https://api.gdeltproject.org/api/v2/doc/doc?${params}`, { headers: { 'User-Agent': CHROME_UA } }, 12_000);
+      if (!res.ok) throw new Error(`GDELT Protests HTTP ${res.status}`);
+      const data = await res.json();
+      const articles = (data?.articles ?? []).map(a => ({
+        title: a.title ?? '',
+        url: a.url ?? '',
+        source: a.domain ?? '',
+        tone: typeof a.tone === 'number' ? Math.round(a.tone * 10) / 10 : 0,
+        country: a.sourcecountry ?? '',
+        language: a.language ?? '',
+        image: a.socialimage ?? '',
+        timestamp: a.seendate
+          ? new Date(a.seendate.replace(/(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z/, '$1-$2-$3T$4:$5:$6Z')).getTime()
+          : Date.now(),
+      })).filter(e => e.title && e.url);
+      const result = { articles, updatedAt: Math.floor(Date.now() / 1000) };
+      setCached('gdelt-protests', result, 15 * 60 * 1000);
+      return json(result);
+    } catch (error) {
+      const stale = getCachedStale('gdelt-protests');
+      if (stale) return json({ ...stale, stale: true, error: error?.message ?? 'unknown' });
+      return json({ articles: [], updatedAt: Math.floor(Date.now() / 1000), error: error?.message ?? 'unknown' });
+    }
+  }
+
   // ── Fear & Greed Index (alternative.me, no key required) ─────────────────
   if (requestUrl.pathname === '/api/fear-greed') {
     const cached = getCached('fear-greed', 60 * 60 * 1000); // 1 hour

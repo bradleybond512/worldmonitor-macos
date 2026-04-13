@@ -74,6 +74,13 @@ export const INTEL_TOPICS: IntelTopic[] = [
     icon: '🚢',
     description: 'Naval operations, maritime chokepoints, sea lanes',
   },
+  {
+    id: 'civil-unrest',
+    name: 'Civil Unrest',
+    query: '(protest OR demonstration OR riot OR "civil unrest" OR "fuel protest" OR blockade OR "general strike") sourcelang:eng',
+    icon: '🪧',
+    description: 'Protests, demonstrations, riots, and civil disorder',
+  },
 ];
 
 export const POSITIVE_GDELT_TOPICS: IntelTopic[] = [
