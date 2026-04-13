@@ -109,6 +109,7 @@ export type RuntimeFeatureId =
   | 'dfatTravelWarnings'
   | 'gacTravelWarnings'
   | 'govWarningConvergence'
+  | 'stateDeptTravelWarnings'
   | 'dodNewsRss'
   | 'natoNewsRss'
   | 'acapsCrisisSeverity'
@@ -207,6 +208,7 @@ const defaultToggles: Record<RuntimeFeatureId, boolean> = {
   dfatTravelWarnings: true,
   gacTravelWarnings: true,
   govWarningConvergence: true,
+  stateDeptTravelWarnings: true,
   dodNewsRss: true,
   natoNewsRss: true,
   acapsCrisisSeverity: true,
@@ -666,6 +668,13 @@ export const RUNTIME_FEATURES: RuntimeFeatureDefinition[] = [
     requiredSecrets: [],
     desktopRequiredSecrets: [],
     fallback: 'Canada GAC travel warnings are disabled.',
+  },
+  {
+    id: 'stateDeptTravelWarnings',
+    name: 'US State Dept travel advisories',
+    description: 'Travel advisories and demonstration alerts from the US Department of State.',
+    requiredSecrets: [],
+    fallback: 'US State Dept travel warnings are hidden.',
   },
   {
     id: 'govWarningConvergence',

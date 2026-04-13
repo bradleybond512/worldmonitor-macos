@@ -53,6 +53,17 @@ export async function fetchGacWarnings(): Promise<TravelWarning[]> {
   }
 }
 
+export async function fetchStateDeptWarnings(): Promise<TravelWarning[]> {
+  if (!isFeatureAvailable('stateDeptTravelWarnings')) return [];
+  try {
+    const res = await fetch(`${getApiBaseUrl()}/api/state-dept-warnings`);
+    if (!res.ok) return [];
+    return (await res.json()) as TravelWarning[];
+  } catch {
+    return [];
+  }
+}
+
 export async function fetchGovWarningConvergence(): Promise<GovConvergenceResult[]> {
   if (!isFeatureAvailable('govWarningConvergence')) return [];
   try {

@@ -4181,7 +4181,7 @@ async function dispatch(requestUrl, req, routes, context) {
 
   // ── Travel warning RSS/Atom parser helper ─────────────────────────────────
   function parseTravelWarnings(xml, source) {
-    const isAtom = source !== 'DFAT';
+    const isAtom = source !== 'DFAT' && source !== 'STATE';
     const itemTag = isAtom ? /(<entry>[\s\S]*?<\/entry>)/g : /(<item>[\s\S]*?<\/item>)/g;
     const datePattern = isAtom ? /<updated>(.*?)<\/updated>/ : /<pubDate>(.*?)<\/pubDate>/;
     const results = [];
@@ -4244,15 +4244,43 @@ async function dispatch(requestUrl, req, routes, context) {
     }
   }
 
+  // ── US State Dept travel advisories ──────────────────────────────────
+  if (requestUrl.pathname === '/api/state-dept-warnings') {
+    const cached = getCached('state-dept-warnings');
+    if (cached) return json(cached);
+    try {
+      const r = await fetchWithTimeout('https://travel.state.gov/_res/rss/TAsTWs.xml', { headers: { 'User-Agent': 'WorldMonitor/1.0' } }, 12000);
+      if (!r.ok) throw new Error(`State Dept ${r.status}`);
+      const xml = await r.text();
+      const items = [];
+      for (const m of xml.matchAll(/<item>([\s\S]*?)<\/item>/g)) {
+        const block = m[1];
+        const titleRaw = block.match(/<title><!\[CDATA\[([\s\S]*?)\]\]><\/title>/) ?? block.match(/<title>([\s\S]*?)<\/title>/);
+        const title = titleRaw?.[1]?.trim() ?? '';
+        const date = block.match(/<pubDate>(.*?)<\/pubDate>/)?.[1]?.trim() ?? null;
+        const link = block.match(/<link>(.*?)<\/link>/)?.[1]?.trim() ?? null;
+        const descRaw = block.match(/<description><!\[CDATA\[([\s\S]*?)\]\]><\/description>/) ?? block.match(/<description>([\s\S]*?)<\/description>/);
+        const summary = descRaw?.[1]?.replace(/<[^>]+>/g, '').trim().slice(0, 400) ?? null;
+        const country = title.replace(/\s*[-–]\s*(Travel Advisory|Level \d.*)$/i, '').trim();
+        if (country) items.push({ country, date, link, summary, source: 'STATE', title });
+      }
+      setCached('state-dept-warnings', items, 60 * 60 * 1000);
+      return json(items);
+    } catch (error) {
+      return json({ error: `state-dept-warnings error: ${error.message ?? error}` }, 502);
+    }
+  }
+
   // ── Multi-government warning convergence signal ───────────────────────────
   if (requestUrl.pathname === '/api/gov-convergence') {
     const cached = getCached('gov-convergence');
     if (cached) return json(cached);
     try {
-      const [fcdoRes, dfatRes, gacRes] = await Promise.allSettled([
+      const [fcdoRes, dfatRes, gacRes, stateRes] = await Promise.allSettled([
         fetchWithTimeout('https://www.gov.uk/foreign-travel-advice.atom', { headers: { 'User-Agent': 'WorldMonitor/1.0' } }, 12000),
         fetchWithTimeout('https://www.smartraveller.gov.au/rss', { headers: { 'User-Agent': 'WorldMonitor/1.0' } }, 12000),
         fetchWithTimeout('https://travel.gc.ca/travelling/advisories.atom', { headers: { 'User-Agent': 'WorldMonitor/1.0' } }, 12000),
+        fetchWithTimeout('https://travel.state.gov/_res/rss/TAsTWs.xml', { headers: { 'User-Agent': 'WorldMonitor/1.0' } }, 12000),
       ]);
       const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
       const allWarnings = [];
@@ -4260,6 +4288,7 @@ async function dispatch(requestUrl, req, routes, context) {
         { result: fcdoRes, key: 'FCDO' },
         { result: dfatRes, key: 'DFAT' },
         { result: gacRes, key: 'GAC' },
+        { result: stateRes, key: 'STATE' },
       ];
       for (const { result, key } of sources) {
         if (result.status === 'fulfilled' && result.value.ok) {

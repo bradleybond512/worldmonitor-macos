@@ -117,6 +117,7 @@ const FULL_PANELS: Record<string, PanelConfig> = {
   'fcdo-warnings': { name: 'UK FCDO Warnings', enabled: true, priority: 2 },
   'dfat-warnings': { name: 'Australia DFAT Warnings', enabled: true, priority: 2 },
   'gac-warnings': { name: 'Canada GAC Warnings', enabled: true, priority: 2 },
+  'state-dept-warnings': { name: 'US State Dept Warnings', enabled: true, priority: 2 },
   'gov-warning-convergence': { name: 'Multi-Gov Consensus Alert', enabled: true, priority: 1 },
   'dod-news': { name: 'Pentagon News', enabled: true, priority: 1 },
   'nato-news': { name: 'NATO Press', enabled: true, priority: 1 },
