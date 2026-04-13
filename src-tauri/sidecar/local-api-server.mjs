@@ -5851,6 +5851,68 @@ async function dispatch(requestUrl, req, routes, context) {
     }
   }
 
+  // -- US DOT traffic cameras (public 511 feeds)
+  if (requestUrl.pathname === '/api/dot-traffic-cams') {
+    const state = requestUrl.searchParams.get('state') || 'all';
+    const cacheKey = `dot-cams-${state}`;
+    const cached = getCached(cacheKey, 5 * 60 * 1000);
+    if (cached) return json(cached);
+    try {
+      const feeds = [
+        { state: 'CA', url: 'https://cwwp2.dot.ca.gov/data/d7/cctv/cctvStatusD07.json', parser: 'caltrans' },
+        { state: 'NY', url: 'https://511ny.org/api/getTransportationConditions?key=public&format=json&eventCategory=cameras', parser: 'ny511' },
+      ];
+      const targetFeeds = state === 'all' ? feeds : feeds.filter(f => f.state === state.toUpperCase());
+      const allCams = [];
+      for (const feed of targetFeeds) {
+        try {
+          const resp = await fetchWithTimeout(feed.url, {
+            headers: { 'User-Agent': 'WorldMonitor/1.0', Accept: 'application/json' },
+          }, 10_000);
+          if (!resp.ok) continue;
+          const data = await resp.json();
+          if (feed.parser === 'caltrans') {
+            const cams = Array.isArray(data) ? data : data?.data ?? [];
+            for (const c of cams) {
+              if (!c.cctv?.imageUrl) continue;
+              allCams.push({
+                id: `dot-ca-${c.cctv?.index ?? allCams.length}`,
+                title: c.cctv?.location?.locationName ?? `CA Camera ${allCams.length + 1}`,
+                state: 'CA',
+                lat: c.cctv?.location?.latitude ?? 0,
+                lon: c.cctv?.location?.longitude ?? 0,
+                imageUrl: c.cctv.imageUrl,
+                direction: c.cctv?.location?.direction ?? '',
+              });
+            }
+          } else if (feed.parser === 'ny511') {
+            const cams = Array.isArray(data) ? data : data?.cameras ?? data?.features ?? [];
+            for (const c of cams) {
+              const props = c.properties ?? c;
+              if (!props.imageUrl && !props.url) continue;
+              allCams.push({
+                id: `dot-ny-${props.id ?? allCams.length}`,
+                title: props.name ?? props.description ?? `NY Camera ${allCams.length + 1}`,
+                state: 'NY',
+                lat: props.latitude ?? c.geometry?.coordinates?.[1] ?? 0,
+                lon: props.longitude ?? c.geometry?.coordinates?.[0] ?? 0,
+                imageUrl: props.imageUrl ?? props.url ?? '',
+                direction: props.direction ?? '',
+              });
+            }
+          }
+        } catch {
+          // Skip failed individual feeds
+        }
+      }
+      const result = { cameras: allCams, updatedAt: Math.floor(Date.now() / 1000) };
+      setCached(cacheKey, result, 5 * 60 * 1000);
+      return json(result);
+    } catch (error) {
+      return json({ cameras: [], error: error?.message ?? 'unknown' }, 502);
+    }
+  }
+
   if (context.cloudFallback && cloudPreferred.has(requestUrl.pathname)) {
     const cloudResponse = await tryCloudFallback(requestUrl, req, context);
     if (cloudResponse) return cloudResponse;
