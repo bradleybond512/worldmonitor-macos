@@ -5796,17 +5796,23 @@ async function dispatch(requestUrl, req, routes, context) {
   if (requestUrl.pathname === '/api/windy-webcams') {
     const apiKey = process.env.WINDY_WEBCAMS_API_KEY;
     if (!apiKey) return json({ webcams: [], error: 'WINDY_WEBCAMS_API_KEY not configured' }, 503);
-    const lat = requestUrl.searchParams.get('lat');
-    const lon = requestUrl.searchParams.get('lon');
-    const radius = requestUrl.searchParams.get('radius') || '50';
+    const latRaw = requestUrl.searchParams.get('lat');
+    const lonRaw = requestUrl.searchParams.get('lon');
+    const lat = parseFloat(latRaw ?? 'NaN');
+    const lon = parseFloat(lonRaw ?? 'NaN');
+    const radius = Math.min(500, Math.max(1, parseFloat(requestUrl.searchParams.get('radius') ?? '50') || 50));
     const country = requestUrl.searchParams.get('country');
-    const limit = requestUrl.searchParams.get('limit') || '20';
-    const cacheKey = `windy-webcams-${lat}-${lon}-${radius}-${country}-${limit}`;
+    const limit = Math.min(50, Math.max(1, parseInt(requestUrl.searchParams.get('limit') ?? '20', 10) || 20));
+    const hasCoords = Number.isFinite(lat) && Number.isFinite(lon);
+    if (!hasCoords && !country) {
+      return json({ webcams: [], error: 'Provide lat+lon or country' }, 400);
+    }
+    const cacheKey = `windy-webcams-${hasCoords ? `${lat}-${lon}-${radius}` : 'none'}-${country ?? 'none'}-${limit}`;
     const cached = getCached(cacheKey, 30 * 60 * 1000);
     if (cached) return json(cached);
     try {
       let url = 'https://api.windy.com/webcams/api/v3/webcams?include=images,location,player';
-      if (lat && lon) {
+      if (hasCoords) {
         url += `&nearby=${lat},${lon},${radius}`;
       }
       if (country) {
@@ -5831,7 +5837,7 @@ async function dispatch(requestUrl, req, routes, context) {
         lat: w.location?.latitude ?? 0,
         lon: w.location?.longitude ?? 0,
         thumbnail: w.images?.current?.preview ?? w.images?.daylight?.preview ?? '',
-        playerUrl: w.player?.day?.embed ?? `https://webcams.windy.com/webcams/public/embed/player/${w.webcamId ?? w.id}/day`,
+        playerUrl: w.player?.day?.embed ?? `https://webcams.windy.com/webcams/public/embed/player/${String(w.webcamId ?? w.id ?? '').replace(/[^a-zA-Z0-9_-]/g, '')}/day`,
         status: w.status ?? 'active',
         lastUpdated: w.lastUpdatedOn ?? '',
       }));
