@@ -317,16 +317,16 @@ export async function fetchDebrisReentries(): Promise<ReentryReport> {
     fetch(proxyUrl(AEROSPACE_ORG_URL), {
       signal: AbortSignal.timeout(12_000),
       headers: { Accept: 'text/html,*/*' },
-    }).then(async (res): Promise<DebrisReentry[]> => {
-      if (!res.ok) return [];
-      return res.text().then(parseAerospaceHtml);
+    }).then(async (res) => {
+      if (!res.ok) return [] as DebrisReentry[];
+      return await res.text().then(parseAerospaceHtml);
     }),
     fetch(CELESTRAK_DECAY_URL, {
       signal: AbortSignal.timeout(12_000),
       headers: { Accept: 'application/json' },
-    }).then(async (res): Promise<DebrisReentry[]> => {
-      if (!res.ok) return [];
-      return res.json().then((data: CelesTrakSatCatEntry[]) =>
+    }).then(async (res) => {
+      if (!res.ok) return [] as DebrisReentry[];
+      return await res.json().then((data: CelesTrakSatCatEntry[]) =>
         Array.isArray(data) ? parseCelesTrakDecay(data) : [],
       );
     }),

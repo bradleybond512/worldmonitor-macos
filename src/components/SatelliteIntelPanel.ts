@@ -32,6 +32,7 @@ export class SatelliteIntelPanel extends Panel {
   private lastRenderedLon = 0;
   private lastRenderedAlt = 0;
   private reentryPredictions: DebrisReentry[] = [];
+  private isDestroyed = false;
 
   private readonly onSatSelected = (e: Event) => {
     const detail = (e as CustomEvent<{ satellite: SatelliteTLE; noradId: number }>).detail;
@@ -83,6 +84,7 @@ export class SatelliteIntelPanel extends Panel {
 
   private loadReentryPredictions(): void {
     fetchDebrisReentries().then(report => {
+      if (this.isDestroyed) return;
       this.reentryPredictions = report.predictions;
       this.render();
     }).catch(() => { /* silently ignore — reentry data is supplemental */ });
@@ -204,6 +206,7 @@ export class SatelliteIntelPanel extends Panel {
   }
 
   override destroy(): void {
+    this.isDestroyed = true;
     window.removeEventListener('satellite-selected', this.onSatSelected);
     this.unsubPositions?.();
     this.unsubPasses?.();
