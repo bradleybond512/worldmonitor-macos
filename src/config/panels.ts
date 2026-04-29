@@ -922,7 +922,7 @@ export const PANEL_CATEGORY_MAP: Record<string, { labelKey: string; panelKeys: s
   // Full (geopolitical) variant
   intelligence: {
     labelKey: 'header.panelCatIntelligence',
-    panelKeys: ['watchlist', 'saved-places', 'watchlist-locations', 'local-logistics', 'comms-plan', 'unified-alert-inbox', 'alert-rules', 'situation-awareness', 'alert-center', 'strategic-risk', 'cii', 'geo-hubs', 'intel', 'gdelt-intel', 'cascade', 'telegram-intel', 'intelligence-briefing', 'ask-world-monitor', 'survival-advisor', 'threat-synthesis', 'scenario-simulator', 'escalation-forecast', 'notification-digest', 'pattern-of-life', 'course-of-action', 'kill-chain', 'orbat', 'after-action-review', 'entity-link-graph', 'timeline-scrubber', 'intel-report', 'compound-threat', 'correlation-matrix', 'cascade-simulator', 'dod-news', 'nato-news', 'foreign-mil-news', 'isw-reports', 'reliefweb-crises', 'bellingcat-osint', 'acaps-crises', 'liveuamap', 'un-security-council', 'combatant-commands', 'congress-defense', 'gov-warning-convergence', 'dsca-arms-transfers', 'opensanctions', 'mediastack-news'],
+    panelKeys: ['watchlist', 'saved-places', 'watchlist-locations', 'local-logistics', 'comms-plan', 'unified-alert-inbox', 'unified-inbox', 'alert-rules', 'situation-awareness', 'alert-center', 'strategic-risk', 'cii', 'geo-hubs', 'intel', 'gdelt-intel', 'cascade', 'telegram-intel', 'intelligence-briefing', 'ask-world-monitor', 'survival-advisor', 'threat-synthesis', 'scenario-simulator', 'escalation-forecast', 'notification-digest', 'pattern-of-life', 'course-of-action', 'kill-chain', 'orbat', 'after-action-review', 'entity-link-graph', 'timeline-scrubber', 'intel-report', 'compound-threat', 'correlation-matrix', 'cascade-simulator', 'dod-news', 'nato-news', 'foreign-mil-news', 'isw-reports', 'reliefweb-crises', 'bellingcat-osint', 'acaps-crises', 'liveuamap', 'un-security-council', 'combatant-commands', 'congress-defense', 'gov-warning-convergence', 'dsca-arms-transfers', 'opensanctions', 'mediastack-news'],
     variants: ['full'],
   },
   regionalNews: {
@@ -948,12 +948,12 @@ export const PANEL_CATEGORY_MAP: Record<string, { labelKey: string; panelKeys: s
   hazards: {
     labelKey: 'header.panelCatHazards',
 
-    panelKeys: ['satellite-fires', 'earthquakes', 'gdacs-alerts', 'volcano-alerts', 'nws-alerts', 'faa-weather-cams', 'tsunami-alerts', 'tropical-cyclones', 'climate', 'wildfire-incidents', 'hazmat-incidents', 'oil-spill', 'fcdo-warnings', 'dfat-warnings', 'gac-warnings', 'avalanche-hazard', 'wildfire-smoke', 'spc-mesoscale', 'amtrak-alerts', 'habsos', 'global-weather'],
+    panelKeys: ['satellite-fires', 'earthquakes', 'emsc-seismic', 'gdacs-alerts', 'volcano-alerts', 'nws-alerts', 'faa-weather-cams', 'tsunami-alerts', 'tropical-cyclones', 'climate', 'wildfire-incidents', 'hazmat-incidents', 'oil-spill', 'fcdo-warnings', 'dfat-warnings', 'gac-warnings', 'avalanche-hazard', 'wildfire-smoke', 'spc-mesoscale', 'amtrak-alerts', 'habsos', 'global-weather', 'extended-forecast', 'tide-predictions', 'weather-radar'],
     variants: ['full'],
   },
   healthEnv: {
     labelKey: 'header.panelCatHealthEnv',
-    panelKeys: ['hazard-alerts', 'infrastructure', 'giving', 'daily-wisdom', 'stoic-reflections', 'biblical-encouragement', 'alan-watts-reflections', 'mckenna-visions', 'disease-outbreaks', 'disease-intel', 'humanitarian-crisis', 'air-quality', 'food-insecurity', 'offline-maps', 'evacuation', 'family-tracker', 'radiation-decay', 'resource-inventory', 'water-quality', 'ecdc-surveillance', 'openaq-monitor'],
+    panelKeys: ['hazard-alerts', 'infrastructure', 'giving', 'daily-wisdom', 'stoic-reflections', 'biblical-encouragement', 'alan-watts-reflections', 'mckenna-visions', 'disease-outbreaks', 'disease-intel', 'humanitarian-crisis', 'air-quality', 'pollen', 'food-insecurity', 'offline-maps', 'evacuation', 'family-tracker', 'radiation-decay', 'resource-inventory', 'water-quality', 'ecdc-surveillance', 'openaq-monitor'],
     variants: ['full'],
   },
 
