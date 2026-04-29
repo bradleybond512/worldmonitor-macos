@@ -288,19 +288,25 @@ localStorage.removeItem('wm-settings-open');
 // Both need i18n initialized so t() does not return undefined.
 const urlParams = new URL(location.href).searchParams;
 if (urlParams.get('settings') === '1') {
-  void Promise.all([import('./services/i18n'), import('./settings-window')]).then(
-    async ([i18n, m]) => {
+  void Promise.all([import('./services/i18n'), import('./settings-window')])
+    .then(async ([i18n, m]) => {
       await i18n.initI18n();
       m.initSettingsWindow();
-    }
-  );
+    })
+    .catch((error) => {
+      // eslint-disable-next-line no-console
+      console.error('[main] settings-window bootstrap failed', error);
+    });
 } else if (urlParams.get('live-channels') === '1') {
-  void Promise.all([import('./services/i18n'), import('./live-channels-window')]).then(
-    async ([i18n, m]) => {
+  void Promise.all([import('./services/i18n'), import('./live-channels-window')])
+    .then(async ([i18n, m]) => {
       await i18n.initI18n();
       m.initLiveChannelsWindow();
-    }
-  );
+    })
+    .catch((error) => {
+      // eslint-disable-next-line no-console
+      console.error('[main] live-channels-window bootstrap failed', error);
+    });
 } else {
   const boot = async () => {
     const desktopRuntime = await waitForDesktopRuntimeSnapshot();

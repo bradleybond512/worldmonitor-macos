@@ -147,9 +147,17 @@ export class CountryIntelManager implements AppModule {
       }))
       .catch(() => ({ available: false as const, code: '', symbol: '', indexName: '', price: '0', weekChangePercent: '0', currency: '' }));
 
-    stockPromise.then((stock) => {
-      if (this.ctx.countryBriefPage?.getCode() === code) this.ctx.countryBriefPage.updateStock(stock);
-    });
+    stockPromise
+      .then((stock) => {
+        if (this.ctx.countryBriefPage?.getCode() === code) this.ctx.countryBriefPage.updateStock(stock);
+      })
+      .catch((error) => {
+        // eslint-disable-next-line no-console
+        console.error('[country-intel] stockPromise resolution failed', error);
+        if (this.ctx.countryBriefPage?.getCode() === code) {
+          this.ctx.countryBriefPage.updateStock({ available: false as const, code: '', symbol: '', indexName: '', price: '0', weekChangePercent: '0', currency: '' });
+        }
+      });
 
     fetchCountryMarkets(country)
       .then((markets) => {
