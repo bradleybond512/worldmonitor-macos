@@ -9,6 +9,11 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const FEEDS_PATH = join(__dirname, '..', 'src', 'config', 'feeds.ts');
 
 const CHROME_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
+const FALLBACK_UAS = [
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:124.0) Gecko/20100101 Firefox/124.0',
+  'Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1',
+  'feedparser/6.0.10 +https://github.com/kurtmckee/feedparser/',
+];
 const FETCH_TIMEOUT = 15_000;
 const CONCURRENCY = 10;
 const STALE_DAYS = 30;
@@ -91,13 +96,13 @@ function extractFeeds() {
   return feeds;
 }
 
-async function fetchFeed(url) {
+async function fetchOnce(url, ua) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT);
   try {
     const resp = await fetch(url, {
       signal: controller.signal,
-      headers: { 'User-Agent': CHROME_UA, 'Accept': 'application/rss+xml, application/xml, text/xml, */*' },
+      headers: { 'User-Agent': ua, 'Accept': 'application/rss+xml, application/xml, text/xml, */*' },
       redirect: 'follow',
     });
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
@@ -107,11 +112,31 @@ async function fetchFeed(url) {
   }
 }
 
+async function fetchFeed(url) {
+  const uas = [CHROME_UA, ...FALLBACK_UAS];
+  let lastErr;
+  for (const ua of uas) {
+    try {
+      return await fetchOnce(url, ua);
+    } catch (err) {
+      lastErr = err;
+      const msg = err?.message || '';
+      // Only retry with another UA on bot-blocked statuses; everything else fails fast.
+      if (!/HTTP (403|406|429|451)/.test(msg)) throw err;
+    }
+  }
+  throw lastErr;
+}
+
 function parseNewestDate(xml) {
+  // processEntities: false skips fast-xml-parser's billion-laughs protection.
+  // We only extract pubDate / updated strings, which never contain entities in practice,
+  // and many news feeds (Guardian, Axios, CISA, WHO, Folha, etc.) trip the default limit.
   const parser = new XMLParser({
     ignoreAttributes: false,
     attributeNamePrefix: '@_',
     removeNSPrefix: false,
+    processEntities: false,
   });
   const doc = parser.parse(xml);
 
