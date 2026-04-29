@@ -1486,12 +1486,27 @@ export class PanelLayoutManager implements AppModule {
       }
       const trendIcon = (t: string) => t === 'up' ? '\u2197' : t === 'down' ? '\u2198' : '\u2192';
       const riskColor = (r: number) => r >= 80 ? '#ef4444' : r >= 65 ? '#f97316' : '#f59e0b';
-      widget.innerHTML = regions.slice(0, 4).map(r =>
-        `<span style="display:inline-block;margin-right:8px">` +
-        `<span style="color:${riskColor(r.risk24h)}">${trendIcon(r.trending)}</span> ` +
-        `${r.region} <span style="color:${riskColor(r.risk24h)};font-weight:600">${r.risk24h}%</span>` +
-        `</span>`
-      ).join('');
+      // DOM construction avoids interpolating attacker-controlled region names into innerHTML.
+      widget.textContent = '';
+      for (const r of regions.slice(0, 4)) {
+        const wrap = document.createElement('span');
+        wrap.style.display = 'inline-block';
+        wrap.style.marginRight = '8px';
+
+        const arrow = document.createElement('span');
+        arrow.style.color = riskColor(r.risk24h);
+        arrow.textContent = trendIcon(r.trending);
+
+        const risk = document.createElement('span');
+        risk.style.color = riskColor(r.risk24h);
+        risk.style.fontWeight = '600';
+        risk.textContent = `${r.risk24h}%`;
+
+        wrap.appendChild(arrow);
+        wrap.appendChild(document.createTextNode(` ${r.region} `));
+        wrap.appendChild(risk);
+        widget.appendChild(wrap);
+      }
     }) as EventListener);
 
     // Sync initial mode to macOS menu bar

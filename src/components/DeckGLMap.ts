@@ -4780,10 +4780,15 @@ export class DeckGLMap {
     if (this.diseaseIntelGeoJson) {
       this.render();
     } else {
-      void getCountriesGeoJson().then(gj => {
-        this.diseaseIntelGeoJson = gj;
-        this.render();
-      });
+      void getCountriesGeoJson()
+        .then(gj => {
+          this.diseaseIntelGeoJson = gj;
+          this.render();
+        })
+        .catch(error => {
+          // eslint-disable-next-line no-console
+          console.error('[DeckGLMap] getCountriesGeoJson failed; disease overlay will skip country tinting', error);
+        });
     }
   }
 

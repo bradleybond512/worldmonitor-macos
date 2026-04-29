@@ -347,9 +347,14 @@ export class CesiumGlobe {
   }
 
   private log(level: 'INFO' | 'WARN' | 'ERROR', msg: string): void {
-    void import('@/services/log-bridge').then((m) => {
-      m.logToDesktop(level, msg);
-    });
+    void import('@/services/log-bridge')
+      .then((m) => {
+        m.logToDesktop(level, msg);
+      })
+      .catch((error) => {
+        // eslint-disable-next-line no-console
+        console.error('[CesiumGlobe] log-bridge import failed', error);
+      });
   }
 
   get scene(): Scene | undefined {

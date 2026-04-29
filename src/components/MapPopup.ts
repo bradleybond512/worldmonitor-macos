@@ -742,7 +742,7 @@ export class MapPopup {
               ${relatedNews.slice(0, 5).map(n => `
                 <div class="popup-news-item">
                   <span class="news-source">${escapeHtml(n.source)}</span>
-                  <a href="${sanitizeUrl(n.link)}" target="_blank" class="news-title">${escapeHtml(n.title)}</a>
+                  <a href="${sanitizeUrl(n.link)}" target="_blank" rel="noopener noreferrer" class="news-title">${escapeHtml(n.title)}</a>
                 </div>
               `).join('')}
             </div>
@@ -834,7 +834,7 @@ export class MapPopup {
             <span class="stat-value">${timeAgo}</span>
           </div>
         </div>
-        <a href="${sanitizeUrl(earthquake.sourceUrl)}" target="_blank" class="popup-link">${t('popups.viewUSGS')} →</a>
+        <a href="${sanitizeUrl(earthquake.sourceUrl)}" target="_blank" rel="noopener noreferrer" class="popup-link">${t('popups.viewUSGS')} →</a>
       </div>
     `;
   }
@@ -1659,7 +1659,7 @@ export class MapPopup {
           </div>
         ` : ''}
         <p class="popup-description">${escapeHtml(outage.description.slice(0, 250))}${outage.description.length > 250 ? '...' : ''}</p>
-        <a href="${sanitizeUrl(outage.link)}" target="_blank" class="popup-link">${t('popups.outage.readReport')} →</a>
+        <a href="${sanitizeUrl(outage.link)}" target="_blank" rel="noopener noreferrer" class="popup-link">${t('popups.outage.readReport')} →</a>
       </div>
     `;
   }
@@ -2401,7 +2401,7 @@ export class MapPopup {
           ` : ''}
         </div>
         ${event.description ? `<p class="popup-description">${escapeHtml(event.description)}</p>` : ''}
-        ${event.sourceUrl ? `<a href="${sanitizeUrl(event.sourceUrl)}" target="_blank" class="popup-link">${t('popups.naturalEvent.viewOnSource', { source: escapeHtml(event.sourceName || t('popups.source')) })} →</a>` : ''}
+        ${event.sourceUrl ? `<a href="${sanitizeUrl(event.sourceUrl)}" target="_blank" rel="noopener noreferrer" class="popup-link">${t('popups.naturalEvent.viewOnSource', { source: escapeHtml(event.sourceName || t('popups.source')) })} →</a>` : ''}
         <div class="popup-attribution">${t('popups.naturalEvent.attribution')}</div>
       </div>
     `;
