@@ -7,13 +7,18 @@ import { App } from './App';
 
 const sentryDsn = import.meta.env.VITE_SENTRY_DSN?.trim();
 
+function detectEnvironment(): 'production' | 'preview' | 'development' {
+  if (location.hostname === 'worldmonitor.app') return 'production';
+  if (location.hostname.includes('vercel.app')) return 'preview';
+  return 'development';
+}
+
 // Initialize Sentry error tracking (early as possible)
 Sentry.init({
+  // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- empty/whitespace DSN must coerce to undefined; ?? would let it through
   dsn: sentryDsn || undefined,
   release: `worldmonitor@${__APP_VERSION__}`,
-  environment: location.hostname === 'worldmonitor.app' ? 'production'
-    : (location.hostname.includes('vercel.app') ? 'preview'
-    : 'development'),
+  environment: detectEnvironment(),
   // eslint-disable-next-line no-restricted-syntax -- intentional: Sentry suppression for local web dev (localhost); Tauri runtime is covered by __TAURI_INTERNALS__ check
   enabled: Boolean(sentryDsn) && !location.hostname.startsWith('localhost') && !('__TAURI_INTERNALS__' in window),
   sendDefaultPii: false,
@@ -113,6 +118,7 @@ Sentry.init({
     /reading 'style'.*HTMLImageElement/,
     /can't access property "write", \w+ is undefined/,
     /AbortError: The user aborted a request/,
+    // eslint-disable-next-line sonarjs/slow-regex -- bounded by the literal '/uv/service/' anchor; messages are short
     /\w+ is not a function.*\/uv\/service\//,
     /__isInQueue__/,
     /^(?:LIDNotify(?:Id)?|onWebViewAppeared|onGetWiFiBSSID) is not defined$/,
@@ -125,7 +131,7 @@ Sentry.init({
     /evaluating '[^']*\.luma/,
     /translateNotifyError/,
     /GM_getValue/,
-    /^InvalidStateError:|The object is in an invalid state/,
+    /(?:^InvalidStateError:|The object is in an invalid state)/,
     /Could not establish connection\. Receiving end does not exist/,
     /webkitCurrentPlaybackTargetIsWireless/,
     /null is not an object \(evaluating '\w+\.theme'\)/,
@@ -136,6 +142,7 @@ Sentry.init({
     if (msg.length <= 3 && /^[a-zA-Z_$]+$/.test(msg)) return null;
     const frames = event.exception?.values?.[0]?.stacktrace?.frames ?? [];
     // Suppress maplibre internal null-access crashes (light, placement) only when stack is in map chunk
+    // eslint-disable-next-line sonarjs/regex-complexity -- alternation enumerates real-world maplibre crash signatures observed in Sentry
     if (/this\.style\._layers|reading '_layers'|this\.light is null|can't access property "(id|type|setFilter)", \w+ is (null|undefined)|Cannot read properties of null \(reading '(id|type|setFilter|_layers)'\)|null is not an object \(evaluating '\w{1,3}\.(id|style)|^\w{1,2} is null$/.test(msg) && frames.some(f => /\/(map|maplibre|deck-stack)-[A-Za-z0-9-]+\.js/.test(f.filename ?? ''))) return null;
     // Suppress any TypeError that happens entirely within maplibre or deck.gl internals
     if (msg.startsWith('TypeError:') && frames.length > 0) {
@@ -154,7 +161,8 @@ Sentry.init({
 // Suppress NotAllowedError from YouTube IFrame API's internal play() — browser autoplay policy,
 // not actionable. The YT IFrame API doesn't expose the play() promise so it leaks as unhandled.
 window.addEventListener('unhandledrejection', (e) => {
-  if (e.reason?.name === 'NotAllowedError') e.preventDefault();
+  const reason = e.reason as { name?: string } | null | undefined;
+  if (reason?.name === 'NotAllowedError') e.preventDefault();
 });
 
 import { debugGetCells, getCellCount } from '@/services/geo-convergence';
@@ -255,17 +263,27 @@ initMetaTags();
 installRuntimeFetchPatch();
 // In web production, route RPC calls through api.worldmonitor.app (Cloudflare edge).
 installWebApiRedirect();
-loadDesktopSecrets().then(async () => {
-  await initAnalytics();
-  trackApiKeysSnapshot();
-}).catch(() => {});
+// eslint-disable-next-line unicorn/prefer-top-level-await -- conditional bootstrap that must not block the rest of main.ts
+loadDesktopSecrets()
+  .then(async () => {
+    await initAnalytics();
+    trackApiKeysSnapshot();
+  })
+  // eslint-disable-next-line unicorn/prefer-top-level-await -- bootstrap chain, see comment above
+  .catch((error) => {
+    // eslint-disable-next-line no-console
+    console.error('[main] loadDesktopSecrets bootstrap failed', error);
+  });
 
 // Apply stored theme preference before app initialization (safety net for inline script)
 applyStoredTheme();
 
-// Mark body with macOS-native class so CSS design system activates on desktop
+// Mark body with macOS-native class so CSS design system activates on desktop.
+// Two branches kept intentionally — biometric-gate.test.mjs asserts the literal
+// `if (isDesktopRuntime())` pattern as the canonical desktop check.
 if (isDesktopRuntime()) {
   document.body.classList.add('is-desktop-macos');
+// eslint-disable-next-line sonarjs/no-duplicated-branches -- see comment above
 } else if (FORCE_DESKTOP_GATE) {
   document.body.classList.add('is-desktop-macos');
 }
@@ -288,21 +306,25 @@ localStorage.removeItem('wm-settings-open');
 // Both need i18n initialized so t() does not return undefined.
 const urlParams = new URL(location.href).searchParams;
 if (urlParams.get('settings') === '1') {
+  // eslint-disable-next-line unicorn/prefer-top-level-await -- standalone-window bootstrap on a conditional branch
   void Promise.all([import('./services/i18n'), import('./settings-window')])
     .then(async ([i18n, m]) => {
       await i18n.initI18n();
       m.initSettingsWindow();
     })
+    // eslint-disable-next-line unicorn/prefer-top-level-await -- standalone-window bootstrap branch
     .catch((error) => {
       // eslint-disable-next-line no-console
       console.error('[main] settings-window bootstrap failed', error);
     });
 } else if (urlParams.get('live-channels') === '1') {
+  // eslint-disable-next-line unicorn/prefer-top-level-await -- standalone-window bootstrap on a conditional branch
   void Promise.all([import('./services/i18n'), import('./live-channels-window')])
     .then(async ([i18n, m]) => {
       await i18n.initI18n();
       m.initLiveChannelsWindow();
     })
+    // eslint-disable-next-line unicorn/prefer-top-level-await -- standalone-window bootstrap branch
     .catch((error) => {
       // eslint-disable-next-line no-console
       console.error('[main] live-channels-window bootstrap failed', error);
@@ -321,15 +343,22 @@ if (urlParams.get('settings') === '1') {
       // Start loading the app behind the vault overlay so it's ready when the door opens.
       const appInitPromise = app.init();
       const { runVaultIntro } = await import('./app/vault-intro');
-      const unlocked = await runVaultIntro(appInitPromise.catch(() => {}));
+      const unlocked = await runVaultIntro(
+        appInitPromise.catch((error) => {
+          // eslint-disable-next-line no-console
+          console.error('[main] app init failed during vault intro', error);
+        }),
+      );
       if (!unlocked) return;
       appInitPromise
         .then(() => { clearChunkReloadGuard(chunkReloadStorageKey); })
+        // eslint-disable-next-line no-console
         .catch(console.error);
     } else {
       app
         .init()
         .then(() => { clearChunkReloadGuard(chunkReloadStorageKey); })
+        // eslint-disable-next-line no-console
         .catch(console.error);
     }
   };
@@ -348,6 +377,7 @@ if (import.meta.env.DEV) {
 Object.defineProperty(window, 'beta', {
   get() {
     const on = localStorage.getItem('worldmonitor-beta-mode') === 'true';
+    // eslint-disable-next-line no-console
     console.log(`[Beta] ${on ? 'ON' : 'OFF'}`);
     return on;
   },
@@ -369,19 +399,27 @@ if ('__TAURI_INTERNALS__' in window || '__TAURI__' in window) {
 }
 
 if (!('__TAURI_INTERNALS__' in window) && !('__TAURI__' in window)) {
-  import('virtual:pwa-register').then(({ registerSW }) => {
-    registerSW({
-      onRegisteredSW(_swUrl, registration) {
-        if (registration) {
-          setInterval(async () => {
-            if (!navigator.onLine) return;
-            try { await registration.update(); } catch {}
-          }, 60 * 60 * 1000);
-        }
-      },
-      onOfflineReady() {
-        console.log('[PWA] App ready for offline use');
-      },
+  // eslint-disable-next-line unicorn/prefer-top-level-await -- PWA registration is web-only and lazily loaded
+  void import('virtual:pwa-register')
+    .then(({ registerSW }) => {
+      registerSW({
+        onRegisteredSW(_swUrl, registration) {
+          if (registration) {
+            setInterval(async () => {
+              if (!navigator.onLine) return;
+              try { await registration.update(); } catch { /* offline / network blip — retry on next interval */ }
+            }, 60 * 60 * 1000);
+          }
+        },
+        onOfflineReady() {
+          // eslint-disable-next-line no-console
+          console.log('[PWA] App ready for offline use');
+        },
+      });
+    })
+    // eslint-disable-next-line unicorn/prefer-top-level-await -- web-only PWA register, lazy import
+    .catch((error) => {
+      // eslint-disable-next-line no-console
+      console.error('[main] PWA register import failed', error);
     });
-  });
 }

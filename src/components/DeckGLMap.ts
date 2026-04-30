@@ -3330,7 +3330,7 @@ export class DeckGLMap {
 
     const rawLayerId = info.layer?.id || '';
     const layerId = rawLayerId.endsWith('-ghost') ? rawLayerId.slice(0, -6) : rawLayerId;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     const obj = info.object as any;
     const text = (value: unknown): string => escapeHtml(String(value ?? ''));
 
@@ -4786,7 +4786,7 @@ export class DeckGLMap {
           this.render();
         })
         .catch(error => {
-          // eslint-disable-next-line no-console
+           
           console.error('[DeckGLMap] getCountriesGeoJson failed; disease overlay will skip country tinting', error);
         });
     }
