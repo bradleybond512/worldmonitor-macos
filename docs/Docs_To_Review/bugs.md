@@ -25,7 +25,7 @@ Keep the `App` class as a thin composition root that wires controllers together.
 
 **Resolution progress**
 
-- **Phase 1 ** — All seven controllers created under `src/controllers/`:
+- **Phase 1** — All seven controllers created under `src/controllers/`:
   - `app-context.ts` (169 lines) — `AppContext` interface: shared mutable state surface
   - `refresh-scheduler.ts` (215 lines) — periodic refresh intervals, snapshot saving
   - `deep-link-handler.ts` (192 lines) — URL state, deep linking, clipboard
@@ -78,37 +78,15 @@ Implement the pending live-stream detection using the `youtubei.js` library alre
 
 ## High
 
-### BUG-004 — Panel-Order Migration Log Says "v1.8" but Key Says "v1.9"
+### BUG-004 — Panel-Order Migration Log Says "v1.8" but Key Says "v1.9" — **FIXED 2026-04-30**
 
-| Field | Value |
-|---|---|
-| **Severity** | High (data inconsistency) |
-| **Affected** | `src/App.ts` (line ~237) |
-| **Depends on** | — |
-
-**Description**
-`PANEL_ORDER_MIGRATION_KEY` is `worldmonitor-panel-order-v1.9` but the `console.log` says `"Migrated panel order to v1.8 layout"`.
-This is confusing for anyone debugging migrations.
-
-**AI instructions**
-Change the log message to `v1.9`.
+The console.log message now says `v1.9 layout` (App.ts:136).
 
 ---
 
-### BUG-005 — Duplicate `layerToSource` Mapping
+### BUG-005 — Duplicate `layerToSource` Mapping — **STALE 2026-04-30**
 
-| Field | Value |
-|---|---|
-| **Severity** | High (maintenance risk) |
-| **Affected** | `src/App.ts` — `syncDataFreshnessWithLayers()` (line ~606) and `setupMapLayerHandlers()` (line ~643) |
-| **Depends on** | BUG-001 (Phase 2) |
-
-**Description**
-The `layerToSource` map is copy-pasted in two places. If a new layer is added to one and not the other, freshness tracking silently breaks for that layer.
-Note: These methods remain in `App.ts` and were not extracted into controllers (they bridge map and freshness). Once BUG-001 Phase 2 wires the composition root, this becomes easier to refactor.
-
-**AI instructions**
-Extract `layerToSource` to a shared constant (e.g., in `src/config/panels.ts`), import it in both locations.
+The duplicate has already been removed; `layerToSource` no longer appears in `src/`. Original report was accurate at the time but a later refactor consolidated freshness wiring.
 
 ---
 
@@ -165,19 +143,9 @@ Note: The extracted `UISetupController` already stores the interval in `clockInt
 
 ---
 
-### BUG-009 — `deepLinkCountry` Polling Has No Maximum Retry
+### BUG-009 — `deepLinkCountry` Polling Has No Maximum Retry — **STALE 2026-04-30**
 
-| Field | Value |
-|---|---|
-| **Severity** | High |
-| **Affected** | `src/App.ts` — `handleDeepLinks()` (lines ~392-400, ~413-419) |
-| **Depends on** | — |
-
-**Description**
-`checkAndOpen()` and `checkAndOpenBrief()` use `setTimeout(…, 500)` recursively with no cap. If the data source is permanently down, the browser spins polling forever.
-
-**AI instructions**
-Add a max retry counter (e.g., 60 attempts = 30 seconds) and show a user-facing error ("Data not available") if exceeded.
+`checkAndOpen` and `checkAndOpenBrief` now use `MAX_DEEP_LINK_RETRIES` and surface a "Data not available" toast on exhaustion (`src/App.ts:528–541` and `:555–568`).
 
 ---
 
@@ -200,20 +168,9 @@ Add `desktop:package:macos:finance`, `desktop:package:windows:finance`, and thei
 
 ## Medium
 
-### BUG-011 — Inconsistent Idle Timeout Values
+### BUG-011 — Inconsistent Idle Timeout Values — **STALE 2026-04-30**
 
-| Field | Value |
-|---|---|
-| **Severity** | Medium |
-| **Affected** | `src/App.ts` (2 min), `src/components/LiveNewsPanel.ts` (5 min), `src/components/LiveWebcamsPanel.ts` (5 min) |
-| **Depends on** | — |
-
-**Description**
-Documentation says "5 min idle" pauses the stream, but `App.ts` uses a 2-minute `IDLE_PAUSE_MS`.
-The mismatch means map animations pause 3 minutes before the live stream panels, which may confuse users.
-
-**AI instructions**
-Unify idle timeouts via a shared constant in config, or document the intentional difference.
+`App.ts` no longer carries an `IDLE_PAUSE_MS` constant — idle handling moved into `UISetupController` during the BUG-001 controller extraction. The 2-minute references in App.ts are unrelated `commsHealth` refresh intervals.
 
 ---
 

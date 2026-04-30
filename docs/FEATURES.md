@@ -16,34 +16,42 @@ Last refreshed: 2026-04-29.
 ## Full variant — by category
 
 ### Core (5)
+
 Shared across every variant.
 `map` · `insights` · `strategic-posture` · `live-news` · `live-webcams`
 
 ### Intelligence (50)
+
 Watchlists, alert routing, situation awareness, conflict intel, AI assistants, sanctions, military intel.
 `watchlist` · `saved-places` · `watchlist-locations` · `local-logistics` · `comms-plan` · `unified-alert-inbox` · `unified-inbox` · `alert-rules` · `situation-awareness` · `alert-center` · `strategic-risk` · `cii` · `geo-hubs` · `intel` · `gdelt-intel` · `cascade` · `telegram-intel` · `intelligence-briefing` · `ask-world-monitor` · `survival-advisor` · `threat-synthesis` · `scenario-simulator` · `escalation-forecast` · `notification-digest` · `pattern-of-life` · `course-of-action` · `kill-chain` · `orbat` · `after-action-review` · `entity-link-graph` · `timeline-scrubber` · `intel-report` · `compound-threat` · `correlation-matrix` · `cascade-simulator` · `dod-news` · `nato-news` · `foreign-mil-news` · `isw-reports` · `reliefweb-crises` · `bellingcat-osint` · `acaps-crises` · `liveuamap` · `un-security-council` · `combatant-commands` · `congress-defense` · `gov-warning-convergence` · `dsca-arms-transfers` · `opensanctions` · `mediastack-news`
 
 ### Regional news (7)
+
 Regional politics and breaking news feeds.
 `politics` · `us` · `europe` · `middleeast` · `africa` · `latam` · `asia`
 
 ### Markets & finance (20)
+
 Equities, commodities, crypto, macro, regulatory filings, central bank schedules.
 `commodities` · `markets` · `economic` · `economic-stress` · `federal-register` · `trade-policy` · `supply-chain` · `finance` · `polymarket` · `macro-signals` · `etf-flows` · `stablecoins` · `crypto` · `heatmap` · `fear-greed` · `national-debt` · `fuel-prices` · `fdic-failures` · `edgar-filings` · `central-bank-calendar`
 
 ### Topical (6)
+
 Sector-level long-running topics.
 `energy` · `gov` · `thinktanks` · `tech` · `ai` · `layoffs`
 
 ### Data tracking (47)
+
 Cyber threats, vessels, aircraft, satellites, network/topology intel, OSINT databases.
 `monitors` · `cyber-threats` · `threat-inbox` · `local-ids` *(disabled by default)* · `comms-health` · `power-grid` · `ucdp-events` · `nuclear-risk` · `airstrikes` · `displacement` · `security-advisories` · `oref-sirens` · `space-weather` · `spaceflight-news` · `space-launches` · `population-exposure` · `internet-disruptions` · `air-traffic` · `threat-intel-hub` · `geo-intel` · `dark-web` · `anomaly-detection` · `financial-contagion` · `supply-chain-impact` · `nuclear-monitor` · `sigint-panel` · `dark-vessel` · `ics-ot-dashboard` · `ioc-manager` · `network-topology` · `stix-taxii` · `custom-geofence` · `sanctions-crossref` · `emergency-broadcast` · `satellite-change` · `phishstats-feed` · `urlscan-threats` · `bitcoin-abuse` · `cve-tracker` · `vulners-cve` · `pulsedive-intel` · `hibp-breaches` · `reddit-osint` · `ripe-ncc` · `ipinfo-lookup` · `aerospace-reentry` · `satellite-intel`
 
 ### Hazards (25)
+
 Earthquakes, weather, fires, alerts, travel warnings.
 `satellite-fires` · `earthquakes` · `emsc-seismic` · `gdacs-alerts` · `volcano-alerts` · `nws-alerts` · `faa-weather-cams` · `tsunami-alerts` · `tropical-cyclones` · `climate` · `wildfire-incidents` · `hazmat-incidents` · `oil-spill` · `fcdo-warnings` · `dfat-warnings` · `gac-warnings` · `avalanche-hazard` · `wildfire-smoke` · `spc-mesoscale` · `amtrak-alerts` · `habsos` · `global-weather` · `extended-forecast` · `tide-predictions` · `weather-radar`
 
 ### Health & environment (22)
+
 Outbreak surveillance, humanitarian crises, air quality, evacuation/preparedness, reflective wisdom panels.
 `hazard-alerts` · `infrastructure` · `giving` · `daily-wisdom` · `stoic-reflections` · `biblical-encouragement` · `alan-watts-reflections` · `mckenna-visions` · `disease-outbreaks` · `disease-intel` · `humanitarian-crisis` · `air-quality` · `pollen` · `food-insecurity` · `offline-maps` · `evacuation` · `family-tracker` · `radiation-decay` · `resource-inventory` · `water-quality` · `ecdc-surveillance` · `openaq-monitor`
 
