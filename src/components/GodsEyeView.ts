@@ -240,6 +240,7 @@ export class GodsEyeView {
       hud: this.hud,
       timeMachine: this.timeMachine,
       dataManager: this.dataManager,
+      autoFollow: this.autoFollow,
       overlayContainer: this.container,
     });
     this.fourD.onChange((state) => {
@@ -528,13 +529,19 @@ export class GodsEyeView {
         }
 
         // T toggles God's Eye 4D mode (ambient temporal layer).
-        // Visual sub-components (swimlane, trails, pillars, predictions) land
-        // in follow-up PRs; this PR ships the toggle + HUD badge so the
-        // wiring is stable across those PRs.
         if (ke.key === 't' || ke.key === 'T') {
           if (ke.metaKey || ke.ctrlKey || ke.altKey) return; // avoid stealing browser Cmd+T
           this.fourD?.toggle();
           return;
+        }
+
+        // 4D-only shortcuts: D / I / H switch playback mode.
+        // Only fired when 4D is active to avoid stealing single-key shortcuts
+        // outside 4D context. Modifiers excluded so Cmd+D etc. pass through.
+        if (this.fourD?.isActive() && !ke.metaKey && !ke.ctrlKey && !ke.altKey) {
+          if (ke.key === 'd' || ke.key === 'D') { this.fourD.setPlaybackMode('documentary'); return; }
+          if (ke.key === 'i' || ke.key === 'I') { this.fourD.setPlaybackMode('director'); return; }
+          if (ke.key === 'h' || ke.key === 'H') { this.fourD.setPlaybackMode('heartbeat'); return; }
         }
 
         // Bookmark save: Cmd+1-5
