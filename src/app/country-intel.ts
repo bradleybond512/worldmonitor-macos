@@ -51,6 +51,7 @@ export class CountryIntelManager implements AppModule {
       this.ctx.countryBriefPage?.hide();
       this.openCountryStory(code, name);
     });
+    // eslint-disable-next-line @typescript-eslint/no-misused-promises
     this.ctx.countryBriefPage.setExportImageHandler(async (code, name) => {
       try {
         const signals = this.getCountrySignals(code, name);
@@ -62,7 +63,7 @@ export class CountryIntelManager implements AppModule {
           regionalDescriptions: regional.map(r => r.description),
         } : null;
         const posturePanel = this.ctx.panels['strategic-posture'] as StrategicPosturePanel | undefined;
-        const postures = posturePanel?.getPostures() || [];
+        const postures = posturePanel?.getPostures() ?? [];
         const data = collectStoryData(code, name, this.ctx.latestClusters, postures, this.ctx.latestPredictions, signals, convergence);
         const canvas = await renderStoryToCanvas(data);
         const dataUrl = canvas.toDataURL('image/png');
@@ -71,16 +72,17 @@ export class CountryIntelManager implements AppModule {
         a.download = `country-brief-${code.toLowerCase()}-${Date.now()}.png`;
         a.click();
       } catch (error) {
+        // eslint-disable-next-line no-console
         console.error('[CountryBrief] Image export failed:', error);
       }
     });
 
-    this.ctx.map.onCountryClicked(async (countryClick) => {
+    this.ctx.map.onCountryClicked((countryClick) => {
       if (countryClick.code && countryClick.name) {
         trackCountrySelected(countryClick.code, countryClick.name, 'map');
-        this.openCountryBriefByCode(countryClick.code, countryClick.name);
+        void this.openCountryBriefByCode(countryClick.code, countryClick.name);
       } else {
-        this.openCountryBrief(countryClick.lat, countryClick.lon);
+        void this.openCountryBrief(countryClick.lat, countryClick.lon);
       }
     });
 
@@ -102,7 +104,7 @@ export class CountryIntelManager implements AppModule {
     const localGeo = getCountryAtCoordinates(lat, lon);
     if (localGeo) {
       if (token !== this.briefRequestToken) return;
-      this.openCountryBriefByCode(localGeo.code, localGeo.name);
+      void this.openCountryBriefByCode(localGeo.code, localGeo.name);
       return;
     }
 
@@ -114,15 +116,16 @@ export class CountryIntelManager implements AppModule {
       return;
     }
 
-    this.openCountryBriefByCode(geo.code, geo.country);
+    void this.openCountryBriefByCode(geo.code, geo.country);
   }
 
+  // eslint-disable-next-line sonarjs/cognitive-complexity -- pre-existing complex orchestrator; refactor tracked separately
   async openCountryBriefByCode(code: string, country: string): Promise<void> {
     if (!this.ctx.countryBriefPage) return;
     this.ctx.map?.setRenderPaused(true);
     trackCountryBriefOpened(code);
 
-    const canonicalName = TIER1_COUNTRIES[code] || CountryIntelManager.resolveCountryName(code);
+    const canonicalName = TIER1_COUNTRIES[code] ?? CountryIntelManager.resolveCountryName(code);
     if (canonicalName !== code) country = canonicalName;
 
     const scores = calculateCII();
@@ -219,7 +222,7 @@ export class CountryIntelManager implements AppModule {
 
       const headlines = filteredNews.slice(0, 15).map((n) => n.title);
       if (headlines.length) context.headlines = headlines;
-      const briefHeadlines = (context.headlines as string[] | undefined) || [];
+      const briefHeadlines = (context.headlines as string[] | undefined) ?? [];
 
       const [stockData, wbProfile] = await Promise.all([stockPromise, worldBankPromise]);
       if (stockData.available) {
@@ -271,8 +274,7 @@ export class CountryIntelManager implements AppModule {
           if (signals.orefHistory24h > 0) lines.push(`🚨 Sirens in past 24h: ${signals.orefHistory24h}`);
           if (context.stockIndex) lines.push(t('countryBrief.fallback.stockIndex', { value: context.stockIndex }));
           if (briefHeadlines.length > 0) {
-            lines.push('', t('countryBrief.fallback.recentHeadlines'));
-            briefHeadlines.slice(0, 5).forEach(h => lines.push(`• ${h}`));
+            lines.push('', t('countryBrief.fallback.recentHeadlines'), ...briefHeadlines.slice(0, 5).map(h => `• ${h}`));
           }
           if (lines.length > 0) {
             this.ctx.countryBriefPage!.updateBrief({ brief: lines.join('\n'), country, code, fallback: true });
@@ -282,6 +284,7 @@ export class CountryIntelManager implements AppModule {
         }
       }
     } catch (error) {
+      // eslint-disable-next-line no-console
       console.error('[CountryBrief] fetch error:', error);
       this.ctx.countryBriefPage!.updateBrief({ brief: '', country, code, error: 'Failed to generate brief' });
     }
@@ -315,8 +318,10 @@ export class CountryIntelManager implements AppModule {
     const lines: string[] = [ `Country: ${country} (${code})`];
 
     if (score) {
-      lines.push(`CII: ${score.score}/100 (${score.level}), trend=${score.trend}, 24h_change=${score.change24h}`);
-      lines.push(`CII components: unrest=${Math.round(score.components.unrest)}, conflict=${Math.round(score.components.conflict)}, security=${Math.round(score.components.security)}, information=${Math.round(score.components.information)}`);
+      lines.push(
+        `CII: ${score.score}/100 (${score.level}), trend=${score.trend}, 24h_change=${score.change24h}`,
+        `CII components: unrest=${Math.round(score.components.unrest)}, conflict=${Math.round(score.components.conflict)}, security=${Math.round(score.components.security)}, information=${Math.round(score.components.information)}`,
+      );
     }
 
     lines.push(
@@ -352,6 +357,7 @@ export class CountryIntelManager implements AppModule {
     return lines.join('\n');
   }
 
+  // eslint-disable-next-line sonarjs/cognitive-complexity -- pre-existing aggregator with many independent intel sources
   private mountCountryTimeline(code: string, country: string): void {
     this.ctx.countryTimeline?.destroy();
     this.ctx.countryTimeline = null;
@@ -368,11 +374,12 @@ export class CountryIntelManager implements AppModule {
     if (this.ctx.intelligenceCache.protests?.events) {
       for (const e of this.ctx.intelligenceCache.protests.events) {
         if (e.country?.toLowerCase() === countryLower || inCountry(e.lat, e.lon)) {
+          const protestSeverity = protestSeverityFor(e.severity);
           events.push({
             timestamp: new Date(e.time).getTime(),
             lane: 'protest',
-            label: e.title || `${e.eventType} in ${e.city || e.country}`,
-            severity: e.severity === 'high' ? 'high' : (e.severity === 'medium' ? 'medium' : 'low'),
+            label: e.title ?? `${e.eventType} in ${e.city ?? e.country}`,
+            severity: protestSeverity,
           });
         }
       }
@@ -381,11 +388,12 @@ export class CountryIntelManager implements AppModule {
     if (this.ctx.intelligenceCache.earthquakes) {
       for (const eq of this.ctx.intelligenceCache.earthquakes) {
         if (inCountry(eq.location?.latitude ?? 0, eq.location?.longitude ?? 0) || eq.place?.toLowerCase().includes(countryLower)) {
+          const quakeSeverity = quakeMagnitudeSeverity(eq.magnitude);
           events.push({
             timestamp: eq.occurredAt,
             lane: 'natural',
             label: `M${eq.magnitude.toFixed(1)} ${eq.place}`,
-            severity: eq.magnitude >= 6 ? 'critical' : eq.magnitude >= 5 ? 'high' : eq.magnitude >= 4 ? 'medium' : 'low',
+            severity: quakeSeverity,
           });
         }
       }
@@ -397,7 +405,7 @@ export class CountryIntelManager implements AppModule {
           events.push({
             timestamp: new Date(f.lastSeen).getTime(),
             lane: 'military',
-            label: `${f.callsign} (${f.aircraftModel || f.aircraftType})`,
+            label: `${f.callsign} (${f.aircraftModel ?? f.aircraftType})`,
             severity: f.isInteresting ? 'high' : 'low',
           });
         }
@@ -440,6 +448,7 @@ export class CountryIntelManager implements AppModule {
     this.ctx.countryTimeline.render(events.filter(e => e.timestamp >= sevenDaysAgo));
   }
 
+  // eslint-disable-next-line sonarjs/cognitive-complexity -- pre-existing fan-in over many intel signal types
   getCountrySignals(code: string, country: string): CountryBriefSignals {
     const countryLower = country.toLowerCase();
     const hasGeoShape = hasCountryGeometry(code) || !!CountryIntelManager.COUNTRY_BOUNDS[code];
@@ -532,7 +541,7 @@ export class CountryIntelManager implements AppModule {
       const countryAdvisories = this.ctx.intelligenceCache.advisories.filter(a => a.country === code);
       travelAdvisories = countryAdvisories.length;
       for (const a of countryAdvisories) {
-        if (a.level && (advisoryLevelRank[a.level] || 0) > (advisoryLevelRank[travelAdvisoryMaxLevel || ''] || 0)) {
+        if (a.level && (advisoryLevelRank[a.level] ?? 0) > (advisoryLevelRank[travelAdvisoryMaxLevel ?? ''] ?? 0)) {
           travelAdvisoryMaxLevel = a.level;
         }
       }
@@ -572,7 +581,7 @@ export class CountryIntelManager implements AppModule {
   }
 
   public getCountryWatchSnapshot(code: string, country: string): WatchCountrySnapshot {
-    const canonicalName = TIER1_COUNTRIES[code] || CountryIntelManager.resolveCountryName(code) || country;
+    const canonicalName = TIER1_COUNTRIES[code] ?? CountryIntelManager.resolveCountryName(code) ?? country;
     const score = calculateCII().find((entry) => entry.code === code) ?? null;
     const signals = this.getCountrySignals(code, canonicalName);
     return {
@@ -596,7 +605,7 @@ export class CountryIntelManager implements AppModule {
       return;
     }
     const posturePanel = this.ctx.panels['strategic-posture'] as StrategicPosturePanel | undefined;
-    const postures = posturePanel?.getPostures() || [];
+    const postures = posturePanel?.getPostures() ?? [];
     const signals = this.getCountrySignals(code, name);
     const cluster = signalAggregator.getCountryClusters().find(c => c.country === code);
     const regional = signalAggregator.getRegionalConvergence().filter(r => r.countries.includes(code));
@@ -637,7 +646,7 @@ export class CountryIntelManager implements AppModule {
     return lat >= b.s && lat <= b.n && lon >= b.w && lon <= b.e;
   }
 
-  static COUNTRY_BOUNDS: Record<string, { n: number; s: number; e: number; w: number }> = {
+  static readonly COUNTRY_BOUNDS: Record<string, { n: number; s: number; e: number; w: number }> = {
     ...ME_STRIKE_BOUNDS,
     CN: { n: 53.6, s: 18.2, e: 134.8, w: 73.5 }, TW: { n: 25.3, s: 21.9, e: 122, w: 120 },
     JP: { n: 45.5, s: 24.2, e: 153.9, w: 122.9 }, KR: { n: 38.6, s: 33.1, e: 131.9, w: 124.6 },
@@ -652,7 +661,7 @@ export class CountryIntelManager implements AppModule {
     BR: { n: 5.3, s: -33.8, e: -34.8, w: -73.9 },
   };
 
-  static COUNTRY_ALIASES: Record<string, string[]> = {
+  static readonly COUNTRY_ALIASES: Record<string, string[]> = {
     IL: ['israel', 'israeli', 'gaza', 'hamas', 'hezbollah', 'netanyahu', 'idf', 'west bank', 'tel aviv', 'jerusalem'],
     IR: ['iran', 'iranian', 'tehran', 'persian', 'irgc', 'khamenei'],
     RU: ['russia', 'russian', 'moscow', 'kremlin', 'putin', 'ukraine war'],
@@ -732,9 +741,21 @@ export class CountryIntelManager implements AppModule {
   static toFlagEmoji(code: string): string {
     const upperCode = code.toUpperCase();
     if (!/^[A-Z]{2}$/.test(upperCode)) return '🏳️';
-    return upperCode
-      .split('')
-      .map((char) => String.fromCodePoint(0x1_F1_E6 + char.charCodeAt(0) - 65))
+    return [...upperCode]
+      .map((char) => String.fromCodePoint(0x1_F1_E6 + (char.codePointAt(0) ?? 65) - 65))
       .join('');
   }
+}
+
+function quakeMagnitudeSeverity(magnitude: number): 'critical' | 'high' | 'medium' | 'low' {
+  if (magnitude >= 6) return 'critical';
+  if (magnitude >= 5) return 'high';
+  if (magnitude >= 4) return 'medium';
+  return 'low';
+}
+
+function protestSeverityFor(severity: string | undefined): 'high' | 'medium' | 'low' {
+  if (severity === 'high') return 'high';
+  if (severity === 'medium') return 'medium';
+  return 'low';
 }

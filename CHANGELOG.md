@@ -17,6 +17,22 @@ All notable changes to World Monitor are documented here.
 
 ---
 
+## [2.10.4] - 2026-04-01
+
+### Added
+
+- Wired the UnifiedAlertInboxPanel into the variant configuration so cross-feed alert deduplication is reachable from the sidebar without manual settings tweaks.
+
+### Fixed
+
+- Resolved ESLint regressions in pre-existing legacy files surfaced by the post-2.7.x rule tightening, restoring a clean lint pass for the touched modules.
+
+### Notes
+
+- 2.8.x and 2.9.x release tags were skipped on `main`; this entry consolidates the 2.10.0 → 2.10.4 sequence under the currently-published `package.json` version. Subsequent feature work continues to land on `main` ahead of the next version bump.
+
+---
+
 ## [2.7.2] - 2026-03-24
 
 ### Fixed

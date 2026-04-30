@@ -212,7 +212,7 @@ export class EventHandlerManager implements AppModule {
           this.applyPanelSettings();
           this.ctx.unifiedSettings?.refreshPanelToggles();
         } catch (error) {
-          // eslint-disable-next-line no-console
+           
           console.warn('[event-handlers] panel-settings storage event had invalid JSON; resetting to defaults', error);
           this.ctx.panelSettings = {};
           this.applyPanelSettings();
