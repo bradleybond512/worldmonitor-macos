@@ -1739,7 +1739,7 @@ async function dispatch(requestUrl, req, routes, context) {
         },
         15_000,
       );
-      const data = await resp.json();
+      const data = await resp.json().catch(() => ({}));
       return json({ apiKey: data.apiKey ?? null, status: data.status, message: data.message });
     } catch {
       return json({ error: 'Request failed' }, 500);
