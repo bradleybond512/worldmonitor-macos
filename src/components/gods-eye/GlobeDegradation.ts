@@ -7,17 +7,25 @@
  *   • 0.5 ≤ confidence < 1               → near future, full color, slight fade
  *   • 0.3 ≤ confidence < 0.5             → dashed paths, faded labels
  *   • confidence < 0.3                   → blurred, ghostly
- *   • confidence < 0.2                   → jitter the position by ±jitter px
+ *   • confidence < 0.2                   → jitter the billboard offset by ±jitter px
  *
- * Adjustments are applied directly to the Cesium entity's billboard / point
- * / label properties via the layer's CustomDataSource. Polylines and shapes
- * are out of scope for this PR — they require fade material edits on the
- * primitive collections rather than per-entity property writes.
+ * Decay is exponential: confidence(t) = exp(-t / τ_layer), with τ tuned per
+ * layer (fast-moving GDACS/fires decay quicker than 30-day earthquake horizon).
  *
- * Plan: docs/superpowers/plans/2026-04-13-gods-eye-4d.md (Task 8)
+ * ConstantProperty instances are reused per-entity via setValue() to avoid
+ * garbage churn on each TimeMachine tick.
  */
 
-import { Color, ConstantProperty, JulianDate, type Viewer } from 'cesium';
+import {
+  Cartesian2,
+  Color,
+  ColorMaterialProperty,
+  ConstantProperty,
+  JulianDate,
+  PolylineDashMaterialProperty,
+  type Entity,
+  type Viewer,
+} from 'cesium';
 import type { GlobeDataManager } from '@/components/GlobeDataManager';
 
 /* eslint-disable @typescript-eslint/no-unused-vars -- viewer kept on the
@@ -26,14 +34,18 @@ import type { GlobeDataManager } from '@/components/GlobeDataManager';
 
 const DAY_MS = 86_400_000;
 
-/** Per-layer maximum forecast horizon — confidence hits 0.05 floor at this distance. */
-const LAYER_FORECAST_MS: Record<string, number> = {
-  conflicts:   7 * DAY_MS,
-  airstrikes:  7 * DAY_MS,
-  earthquakes: 30 * DAY_MS,
-  gdacs:       2 * DAY_MS,
-  cyclones:    5 * DAY_MS,
-  fires:       2 * DAY_MS,
+/**
+ * Per-layer exponential time constant τ (ms). Confidence at t=τ is e⁻¹ ≈ 0.37,
+ * at t=2τ ≈ 0.14, at t=3τ ≈ 0.05 (the floor). Tuned so the effective horizon
+ * is roughly 3τ — matches the previous linear cutoffs at the same point.
+ */
+const LAYER_DECAY_TAU_MS: Record<string, number> = {
+  conflicts:   2.33 * DAY_MS,  // ~7d effective
+  airstrikes:  2.33 * DAY_MS,
+  earthquakes: 10 * DAY_MS,    // ~30d effective
+  gdacs:       0.67 * DAY_MS,  // ~2d effective
+  cyclones:    1.67 * DAY_MS,  // ~5d effective
+  fires:       0.67 * DAY_MS,
 };
 
 const CONFIDENCE_FLOOR = 0.05;
@@ -41,6 +53,9 @@ const DASH_THRESHOLD = 0.5;
 const BLUR_THRESHOLD = 0.3;
 const JITTER_THRESHOLD = 0.2;
 const LABEL_THRESHOLD = 0.3;
+
+/** Pixel jitter magnitude at maximum jitter (state.jitter = 1). */
+const JITTER_MAX_PX = 6;
 
 export interface DegradationState {
   confidence: number;
@@ -50,9 +65,24 @@ export interface DegradationState {
   jitter: number;
 }
 
+interface EntityPropertyCache {
+  billboardColor?: ConstantProperty;
+  billboardScale?: ConstantProperty;
+  billboardPixelOffset?: ConstantProperty;
+  pointColor?: ConstantProperty;
+  pointPixelSize?: ConstantProperty;
+  labelShow?: ConstantProperty;
+  polylineDashMaterial?: PolylineDashMaterialProperty;
+  polylineSolidMaterial?: ColorMaterialProperty;
+  polylineMaterialColor?: ConstantProperty;
+  polylineWasDashed?: boolean;
+  jitterSeed?: number;
+}
+
 export class GlobeDegradation {
   private dataManager: GlobeDataManager;
   private cache = new Map<string, DegradationState>();
+  private propCache = new Map<string, EntityPropertyCache>();
   private destroyed = false;
 
   constructor(_viewer: Viewer, dataManager: GlobeDataManager) {
@@ -69,7 +99,7 @@ export class GlobeDegradation {
     this.cache.clear();
     const sources = this.dataManager.getDataSources();
 
-    for (const [layerName, maxForecast] of Object.entries(LAYER_FORECAST_MS)) {
+    for (const [layerName, tau] of Object.entries(LAYER_DECAY_TAU_MS)) {
       const entities = this.dataManager.getLayerEntitiesWithTimestamps(layerName);
       const source = sources.get(layerName);
       if (!source) continue;
@@ -78,11 +108,11 @@ export class GlobeDegradation {
         const timeFromNow = e.timeMs - currentMs;
         const state = timeFromNow <= 0
           ? { confidence: 1, opacity: 1, isDashed: false, blur: 0, jitter: 0 }
-          : GlobeDegradation.computeState(timeFromNow, maxForecast);
+          : GlobeDegradation.computeState(timeFromNow, tau);
         this.cache.set(e.id, state);
 
         const cesium = source.entities.getById(e.id);
-        if (cesium) GlobeDegradation.applyOpacityToEntity(cesium, state);
+        if (cesium) this.applyToEntity(e.id, cesium, state);
       }
     }
   }
@@ -103,13 +133,15 @@ export class GlobeDegradation {
   destroy(): void {
     this.destroyed = true;
     this.cache.clear();
+    this.propCache.clear();
   }
 
-  static computeState(timeFromNowMs: number, maxForecastMs: number): DegradationState {
-    if (maxForecastMs <= 0) {
+  static computeState(timeFromNowMs: number, tauMs: number): DegradationState {
+    if (tauMs <= 0 || timeFromNowMs <= 0) {
       return { confidence: 1, opacity: 1, isDashed: false, blur: 0, jitter: 0 };
     }
-    const confidence = Math.max(CONFIDENCE_FLOOR, Math.min(1, 1 - timeFromNowMs / maxForecastMs));
+    const raw = Math.exp(-timeFromNowMs / tauMs);
+    const confidence = Math.max(CONFIDENCE_FLOOR, Math.min(1, raw));
     return {
       confidence,
       opacity: confidence,
@@ -120,29 +152,138 @@ export class GlobeDegradation {
   }
 
   /**
-   * Apply opacity / label-visibility to a single entity's primitives.
-   * Cesium's typed Property API doesn't expose a direct setter for color
-   * alpha, so we sample the current color (via getValue at NOW), reapply
-   * with the degraded alpha as a ConstantProperty, and let Cesium pick it
-   * up on the next render tick.
+   * Apply degradation to a single entity's primitives. Reuses cached
+   * ConstantProperty / PolylineDashMaterialProperty instances via setValue()
+   * so we don't churn the GC on every TimeMachine tick.
    */
-  private static applyOpacityToEntity(
-    entity: import('cesium').Entity,
-    state: DegradationState,
-  ): void {
+  private applyToEntity(id: string, entity: Entity, state: DegradationState): void {
+    let cache = this.propCache.get(id);
+    if (!cache) {
+      cache = {};
+      this.propCache.set(id, cache);
+    }
+
     const julian = JulianDate.fromDate(new Date());
-    const fade = (color: Color): Color => color.withAlpha(state.opacity);
+    const blurScale = 1 - Math.min(0.6, state.blur * 0.3);
+    const blurPixelMul = 1 - Math.min(0.5, state.blur * 0.25);
+    const [jitterX, jitterY] = computeJitterOffset(id, cache, state.jitter);
 
     if (entity.billboard) {
-      const current = entity.billboard.color?.getValue(julian) as Color | undefined;
-      if (current) entity.billboard.color = new ConstantProperty(fade(current));
+      applyBillboard(entity.billboard, state, cache, julian, blurScale, jitterX, jitterY);
     }
     if (entity.point) {
-      const current = entity.point.color?.getValue(julian) as Color | undefined;
-      if (current) entity.point.color = new ConstantProperty(fade(current));
+      applyPoint(entity.point, state, cache, julian, blurPixelMul);
     }
     if (entity.label) {
-      entity.label.show = new ConstantProperty(state.confidence > LABEL_THRESHOLD);
+      applyLabel(entity.label, state, cache);
+    }
+    if (entity.polyline) {
+      applyPolyline(entity.polyline, state, cache, julian);
     }
   }
+}
+
+function setOrCreate<T>(
+  cache: EntityPropertyCache,
+  key: keyof EntityPropertyCache,
+  value: T,
+): ConstantProperty {
+  const existing = cache[key] as ConstantProperty | undefined;
+  if (existing) {
+    existing.setValue(value);
+    return existing;
+  }
+  const created = new ConstantProperty(value);
+  (cache as Record<string, unknown>)[key as string] = created;
+  return created;
+}
+
+function applyBillboard(
+  billboard: NonNullable<Entity['billboard']>,
+  state: DegradationState,
+  cache: EntityPropertyCache,
+  julian: JulianDate,
+  blurScale: number,
+  jitterX: number,
+  jitterY: number,
+): void {
+  const current = billboard.color?.getValue(julian) as Color | undefined;
+  if (current) {
+    billboard.color = setOrCreate(cache, 'billboardColor', current.withAlpha(state.opacity));
+  }
+  billboard.scale = setOrCreate(cache, 'billboardScale', blurScale);
+  billboard.pixelOffset = setOrCreate(cache, 'billboardPixelOffset', new Cartesian2(jitterX, jitterY));
+}
+
+function applyPoint(
+  point: NonNullable<Entity['point']>,
+  state: DegradationState,
+  cache: EntityPropertyCache,
+  julian: JulianDate,
+  blurPixelMul: number,
+): void {
+  const current = point.color?.getValue(julian) as Color | undefined;
+  if (current) {
+    point.color = setOrCreate(cache, 'pointColor', current.withAlpha(state.opacity));
+  }
+  const currentSize = point.pixelSize?.getValue(julian) as number | undefined;
+  if (typeof currentSize === 'number' && currentSize > 0) {
+    point.pixelSize = setOrCreate(cache, 'pointPixelSize', currentSize * blurPixelMul);
+  }
+}
+
+function applyLabel(
+  label: NonNullable<Entity['label']>,
+  state: DegradationState,
+  cache: EntityPropertyCache,
+): void {
+  label.show = setOrCreate(cache, 'labelShow', state.confidence > LABEL_THRESHOLD);
+}
+
+function applyPolyline(
+  polyline: NonNullable<Entity['polyline']>,
+  state: DegradationState,
+  cache: EntityPropertyCache,
+  julian: JulianDate,
+): void {
+  const baseColor = (polyline.material as { color?: { getValue?: (t: JulianDate) => Color } } | undefined)
+    ?.color?.getValue?.(julian) ?? Color.WHITE;
+  const faded = baseColor.withAlpha(state.opacity);
+  const colorProp = setOrCreate(cache, 'polylineMaterialColor', faded);
+
+  if (state.isDashed) {
+    cache.polylineDashMaterial ??= new PolylineDashMaterialProperty({
+      color: colorProp,
+      dashLength: 12,
+    });
+    polyline.material = cache.polylineDashMaterial;
+    cache.polylineWasDashed = true;
+  } else if (cache.polylineWasDashed) {
+    cache.polylineSolidMaterial ??= new ColorMaterialProperty(colorProp);
+    polyline.material = cache.polylineSolidMaterial;
+    cache.polylineWasDashed = false;
+  }
+}
+
+/**
+ * Stable per-entity jitter offset from a deterministic hash of the id.
+ * Returns [x, y] in pixels, scaled by the current jitter intensity.
+ */
+function computeJitterOffset(
+  id: string,
+  cache: EntityPropertyCache,
+  intensity: number,
+): [number, number] {
+  if (intensity <= 0) return [0, 0];
+  if (cache.jitterSeed === undefined) {
+    let hash = 0;
+    for (let i = 0; i < id.length; i++) {
+      hash = Math.trunc((hash << 5) - hash + (id.codePointAt(i) ?? 0));
+    }
+    cache.jitterSeed = hash;
+  }
+  const seed = cache.jitterSeed;
+  const angle = ((seed & 0xFF_FF) / 0xFF_FF) * Math.PI * 2;
+  const magnitude = Math.min(1, intensity) * JITTER_MAX_PX;
+  return [Math.cos(angle) * magnitude, Math.sin(angle) * magnitude];
 }
