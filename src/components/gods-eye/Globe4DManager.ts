@@ -16,9 +16,12 @@
 import type { GlobeDataManager } from '@/components/GlobeDataManager';
 import type { GlobeTimeMachine } from '@/components/GlobeTimeMachine';
 import type { GlobeHUD } from '@/components/GlobeHUD';
+import type { AutoFollowEngine } from '@/components/gods-eye/AutoFollowEngine';
 import { GlobeSwimlane } from '@/components/gods-eye/GlobeSwimlane';
+import { GlobePlayback } from '@/components/gods-eye/GlobePlayback';
+import type { PlaybackMode } from '@/components/gods-eye/GlobePlayback';
 
-export type PlaybackMode = 'documentary' | 'director' | 'heartbeat';
+export type { PlaybackMode } from '@/components/gods-eye/GlobePlayback';
 
 export interface Globe4DState {
   /** True when the user has toggled 4D mode on (e.g. via the `T` key). */
@@ -35,6 +38,7 @@ export interface Globe4DManagerDeps {
   hud?: GlobeHUD | null;
   timeMachine?: GlobeTimeMachine | null;
   dataManager?: GlobeDataManager | null;
+  autoFollow?: AutoFollowEngine | null;
   /** DOM node the swimlane mounts into. Usually the God's Eye container. */
   overlayContainer?: HTMLElement | null;
 }
@@ -53,6 +57,7 @@ export class Globe4DManager {
   private unsubTimeChange: (() => void) | null = null;
   private swimlane: GlobeSwimlane | null = null;
   private swimlaneRefreshId: ReturnType<typeof setInterval> | null = null;
+  private playback: GlobePlayback | null = null;
 
   constructor(deps: Globe4DManagerDeps) {
     this.deps = deps;
@@ -65,6 +70,7 @@ export class Globe4DManager {
     document.body.classList.add('gods-eye-4d-active');
 
     this.mountSwimlane();
+    this.mountPlayback();
 
     // Drive swimlane NOW line from time-machine state, and surface time
     // updates to future degradation/trail consumers via a single hook.
@@ -86,6 +92,7 @@ export class Globe4DManager {
       this.unsubTimeChange = null;
     }
 
+    this.unmountPlayback();
     this.unmountSwimlane();
 
     this.broadcast();
@@ -101,7 +108,13 @@ export class Globe4DManager {
   setPlaybackMode(mode: PlaybackMode): void {
     if (this.state.playbackMode === mode) return;
     this.state = { ...this.state, playbackMode: mode };
+    this.playback?.setMode(mode);
     this.broadcast();
+  }
+
+  /** Play/pause the active playback engine. No-op if 4D is off. */
+  togglePlayback(): void {
+    this.playback?.toggle();
   }
 
   getState(): Readonly<Globe4DState> { return this.state; }
@@ -157,14 +170,33 @@ export class Globe4DManager {
   }
 
   private refreshSwimlaneBlocks(): void {
-    if (!this.swimlane || !this.deps.dataManager) return;
+    if (!this.deps.dataManager) return;
     try {
       const blocks = this.deps.dataManager.getEventBlocks();
-      this.swimlane.updateBlocks(blocks);
+      this.swimlane?.updateBlocks(blocks);
+      this.playback?.updateEventBlocks(blocks);
     } catch (error) {
       // eslint-disable-next-line no-console
       console.error('[Globe4DManager] getEventBlocks failed', error);
     }
+  }
+
+  private mountPlayback(): void {
+    const timeMachine = this.deps.timeMachine;
+    if (!timeMachine) return;
+    this.playback = new GlobePlayback(timeMachine, this.deps.autoFollow ?? null);
+    this.playback.setMode(this.state.playbackMode);
+    this.playback.setOnModeChange((mode) => {
+      if (this.state.playbackMode !== mode) {
+        this.state = { ...this.state, playbackMode: mode };
+        this.broadcast();
+      }
+    });
+  }
+
+  private unmountPlayback(): void {
+    this.playback?.destroy();
+    this.playback = null;
   }
 
   private broadcast(): void {
