@@ -646,6 +646,7 @@ async function buildRouteTable(root) {
 }
 
 const REQUEST_BODY_CACHE = Symbol('requestBodyCache');
+const REQUEST_BODY_MAX_BYTES = 16 * 1024 * 1024; // 16 MB cap to bound memory
 
 async function readBody(req) {
   if (Object.prototype.hasOwnProperty.call(req, REQUEST_BODY_CACHE)) {
@@ -653,7 +654,16 @@ async function readBody(req) {
   }
 
   const chunks = [];
-  for await (const chunk of req) chunks.push(chunk);
+  let total = 0;
+  for await (const chunk of req) {
+    total += chunk.length;
+    if (total > REQUEST_BODY_MAX_BYTES) {
+      const err = new Error('Request body exceeds 16MB limit');
+      err.statusCode = 413;
+      throw err;
+    }
+    chunks.push(chunk);
+  }
   const body = chunks.length ? Buffer.concat(chunks) : undefined;
   req[REQUEST_BODY_CACHE] = body;
   return body;
@@ -6127,19 +6137,22 @@ export async function createLocalApiServer(options = {}) {
       const host = (() => { try { return new URL(req.url || '/', `http://x`).host; } catch { return 'unknown'; } })();
       wmRecordHostFailure(host, error?.message || String(error));
 
+      const status = Number.isInteger(error?.statusCode) ? error.statusCode : 500;
+      const message = status >= 400 && status < 500 ? (error.message || 'Bad request') : 'Internal server error';
+
       if (!skipRecord) {
         recordTraffic({
           timestamp: new Date().toISOString(),
           method: req.method,
           path: requestUrl.pathname + (requestUrl.search || ''),
-          status: 500,
+          status,
           durationMs,
           error: error.message,
         });
       }
 
-      res.writeHead(500, { 'content-type': 'application/json', ...makeCorsHeaders(req) });
-      res.end(JSON.stringify({ error: 'Internal server error' }));
+      res.writeHead(status, { 'content-type': 'application/json', ...makeCorsHeaders(req) });
+      res.end(JSON.stringify({ error: message }));
     }
   });
 
