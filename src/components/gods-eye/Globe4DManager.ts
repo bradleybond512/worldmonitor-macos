@@ -142,6 +142,17 @@ export class Globe4DManager {
     this.playback?.toggle();
   }
 
+  /** Collapse / expand the swimlane. No-op if 4D is off. */
+  toggleSwimlaneCollapse(): void {
+    this.swimlane?.toggleCollapse();
+  }
+
+  /** Step swimlane zoom one preset finer (1h ← 6h ← 24h ← 7d ← 30d). */
+  swimlaneZoomIn(): void { this.swimlane?.zoomIn(); }
+
+  /** Step swimlane zoom one preset coarser. */
+  swimlaneZoomOut(): void { this.swimlane?.zoomOut(); }
+
   getState(): Readonly<Globe4DState> { return this.state; }
 
   /**
