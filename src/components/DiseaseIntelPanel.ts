@@ -1,6 +1,6 @@
 import { Panel } from './Panel';
 import type { DiseaseIntelData } from '@/services/disease-intel';
-import { getGlobalVariants } from '@/services/disease-intel';
+import { getGlobalVariants, resolveOutbreakCoords } from '@/services/disease-intel';
 import { escapeHtml } from '@/utils/sanitize';
 
 type Tab = 'variants' | 'countries' | 'alerts';
@@ -60,9 +60,9 @@ export class DiseaseIntelPanel extends Panel {
     });
 
     el.addEventListener('click', (e) => {
-      const row = (e.target as Element).closest('tr[data-url]') as HTMLElement | null;
-      if (!row) return;
-      const url = row.dataset.url;
+      const target = (e.target as Element).closest('[data-url]') as HTMLElement | null;
+      if (!target) return;
+      const url = target.dataset.url;
       if (url?.startsWith('https://')) window.open(url, '_blank', 'noopener');
     });
   }
@@ -134,7 +134,15 @@ export class DiseaseIntelPanel extends Panel {
   }
 
   private renderAlerts(data: DiseaseIntelData): string {
-    interface AlertRow { badge: string; rowClass: string; disease: string; country: string; date: Date; url: string }
+    interface AlertRow {
+      badge: string;
+      rowClass: string;
+      disease: string;
+      country: string;
+      iso3?: string;
+      date: Date;
+      url: string;
+    }
     const rows: AlertRow[] = [];
 
     for (const e of data.epidemicEvents) {
@@ -143,6 +151,7 @@ export class DiseaseIntelPanel extends Panel {
         rowClass: e.status === 'alert' ? 'eq-row eq-major' : 'eq-row eq-strong',
         disease: extractDiseaseName(e.name),
         country: e.country,
+        iso3: e.iso3,
         date: e.date,
         url: e.url,
       });
@@ -164,7 +173,15 @@ export class DiseaseIntelPanel extends Panel {
       return '<div class="panel-empty">No active epidemic declarations or DON alerts.</div>';
     }
 
-    const html = rows.slice(0, 40).map(r => {
+    const located: AlertRow[] = [];
+    const unlocated: AlertRow[] = [];
+    for (const r of rows) {
+      const coords = resolveOutbreakCoords(r.country, data.covidCountries, r.iso3);
+      if (coords) located.push(r);
+      else unlocated.push(r);
+    }
+
+    const html = located.slice(0, 40).map(r => {
       const cursor = r.url ? 'cursor:pointer' : '';
       const urlAttr = r.url ? 'data-url="' + escapeHtml(r.url) + '"' : '';
       return `<tr class="${r.rowClass}" ${urlAttr} style="${cursor}">
@@ -175,11 +192,37 @@ export class DiseaseIntelPanel extends Panel {
       </tr>`;
     }).join('');
 
+    const unlocatedHtml = unlocated.length === 0 ? '' : `
+      <div style="margin-top:12px;padding:8px 10px;border-top:1px solid var(--panel-border,rgba(255,255,255,0.08));">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;font-size:11px;margin-bottom:6px;">
+          <span style="color:#ffb84a;font-weight:600;">⚠ Unlocated alerts (${unlocated.length})</span>
+          <span style="opacity:0.55;">not shown on map — country could not be matched</span>
+        </div>
+        <ul style="list-style:none;margin:0;padding:0;font-size:11px;line-height:1.55;">
+          ${unlocated.slice(0, 20).map(r => {
+            const cursor = r.url ? 'cursor:pointer;text-decoration:underline' : '';
+            const urlAttr = r.url ? 'data-url="' + escapeHtml(r.url) + '"' : '';
+            return `<li ${urlAttr} style="${cursor};display:grid;grid-template-columns:48px 1fr auto auto;gap:8px;padding:2px 0;">
+              <span style="opacity:0.65;font-family:monospace;font-size:10px;">${r.badge}</span>
+              <span>${escapeHtml(r.disease)}</span>
+              <span style="opacity:0.7;">${escapeHtml(r.country || '(no country)')}</span>
+              <span style="opacity:0.5;">${timeAgo(r.date)}</span>
+            </li>`;
+          }).join('')}
+        </ul>
+      </div>
+    `;
+
+    const locatedTable = located.length === 0
+      ? '<div class="panel-empty">No locatable alerts.</div>'
+      : `<table class="eq-table">
+          <thead><tr><th>Type</th><th>Disease</th><th>Country</th><th>Age</th></tr></thead>
+          <tbody>${html}</tbody>
+        </table>`;
+
     return `
-      <table class="eq-table">
-        <thead><tr><th>Type</th><th>Disease</th><th>Country</th><th>Age</th></tr></thead>
-        <tbody>${html}</tbody>
-      </table>
+      ${locatedTable}
+      ${unlocatedHtml}
       <div class="fires-footer">
         <span class="fires-source">UN OCHA ReliefWeb · WHO Disease Outbreak News</span>
         <span class="fires-updated">${timeAgo(data.fetchedAt)}</span>
