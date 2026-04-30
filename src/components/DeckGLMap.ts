@@ -4545,9 +4545,8 @@ export class DeckGLMap {
       data: top50,
       getSourcePosition: (d) => [d.originLon!, d.originLat!],
       getTargetPosition: (d) => [d.asylumLon!, d.asylumLat!],
-      getSourceColor: getCurrentTheme() === 'light' ? [180, 80, 50, 200] : [255, 140, 60, 160],
-      getTargetColor: getCurrentTheme() === 'light' ? [150, 50, 30, 200] : [230, 100, 40, 160],
-      getHeight: 0.15,
+      getSourceColor: getCurrentTheme() === 'light' ? [50, 80, 180, 220] : [100, 150, 255, 180],
+      getTargetColor: getCurrentTheme() === 'light' ? [20, 150, 100, 220] : [100, 255, 200, 180],
       getWidth: (d) => Math.max(1, (d.refugees / maxCount) * 8),
       widthMinPixels: 1,
       widthMaxPixels: 8,
@@ -4578,7 +4577,7 @@ export class DeckGLMap {
   }
 
   private createTradeRoutesLayer(): ArcLayer<TradeRouteSegment> {
-    const active: [number, number, number, number] = getCurrentTheme() === 'light' ? [30, 160, 130, 200] : [60, 210, 170, 150];
+    const active: [number, number, number, number] = getCurrentTheme() === 'light' ? [30, 100, 180, 200] : [100, 200, 255, 160];
     const disrupted: [number, number, number, number] = getCurrentTheme() === 'light' ? [200, 40, 40, 220] : [255, 80, 80, 200];
     const highRisk: [number, number, number, number] = getCurrentTheme() === 'light' ? [200, 140, 20, 200] : [255, 180, 50, 180];
     const colorFor = (status: string): [number, number, number, number] =>
@@ -4591,7 +4590,6 @@ export class DeckGLMap {
       getTargetPosition: (d) => d.targetPosition,
       getSourceColor: (d) => colorFor(d.status),
       getTargetColor: (d) => colorFor(d.status),
-      getHeight: 0.15,
       getWidth: (d) => d.category === 'energy' ? 3 : 2,
       widthMinPixels: 1,
       widthMaxPixels: 6,

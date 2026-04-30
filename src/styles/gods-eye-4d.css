@@ -1,0 +1,79 @@
+/*
+ * God's Eye 4D Mode — Styling
+ *
+ * Foundation styles for the 4D temporal extension. This file ships ahead of
+ * the visual feature set so future PRs (swimlane, playback transport,
+ * degradation, trails) only need to add component-specific rules.
+ *
+ * Activated when document.body has the `gods-eye-4d-active` class.
+ *
+ * Spec: docs/superpowers/specs/2026-04-13-gods-eye-4d-design.md
+ * Plan: docs/superpowers/plans/2026-04-13-gods-eye-4d.md
+ */
+
+/* ── HUD: 4D mode badge ──────────────────────────────────────────────────── */
+
+.ge-hud-4d-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  background: linear-gradient(135deg, rgba(140, 90, 255, 0.95), rgba(96, 60, 200, 0.95));
+  color: #fff;
+  font: 600 10px/1 "SF Pro Text", -apple-system, BlinkMacSystemFont, sans-serif;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  box-shadow: 0 0 0 1px rgba(180, 140, 255, 0.45), 0 4px 12px rgba(120, 80, 220, 0.35);
+}
+
+.ge-hud-4d-badge::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #ffe9c0;
+  box-shadow: 0 0 6px #ffd58a;
+}
+
+.ge-hud-4d-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: rgba(140, 90, 255, 0.18);
+  color: rgba(220, 200, 255, 0.95);
+  font: 500 10px/1.2 "SF Mono", ui-monospace, monospace;
+  letter-spacing: 0.04em;
+}
+
+/* ── Body class: subtle ambient affordance when 4D is on ──────────────── */
+
+body.gods-eye-4d-active .gods-eye-time-machine {
+  /* The simple scrubber gets a subtle violet outline so it's clear that
+   * 4D is active even before the swimlane component lands in a future PR. */
+  box-shadow: 0 0 0 1px rgba(140, 90, 255, 0.35), 0 4px 16px rgba(0, 0, 0, 0.35);
+  transition: box-shadow 0.25s ease;
+}
+
+/* ── Swimlane container — placeholder, populated by GlobeSwimlane.ts (TBD) ── */
+
+.ge-swimlane {
+  /* Reserved class, no visual rules yet. The swimlane component will set
+   * position, layout, and lane styling in a follow-up PR. */
+  pointer-events: auto;
+}
+
+/* ── Playback transport — placeholder ──────────────────────────────────── */
+
+.ge-playback-transport {
+  /* Reserved for play/pause/speed/mode pills. */
+}
+
+/* ── Degradation pipeline hooks — placeholder ──────────────────────────── */
+
+/* Reality-degradation styling is applied per-entity by GlobeDegradation.ts
+ * via Cesium primitive properties; no DOM-level CSS is needed for the
+ * Cesium-rendered effects. The hooks exist here in case the swimlane
+ * blocks need matching degradation styling. */
