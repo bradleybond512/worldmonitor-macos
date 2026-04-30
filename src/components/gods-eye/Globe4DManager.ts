@@ -25,7 +25,12 @@ import { GlobeTrails } from '@/components/gods-eye/GlobeTrails';
 import { GlobePillars } from '@/components/gods-eye/GlobePillars';
 import { GlobeDegradation } from '@/components/gods-eye/GlobeDegradation';
 import { GlobePredictions } from '@/components/gods-eye/GlobePredictions';
-import type { AftershockForecast, ForecastCone } from '@/services/forecast-engine';
+import { GlobeBranching } from '@/components/gods-eye/GlobeBranching';
+import type {
+  AftershockForecast,
+  BranchingForecast,
+  ForecastCone,
+} from '@/services/forecast-engine';
 
 export type { PlaybackMode } from '@/components/gods-eye/GlobePlayback';
 
@@ -72,6 +77,7 @@ export class Globe4DManager {
   private pillars: GlobePillars | null = null;
   private degradation: GlobeDegradation | null = null;
   private predictions: GlobePredictions | null = null;
+  private branching: GlobeBranching | null = null;
   private hudRefreshId: ReturnType<typeof setInterval> | null = null;
 
   constructor(deps: Globe4DManagerDeps) {
@@ -233,6 +239,8 @@ export class Globe4DManager {
     this.degradation.applyDegradation(initialMs);
     this.predictions = new GlobePredictions(viewer);
     this.predictions.mount();
+    this.branching = new GlobeBranching(viewer);
+    this.branching.mount();
   }
 
   private unmountVisualOverlays(): void {
@@ -244,6 +252,8 @@ export class Globe4DManager {
     this.degradation = null;
     this.predictions?.destroy();
     this.predictions = null;
+    this.branching?.destroy();
+    this.branching = null;
   }
 
   /** Imperative Tier 2 overlay API. Wired into entity click/hover by
@@ -253,8 +263,16 @@ export class Globe4DManager {
   showAftershockForecast(forecast: AftershockForecast): void {
     this.predictions?.showAftershock(forecast);
   }
-  clearPredictions(): void { this.predictions?.clear(); }
-  hasActivePrediction(): boolean { return this.predictions?.hasActive() ?? false; }
+  showBranchingForecast(forecast: BranchingForecast): void {
+    this.branching?.showBranches(forecast);
+  }
+  clearTier2(): void {
+    this.predictions?.clear();
+    this.branching?.clear();
+  }
+  hasActiveTier2(): boolean {
+    return (this.predictions?.hasActive() ?? false) || (this.branching?.hasActive() ?? false);
+  }
 
   private startHudCounterRefresh(): void {
     if (!this.deps.hud) return;

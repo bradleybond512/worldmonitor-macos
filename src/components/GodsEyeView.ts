@@ -536,6 +536,14 @@ export class GodsEyeView {
           return;
         }
 
+        // Esc clears any active Tier 2 prediction / branching overlay before
+        // the existing "Esc exits God's Eye" handler runs.
+        if (ke.key === 'Escape' && this.fourD?.hasActiveTier2()) {
+          this.fourD.clearTier2();
+          ke.stopPropagation();
+          return;
+        }
+
         // 4D-only shortcuts: D / I / H switch playback mode.
         // Only fired when 4D is active to avoid stealing single-key shortcuts
         // outside 4D context. Modifiers excluded so Cmd+D etc. pass through.
