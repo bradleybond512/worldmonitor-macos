@@ -241,6 +241,7 @@ export class GodsEyeView {
       timeMachine: this.timeMachine,
       dataManager: this.dataManager,
       autoFollow: this.autoFollow,
+      viewer: this.globe?.cesiumViewer ?? null,
       overlayContainer: this.container,
     });
     this.fourD.onChange((state) => {
