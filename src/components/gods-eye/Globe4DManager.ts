@@ -16,6 +16,7 @@
 import type { GlobeDataManager } from '@/components/GlobeDataManager';
 import type { GlobeTimeMachine } from '@/components/GlobeTimeMachine';
 import type { GlobeHUD } from '@/components/GlobeHUD';
+import { GlobeSwimlane } from '@/components/gods-eye/GlobeSwimlane';
 
 export type PlaybackMode = 'documentary' | 'director' | 'heartbeat';
 
@@ -34,7 +35,11 @@ export interface Globe4DManagerDeps {
   hud?: GlobeHUD | null;
   timeMachine?: GlobeTimeMachine | null;
   dataManager?: GlobeDataManager | null;
+  /** DOM node the swimlane mounts into. Usually the God's Eye container. */
+  overlayContainer?: HTMLElement | null;
 }
+
+const SWIMLANE_REFRESH_MS = 1500;
 
 export class Globe4DManager {
   private state: Globe4DState = {
@@ -46,6 +51,8 @@ export class Globe4DManager {
   private listeners: ((state: Readonly<Globe4DState>) => void)[] = [];
   private deps: Globe4DManagerDeps;
   private unsubTimeChange: (() => void) | null = null;
+  private swimlane: GlobeSwimlane | null = null;
+  private swimlaneRefreshId: ReturnType<typeof setInterval> | null = null;
 
   constructor(deps: Globe4DManagerDeps) {
     this.deps = deps;
@@ -57,10 +64,12 @@ export class Globe4DManager {
     this.state = { ...this.state, active: true };
     document.body.classList.add('gods-eye-4d-active');
 
-    // Subscribe to time changes so future sub-components (degradation,
-    // swimlane NOW line, trails) get a single broadcast point.
-    this.unsubTimeChange = this.deps.timeMachine?.onTimeChange(() => {
-      // No-op for the foundation PR. Sub-components will hook in here.
+    this.mountSwimlane();
+
+    // Drive swimlane NOW line from time-machine state, and surface time
+    // updates to future degradation/trail consumers via a single hook.
+    this.unsubTimeChange = this.deps.timeMachine?.onTimeChange((ms) => {
+      this.swimlane?.updateNow(ms);
     }) ?? null;
 
     this.broadcast();
@@ -76,6 +85,8 @@ export class Globe4DManager {
       this.unsubTimeChange();
       this.unsubTimeChange = null;
     }
+
+    this.unmountSwimlane();
 
     this.broadcast();
   }
@@ -109,6 +120,51 @@ export class Globe4DManager {
   destroy(): void {
     this.disable();
     this.listeners = [];
+  }
+
+  private mountSwimlane(): void {
+    const container = this.deps.overlayContainer;
+    const dataManager = this.deps.dataManager;
+    if (!container || !dataManager) return; // running headless or pre-mount
+
+    this.swimlane = new GlobeSwimlane(container);
+    this.swimlane.setOnTimeChange((ms) => { this.deps.timeMachine?.setTime(ms); });
+    this.swimlane.setOnEventClick((block) => {
+      // Future PR (Tier 2 deep analysis) will fly camera to block.lat/lon
+      // and open prediction overlays. For now, just scrub time to the event.
+      this.deps.timeMachine?.setTime(block.startMs);
+    });
+    this.swimlane.setOnLaneToggle((category) => {
+      // Lane labels toggle the contributing data layers. The mapping lives
+      // in GlobeDataManager (SWIMLANE_CATEGORY_MAP) but isn't currently
+      // exported; for the swimlane MVP we leave this as a no-op hook so
+      // future PRs can wire layer visibility via a public method.
+      // eslint-disable-next-line no-console
+      console.debug('[Globe4DManager] lane toggle (no-op pending layer-visibility hook):', category);
+    });
+    this.swimlane.mount();
+    this.refreshSwimlaneBlocks();
+    this.swimlaneRefreshId = setInterval(() => this.refreshSwimlaneBlocks(), SWIMLANE_REFRESH_MS);
+  }
+
+  private unmountSwimlane(): void {
+    if (this.swimlaneRefreshId != null) {
+      clearInterval(this.swimlaneRefreshId);
+      this.swimlaneRefreshId = null;
+    }
+    this.swimlane?.destroy();
+    this.swimlane = null;
+  }
+
+  private refreshSwimlaneBlocks(): void {
+    if (!this.swimlane || !this.deps.dataManager) return;
+    try {
+      const blocks = this.deps.dataManager.getEventBlocks();
+      this.swimlane.updateBlocks(blocks);
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error('[Globe4DManager] getEventBlocks failed', error);
+    }
   }
 
   private broadcast(): void {
