@@ -33,11 +33,14 @@ export class GlobeArcs {
 
   setEnabled(on: boolean): void {
     this.source.show = on;
+    if (this.refreshId != null) {
+      clearInterval(this.refreshId);
+      this.refreshId = null;
+    }
     if (on) {
       this.rebuild();
       this.refreshId = window.setInterval(() => this.rebuild(), 30_000);
     } else {
-      if (this.refreshId != null) { clearInterval(this.refreshId); this.refreshId = null; }
       this.source.entities.removeAll();
     }
   }

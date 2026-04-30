@@ -55,6 +55,7 @@ export class GlobeSwimlane {
   private laneTrackEls = new Map<EventBlock['category'], HTMLElement>();
   private laneLabels = new Map<EventBlock['category'], HTMLElement>();
   private refreshTimeout: ReturnType<typeof setTimeout> | null = null;
+  private activeDragCleanup: (() => void) | null = null;
 
   private onTimeChangeCb: ((ms: number) => void) | null = null;
   private onEventClickCb: ((block: EventBlock) => void) | null = null;
@@ -84,6 +85,10 @@ export class GlobeSwimlane {
     if (this.refreshTimeout != null) {
       clearTimeout(this.refreshTimeout);
       this.refreshTimeout = null;
+    }
+    if (this.activeDragCleanup) {
+      this.activeDragCleanup();
+      this.activeDragCleanup = null;
     }
     this.root?.remove();
     this.root = null;
@@ -226,6 +231,12 @@ export class GlobeSwimlane {
   }
 
   private beginScrubDrag(): void {
+    // Cancel any prior drag still in progress (e.g. mousedown without mouseup
+    // because the cursor left the window) so listeners can't accumulate.
+    if (this.activeDragCleanup) {
+      this.activeDragCleanup();
+      this.activeDragCleanup = null;
+    }
     // The two arrow functions form a paired add/remove pair so they share
     // closure state — extracting them to module scope would lose the `this`
     // and bound-listener identity required for removeEventListener. The
@@ -233,13 +244,16 @@ export class GlobeSwimlane {
     // event-listener teardown well; disable on the two handlers below.
     // eslint-disable-next-line unicorn/consistent-function-scoping
     const onMove = (ev: MouseEvent): void => this.scrubFromClientX(ev.clientX);
-    // eslint-disable-next-line unicorn/consistent-function-scoping
-    const onUp = (): void => {
+    const cleanup = (): void => {
       document.removeEventListener('mousemove', onMove);
       document.removeEventListener('mouseup', onUp);
+      if (this.activeDragCleanup === cleanup) this.activeDragCleanup = null;
     };
+    // eslint-disable-next-line unicorn/consistent-function-scoping
+    const onUp = (): void => cleanup();
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', onUp);
+    this.activeDragCleanup = cleanup;
   }
 
   private scrubFromClientX(clientX: number): void {
@@ -263,8 +277,10 @@ export class GlobeSwimlane {
       const categoryBlocks = this.blocks.filter(b => b.category === category);
       for (const block of categoryBlocks) {
         if (block.endMs < windowStart || block.startMs > windowEnd) continue;
-        const leftPct = Math.max(0, ((block.startMs - windowStart) / this.zoomMs) * 100);
-        const widthPct = Math.max(0.5, Math.min(100 - leftPct, ((block.endMs - block.startMs) / this.zoomMs) * 100));
+        const visibleStart = Math.max(block.startMs, windowStart);
+        const visibleEnd = Math.min(block.endMs, windowEnd);
+        const leftPct = ((visibleStart - windowStart) / this.zoomMs) * 100;
+        const widthPct = Math.max(0.5, ((visibleEnd - visibleStart) / this.zoomMs) * 100);
         const el = document.createElement('div');
         el.className = `ge-event-block ${block.isForecast ? 'forecast' : 'past'}`;
         el.style.left = `${leftPct}%`;

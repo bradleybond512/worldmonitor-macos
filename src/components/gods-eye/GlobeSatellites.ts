@@ -33,6 +33,7 @@ export class GlobeSatellites {
 
   async mount(): Promise<void> {
     await this.viewer.dataSources.add(this.source);
+    if (this.destroyed) return;
     await this.fetchTles();
   }
 
@@ -45,18 +46,19 @@ export class GlobeSatellites {
   setEnabled(on: boolean): void {
     this.enabled = on;
     this.source.show = on;
-    if (on) {
-      this.propagateLoop();
-    } else {
-      if (this.rafId != null) { cancelAnimationFrame(this.rafId); this.rafId = null; }
+    if (this.rafId != null) {
+      cancelAnimationFrame(this.rafId);
+      this.rafId = null;
     }
+    if (on) this.propagateLoop();
   }
 
   private async fetchTles(): Promise<void> {
     try {
       const res = await fetch(`${getApiBaseUrl()}/api/tle`);
-      if (!res.ok) return;
+      if (!res.ok || this.destroyed) return;
       const text = await res.text();
+      if (this.destroyed) return;
       this.tles = parseTles(text);
       this.rebuildEntities();
     } catch { /* silent */ }

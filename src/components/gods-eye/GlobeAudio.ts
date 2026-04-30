@@ -15,9 +15,14 @@ export class GlobeAudio {
   private gainNode: GainNode | null = null;
   private lfoGain: GainNode | null = null;
   private enabled = false;
+  private stopTimerId: ReturnType<typeof setTimeout> | null = null;
 
   start(): void {
     if (this.enabled) return;
+    if (this.stopTimerId !== null) {
+      clearTimeout(this.stopTimerId);
+      this.stopTimerId = null;
+    }
     this.enabled = true;
     this.ctx = new AudioContext();
     const ctx = this.ctx;
@@ -52,10 +57,17 @@ export class GlobeAudio {
     this.enabled = false;
     if (this.gainNode && this.ctx) {
       this.gainNode.gain.setTargetAtTime(0, this.ctx.currentTime, 0.5);
-      window.setTimeout(() => {
-        this.osc?.stop();
-        this.lfoOsc?.stop();
-        void this.ctx?.close();
+      const targetCtx = this.ctx;
+      const targetOsc = this.osc;
+      const targetLfoOsc = this.lfoOsc;
+      this.stopTimerId = window.setTimeout(() => {
+        this.stopTimerId = null;
+        // Only tear down the nodes we actually queued — guards against a
+        // racing start() that already swapped this.ctx etc. to fresh nodes.
+        if (this.ctx !== targetCtx) return;
+        targetOsc?.stop();
+        targetLfoOsc?.stop();
+        void targetCtx.close();
         this.ctx = null;
         this.osc = null;
         this.lfoOsc = null;
