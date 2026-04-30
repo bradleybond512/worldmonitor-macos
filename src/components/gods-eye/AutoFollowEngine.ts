@@ -152,6 +152,39 @@ function recencyBonus(tsMs: number | null, nowMs: number): number {
   return RECENCY_BONUS * (1 - (ageMs - RECENCY_FULL_MS) / (RECENCY_FULL_MS * 3));
 }
 
+/** Inner edge of the temporal-weight band: |Δt| ≤ 30 min → 2× boost. */
+const TEMPORAL_BOOST_INNER_MS = 30 * 60 * 1000;
+/** Outer edge of the temporal-weight band: |Δt| ≥ 6 h → 0.5× damp. */
+const TEMPORAL_BOOST_OUTER_MS = 6 * 60 * 60 * 1000;
+const TEMPORAL_BOOST_MAX = 2;
+const TEMPORAL_BOOST_MIN = 0.5;
+
+/**
+ * Multiplicative weight applied to an entity's score based on the proximity
+ * of its timestamp to the current playback time. Designed for AI Director
+ * mode 4D playback so the camera tracks events that were happening *then*,
+ * not just events that are happening *now*.
+ *
+ * - |Δt| ≤ 30 min → 2.0 × score
+ * - |Δt| ≥  6 h   → 0.5 × score
+ * - between → log-linear interpolation
+ *
+ * Returns 1.0 when either timestamp is null (caller falls back to wall-clock
+ * scoring) or the playback offset is exactly zero.
+ */
+export function temporalWeight(tsMs: number | null, playbackMs: number | null): number {
+  if (tsMs === null || playbackMs === null) return 1;
+  const dt = Math.abs(tsMs - playbackMs);
+  if (dt <= TEMPORAL_BOOST_INNER_MS) return TEMPORAL_BOOST_MAX;
+  if (dt >= TEMPORAL_BOOST_OUTER_MS) return TEMPORAL_BOOST_MIN;
+  // Log-linear so the boost decays smoothly across two orders of magnitude.
+  const inner = Math.log(TEMPORAL_BOOST_INNER_MS);
+  const outer = Math.log(TEMPORAL_BOOST_OUTER_MS);
+  const here = Math.log(dt);
+  const fraction = (here - inner) / (outer - inner);
+  return TEMPORAL_BOOST_MAX + (TEMPORAL_BOOST_MIN - TEMPORAL_BOOST_MAX) * fraction;
+}
+
 /**
  * Extract entity timestamp (last-updated) in ms epoch from PropertyBag.
  * Returns null if no timestamp is set.
@@ -182,6 +215,8 @@ export class AutoFollowEngine {
   private dataSources: () => Map<string, CustomDataSource>;
   /** Map of entity-id → ms epoch of last visit (for diversification penalty). */
   private visitedAt = new Map<string, number>();
+  /** Active 4D playback time, or null when scoring against wall-clock NOW. */
+  private playbackMs: number | null = null;
 
   constructor(
     viewer: Viewer,
@@ -256,17 +291,16 @@ export class AutoFollowEngine {
   /**
    * Refresh targets relative to a specific playback time. Used by 4D
    * AI Director mode so the camera follows what was important at the
-   * point in time being played back, not just wall-clock NOW.
-   *
-   * Today this delegates to the standard refresh — temporal scoring
-   * (weighting entities by how close their timestamp is to playbackMs)
-   * lands once entity timestamp metadata is uniformly available across
-   * data sources. The hook exists so the playback engine can call it
-   * without further plumbing.
+   * point in time being played back, not just wall-clock NOW. Entities
+   * whose timestamp falls within ±30 min of `playbackMs` get a 2× score
+   * boost; entities outside ±6 h get 0.5×. Between, the weight decays
+   * log-linearly. Entities without a timestamp get the neutral 1× weight
+   * so they remain comparable to scored entities.
    */
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  refreshAtTime(_playbackMs: number): void {
+  refreshAtTime(playbackMs: number): void {
+    this.playbackMs = Number.isFinite(playbackMs) ? playbackMs : null;
     this.refreshTargets();
+    this.playbackMs = null;
     if (this.targets.length > 0 && this._active) {
       this.flyToCurrentTarget();
     }
@@ -316,10 +350,12 @@ export class AutoFollowEngine {
     if (!loc) return null;
 
     const severity = entitySeverityProxy(entity, julian);
+    const tsMs = entityTimestampMs(entity, julian);
     let score = weight * (1 + (severity - 1) * SEVERITY_WEIGHT);
-    score += recencyBonus(entityTimestampMs(entity, julian), nowMs);
+    score += recencyBonus(tsMs, nowMs);
     score -= this.visitedPenalty(entity.id, nowMs);
     score += simpleHash(entity.id) * 0.25;
+    score *= temporalWeight(tsMs, this.playbackMs);
 
     return {
       id: entity.id,

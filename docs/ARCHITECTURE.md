@@ -126,6 +126,7 @@ A typical fetch cycle for a panel:
 6. The panel renders. UI templates use `escapeHtml()` / `sanitizeUrl()` on every dynamic value. `target="_blank"` links always carry `rel="noopener noreferrer"`.
 
 Errors:
+
 - Sidecar errors return `{ error: '...', status: 502 }` (or 503 on rate limit).
 - The renderer surfaces failures as banner notifications, never as silent stale state. Promise chains carry `.catch()` that logs and renders an empty/default panel state — see `src/app/country-intel.ts:150` for the canonical pattern.
 - `Promise.allSettled` is used for fan-out fetches so one failed source can't drop the whole panel.

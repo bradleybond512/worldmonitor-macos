@@ -71,6 +71,8 @@ export interface SynthesisReport {
 const CACHE_KEY = 'wm-threat-synthesis-v1';
 const CACHE_TTL_MS = 20 * 60 * 1000; // 20 minutes
 const BASELINE_KEY = 'wm-threat-synthesis-baseline-v1';
+const BASELINE_CYCLES_KEY = 'wm-threat-synthesis-baseline-cycles-v1';
+const BASELINE_WARM_THRESHOLD = 5; // cycles before baseline is reliable
 const BASELINE_HALFLIFE_MS = 24 * 60 * 60 * 1000; // 1 day rolling decay
 const TEMPORAL_WINDOW_MS = 6 * 60 * 60 * 1000; // 6h theater grouping
 const SPATIAL_MAX_KM = 500; // 500km theater radius
@@ -335,7 +337,45 @@ function recordBaselineSnapshot(map: BaselineMap, groups: Situation[][]): void {
       map[key] = { rollingCount: group.length, lastUpdated: now };
     }
   }
+  if (groups.length > 0) {
+    incrementBaselineCycles();
+  }
 }
+
+function readBaselineCycles(): number {
+  try {
+    const raw = localStorage.getItem(BASELINE_CYCLES_KEY);
+    const parsed = raw ? Number.parseInt(raw, 10) : 0;
+    return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
+  } catch {
+    return 0;
+  }
+}
+
+function incrementBaselineCycles(): void {
+  try {
+    localStorage.setItem(BASELINE_CYCLES_KEY, String(readBaselineCycles() + 1));
+  } catch { /* quota or private mode */ }
+}
+
+/**
+ * Number of synthesis cycles that have populated the baseline tracker.
+ * Used by UI to show a "calibrating" indicator until enough samples have
+ * accumulated for the counterfactual ratio to be meaningful.
+ */
+export function getBaselineCycles(): number {
+  return readBaselineCycles();
+}
+
+/**
+ * Whether the baseline has accumulated enough cycles to produce reliable
+ * anomaly ratios (≥ {@link BASELINE_WARM_THRESHOLD} cycles).
+ */
+export function isBaselineWarm(): boolean {
+  return readBaselineCycles() >= BASELINE_WARM_THRESHOLD;
+}
+
+export const BASELINE_WARMUP_THRESHOLD = BASELINE_WARM_THRESHOLD;
 
 function hazardCategoryToDomain(category: string): SituationDomain {
   const map: Record<string, SituationDomain> = {

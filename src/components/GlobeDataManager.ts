@@ -31,6 +31,13 @@ import {
 import { applyClustering } from '@/components/globeClustering';
 import { modelLoader } from '@/services/model-loader';
 import { BuildingTileManager } from '@/services/building-tiles';
+import {
+  computeAftershockForecast,
+  computeCycloneCone,
+  type AftershockForecast,
+  type ForecastCone,
+  type TrackPoint,
+} from '@/services/forecast-engine';
 import { fetchSatelliteCatalog, filterNotable, type SatelliteTLE, type SatelliteClassification } from '@/services/satellite-catalog';
 import { satellitePropagator, type SatellitePosition } from '@/services/satellite-propagator';
 import { fetchLightningStrikes } from '@/services/lightning';
@@ -211,6 +218,50 @@ function cycloneScale(isCat5: boolean, isCat3Plus: boolean, isCat1Plus: boolean)
   return 0.35;
 }
 
+const COMPASS_TO_DEG: Record<string, number> = {
+  N: 0, NNE: 22.5, NE: 45, ENE: 67.5,
+  E: 90, ESE: 112.5, SE: 135, SSE: 157.5,
+  S: 180, SSW: 202.5, SW: 225, WSW: 247.5,
+  W: 270, WNW: 292.5, NW: 315, NNW: 337.5,
+};
+
+const MOVEMENT_PATTERN = /([NSEW]{1,3})\s+at\s+([\d.]+)\s*(mph|kt|km\/h|kmh)/i;
+
+function parseCycloneMovement(movement: string): { headingDeg: number; speedKmh: number } | null {
+  const matched = MOVEMENT_PATTERN.exec(movement);
+  if (!matched?.[1] || !matched[2] || !matched[3]) return null;
+  const dir = matched[1].toUpperCase();
+  const speed = Number.parseFloat(matched[2]);
+  const unit = matched[3].toLowerCase();
+  const headingDeg = COMPASS_TO_DEG[dir];
+  if (headingDeg === undefined || !Number.isFinite(speed)) return null;
+  let speedKmh = speed;
+  if (unit === 'mph') speedKmh *= 1.609_34;
+  else if (unit === 'kt') speedKmh *= 1.852;
+  return { headingDeg, speedKmh };
+}
+
+function buildCycloneTrack(
+  lat: number,
+  lon: number,
+  movement: string,
+  advisoryTime: Date,
+): TrackPoint[] {
+  const tail: TrackPoint = { lat, lon, timeMs: advisoryTime.getTime() };
+  const parsed = parseCycloneMovement(movement);
+  if (!parsed) return [tail];
+  const headRad = (parsed.headingDeg * Math.PI) / 180;
+  const distKm = parsed.speedKmh;
+  const dLatPerKm = 1 / 111;
+  const lonScale = Math.max(0.1, Math.cos((lat * Math.PI) / 180));
+  const dLat = -Math.cos(headRad) * distKm * dLatPerKm;
+  const dLon = -Math.sin(headRad) * distKm * dLatPerKm / lonScale;
+  return [
+    { lat: lat + dLat, lon: lon + dLon, timeMs: tail.timeMs - 3_600_000 },
+    tail,
+  ];
+}
+
 function fireColor(confidence: string): Color {
   if (confidence === 'FIRE_CONFIDENCE_HIGH') return C.fireHigh;
   if (confidence === 'FIRE_CONFIDENCE_NOMINAL') return C.fireNominal;
@@ -349,6 +400,8 @@ export class GlobeDataManager {
   private activeSatelliteFilters: Set<SatelliteClassification> | null = null;
   private satelliteFilterHandler: EventListener | null = null;
   private satelliteCatalogMap = new Map<number, SatelliteTLE>();
+  private aftershockForecasts: AftershockForecast[] = [];
+  private cycloneCones: ForecastCone[] = [];
 
   constructor(viewer: Viewer) {
     this.viewer = viewer;
@@ -707,10 +760,18 @@ export class GlobeDataManager {
     const { fetchEarthquakes } = await import('@/services/earthquakes');
     const quakes = await fetchEarthquakes();
 
+    this.aftershockForecasts = [];
+
     for (const eq of quakes) {
       const lat = eq.location?.latitude;
       const lon = eq.location?.longitude;
       if (lat == null || lon == null) continue;
+
+      if (eq.magnitude >= 4) {
+        this.aftershockForecasts.push(
+          computeAftershockForecast(eq.id || `eq-${lat}-${lon}`, lat, lon, eq.magnitude),
+        );
+      }
 
       const isMajor = eq.magnitude >= 5;
       const color = isMajor ? C.earthquake : C.earthquakeMinor;
@@ -837,7 +898,13 @@ export class GlobeDataManager {
     const { fetchTropicalCyclones } = await import('@/services/tropical-cyclones');
     const cyclones = await fetchTropicalCyclones();
 
+    this.cycloneCones = [];
+
     for (const tc of cyclones) {
+      const track = buildCycloneTrack(tc.lat, tc.lon, tc.movement, tc.advisoryTime);
+      const cone = computeCycloneCone(tc.id, track);
+      if (cone) this.cycloneCones.push(cone);
+
       const isCat3Plus = tc.category === 'category_3' || tc.category === 'category_4' || tc.category === 'category_5';
       const isCat1Plus = isCat3Plus || tc.category === 'category_1' || tc.category === 'category_2';
       const color = cycloneColor(tc.category, isCat3Plus, isCat1Plus);
@@ -1734,6 +1801,22 @@ export class GlobeDataManager {
   // These methods feed the 4D temporal layer (swimlane, trails, pillars,
   // degradation). They are read-only and safe to call from any tick — no
   // entity mutation, no Cesium scene side effects.
+
+  /**
+   * Aftershock forecasts computed for the most recent earthquake load
+   * (mainshocks ≥ M4.0). Re-populated each loadEarthquakes() call.
+   */
+  getAftershockForecasts(): AftershockForecast[] {
+    return this.aftershockForecasts;
+  }
+
+  /**
+   * NHC-style cones of uncertainty computed for the most recent cyclone load.
+   * Re-populated each loadTropicalCyclones() call.
+   */
+  getCycloneCones(): ForecastCone[] {
+    return this.cycloneCones;
+  }
 
   /**
    * Returns position+timestamp pairs for visible entities in the named layer.

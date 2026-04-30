@@ -133,7 +133,7 @@ export class App {
             const newOrder = liveNewsIdx === -1 ? [] : ['live-news'];
             newOrder.push(...priorityPanels.filter(p => order.includes(p)), ...filtered);
             localStorage.setItem(PANEL_ORDER_KEY, JSON.stringify(newOrder));
-            console.log('[App] Migrated panel order to v1.8 layout');
+            console.log('[App] Migrated panel order to v1.9 layout');
           } catch {
             // Invalid saved order, will use defaults
           }
