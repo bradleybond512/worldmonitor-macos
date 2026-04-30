@@ -188,6 +188,25 @@ export class AutoFollowEngine {
     this.advanceToNext();
   }
 
+  /**
+   * Refresh targets relative to a specific playback time. Used by 4D
+   * AI Director mode so the camera follows what was important at the
+   * point in time being played back, not just wall-clock NOW.
+   *
+   * Today this delegates to the standard refresh — temporal scoring
+   * (weighting entities by how close their timestamp is to playbackMs)
+   * lands once entity timestamp metadata is uniformly available across
+   * data sources. The hook exists so the playback engine can call it
+   * without further plumbing.
+   */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  refreshAtTime(_playbackMs: number): void {
+    this.refreshTargets();
+    if (this.targets.length > 0 && this._active) {
+      this.flyToCurrentTarget();
+    }
+  }
+
   private refreshTargets(): void {
     const scored: FollowTarget[] = [];
     const sources = this.dataSources();
