@@ -544,13 +544,16 @@ export class GodsEyeView {
           return;
         }
 
-        // 4D-only shortcuts: D / I / H switch playback mode.
+        // 4D-only shortcuts: D / I / H mode, Tab collapse, [ / ] zoom.
         // Only fired when 4D is active to avoid stealing single-key shortcuts
         // outside 4D context. Modifiers excluded so Cmd+D etc. pass through.
         if (this.fourD?.isActive() && !ke.metaKey && !ke.ctrlKey && !ke.altKey) {
           if (ke.key === 'd' || ke.key === 'D') { this.fourD.setPlaybackMode('documentary'); return; }
           if (ke.key === 'i' || ke.key === 'I') { this.fourD.setPlaybackMode('director'); return; }
           if (ke.key === 'h' || ke.key === 'H') { this.fourD.setPlaybackMode('heartbeat'); return; }
+          if (ke.key === 'Tab') { ke.preventDefault(); this.fourD.toggleSwimlaneCollapse(); return; }
+          if (ke.key === '[') { this.fourD.swimlaneZoomIn(); return; }
+          if (ke.key === ']') { this.fourD.swimlaneZoomOut(); return; }
         }
 
         // Bookmark save: Cmd+1-5
