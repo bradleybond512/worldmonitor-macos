@@ -1,27 +1,28 @@
 /**
  * GlobeTrails — comet-tail polyline trails behind moving entities.
  *
- * Each tracked entity gets a Cesium PolylineGraphics fed by a Float64Array
- * ring buffer of (lon, lat, timeMs) tuples. Buffer length is bounded by
- * MAX_POINTS_PER_TRAIL; total trail count is bounded by MAX_TRAILS. Points
- * older than the per-layer window are trimmed on each refresh tick.
+ * Each tracked entity gets a Float64Array ring buffer of (lon, lat, timeMs)
+ * tuples. Buffer length is bounded by MAX_POINTS_PER_TRAIL; total trail count
+ * is bounded by MAX_TRAILS. Points older than the per-layer window are
+ * trimmed on each refresh tick.
  *
- * Trails are added/removed in lockstep with the entities surfaced by
- * GlobeDataManager.getEntityPositionHistory(). When an entity disappears
- * (filtered out, exited the time window, deleted), its trail is removed in
- * the next refresh.
- *
- * Plan: docs/superpowers/plans/2026-04-13-gods-eye-4d.md (Task 6)
+ * Trails are rendered as N-1 individual segment polylines per trail so each
+ * segment can carry its own alpha (Cesium's entity-API ColorMaterialProperty
+ * is single-color). The tail segment is fully transparent and the head segment
+ * is fully opaque, with linear interpolation between them. A predictive
+ * segment past the head extrapolates one trail-length ahead using the most
+ * recent heading + speed and renders at half alpha to flag the uncertainty.
  */
 
 import {
   Cartesian3,
   Color,
+  ColorMaterialProperty,
+  ConstantProperty,
   CustomDataSource,
   Entity,
-  CallbackProperty,
   PolylineGraphics,
-  type MaterialProperty,
+  PolylineDashMaterialProperty,
   type Viewer,
 } from 'cesium';
 import type { GlobeDataManager } from '@/components/GlobeDataManager';
@@ -44,6 +45,14 @@ const MAX_TRAILS = 200;
 const MAX_POINTS_PER_TRAIL = 50;
 const REFRESH_MS = 5000;
 const POINT_STRIDE = 3; // [lon, lat, timeMs]
+const PREDICTIVE_ALPHA = 0.35;
+const MAX_PREDICTIVE_DEG = 5; // never extrapolate more than ~550 km in the predictive segment
+
+interface SegmentSlot {
+  entity: Entity;
+  positions: ConstantProperty;
+  color: ConstantProperty;
+}
 
 interface TrailEntry {
   entityId: string;
@@ -51,7 +60,9 @@ interface TrailEntry {
   buffer: Float64Array;
   head: number;
   count: number;
-  cesiumEntity: Entity;
+  segments: SegmentSlot[];
+  predictive: SegmentSlot | null;
+  config: TrailConfig;
 }
 
 export class GlobeTrails {
@@ -108,10 +119,14 @@ export class GlobeTrails {
       }
     }
 
+    for (const trail of this.trails.values()) {
+      this.renderTrail(trail);
+    }
+
     // Drop trails whose entity disappeared.
     for (const [id, trail] of this.trails) {
       if (!seenIds.has(id)) {
-        this.source.entities.remove(trail.cesiumEntity);
+        this.removeTrail(trail);
         this.trails.delete(id);
       }
     }
@@ -119,24 +134,15 @@ export class GlobeTrails {
 
   private createTrail(entityId: string, config: TrailConfig): TrailEntry {
     const buffer = new Float64Array(MAX_POINTS_PER_TRAIL * POINT_STRIDE);
-    const trailColor = config.color.withAlpha(0.7);
-
-    const cesiumEntity = this.source.entities.add(new Entity({
-      polyline: new PolylineGraphics({
-        positions: new CallbackProperty(() => this.getTrailPositions(entityId), false),
-        width: config.width,
-        material: new CallbackProperty(() => trailColor, false) as unknown as MaterialProperty,
-        clampToGround: true,
-      }),
-    }));
-
     return {
       entityId,
       layerName: config.layerName,
       buffer,
       head: 0,
       count: 0,
-      cesiumEntity,
+      segments: [],
+      predictive: null,
+      config,
     };
   }
 
@@ -156,14 +162,127 @@ export class GlobeTrails {
     }
   }
 
-  private getTrailPositions(entityId: string): Cartesian3[] {
-    const trail = this.trails.get(entityId);
-    if (!trail || trail.count === 0) return [];
-    const positions: Cartesian3[] = [];
+  /**
+   * Resolve the trail buffer to an ordered array of (lon, lat) pairs from
+   * tail (oldest) to head (newest).
+   */
+  private collectPoints(trail: TrailEntry): { lon: number; lat: number }[] {
+    if (trail.count === 0) return [];
+    const out: { lon: number; lat: number }[] = [];
     for (let i = 0; i < trail.count; i++) {
       const idx = ((trail.head - trail.count + i + MAX_POINTS_PER_TRAIL) % MAX_POINTS_PER_TRAIL) * POINT_STRIDE;
-      positions.push(Cartesian3.fromDegrees(trail.buffer[idx] ?? 0, trail.buffer[idx + 1] ?? 0));
+      out.push({ lon: trail.buffer[idx] ?? 0, lat: trail.buffer[idx + 1] ?? 0 });
     }
-    return positions;
+    return out;
+  }
+
+  private renderTrail(trail: TrailEntry): void {
+    const points = this.collectPoints(trail);
+    const desiredSegments = Math.max(0, points.length - 1);
+
+    while (trail.segments.length > desiredSegments) {
+      const slot = trail.segments.pop();
+      if (slot) this.source.entities.remove(slot.entity);
+    }
+    while (trail.segments.length < desiredSegments) {
+      trail.segments.push(this.createSegmentSlot(trail.config.width, false));
+    }
+
+    for (let i = 0; i < desiredSegments; i++) {
+      const a = points[i];
+      const b = points[i + 1];
+      const slot = trail.segments[i];
+      if (!a || !b || !slot) continue;
+      const tailFrac = i / desiredSegments;
+      const headFrac = (i + 1) / desiredSegments;
+      const alpha = (tailFrac + headFrac) / 2; // average alpha across the segment
+      slot.positions.setValue([
+        Cartesian3.fromDegrees(a.lon, a.lat),
+        Cartesian3.fromDegrees(b.lon, b.lat),
+      ]);
+      slot.color.setValue(trail.config.color.withAlpha(alpha));
+    }
+
+    this.updatePredictiveSegment(trail, points);
+  }
+
+  /**
+   * Velocity-based predictive segment that extends one trail-length past the
+   * head using the average of the last few segments. Rendered as a low-alpha
+   * dashed polyline so the overall trail visually previews the next step.
+   */
+  private updatePredictiveSegment(trail: TrailEntry, points: { lon: number; lat: number }[]): void {
+    if (points.length < 2) {
+      if (trail.predictive) {
+        this.source.entities.remove(trail.predictive.entity);
+        trail.predictive = null;
+      }
+      return;
+    }
+
+    const head = points[points.length - 1]!;
+    // Average direction over the last few segments (smoother than raw last segment).
+    const sampleN = Math.min(5, points.length - 1);
+    let dLon = 0;
+    let dLat = 0;
+    for (let i = points.length - sampleN - 1; i < points.length - 1; i++) {
+      const p1 = points[i];
+      const p2 = points[i + 1];
+      if (!p1 || !p2) continue;
+      dLon += p2.lon - p1.lon;
+      dLat += p2.lat - p1.lat;
+    }
+    dLon /= sampleN;
+    dLat /= sampleN;
+
+    // Scale predictive vector to one trail-length, but cap to MAX_PREDICTIVE_DEG.
+    const trailLengthScale = sampleN > 0 ? (points.length - 1) / sampleN : 1;
+    let predLon = dLon * trailLengthScale;
+    let predLat = dLat * trailLengthScale;
+    const mag = Math.hypot(predLon, predLat);
+    if (mag > MAX_PREDICTIVE_DEG) {
+      const scale = MAX_PREDICTIVE_DEG / mag;
+      predLon *= scale;
+      predLat *= scale;
+    }
+    if (mag < 1e-6) {
+      // Stationary entity — drop any existing predictive segment.
+      if (trail.predictive) {
+        this.source.entities.remove(trail.predictive.entity);
+        trail.predictive = null;
+      }
+      return;
+    }
+
+    trail.predictive ??= this.createSegmentSlot(trail.config.width, true);
+    trail.predictive.positions.setValue([
+      Cartesian3.fromDegrees(head.lon, head.lat),
+      Cartesian3.fromDegrees(head.lon + predLon, head.lat + predLat),
+    ]);
+    trail.predictive.color.setValue(trail.config.color.withAlpha(PREDICTIVE_ALPHA));
+  }
+
+  private createSegmentSlot(width: number, dashed: boolean): SegmentSlot {
+    const positions = new ConstantProperty([Cartesian3.ZERO, Cartesian3.ZERO]);
+    const color = new ConstantProperty(Color.TRANSPARENT);
+    const material = dashed
+      ? new PolylineDashMaterialProperty({ color, dashLength: 8 })
+      : new ColorMaterialProperty(color);
+    const entity = this.source.entities.add(new Entity({
+      polyline: new PolylineGraphics({
+        positions,
+        width,
+        material,
+        clampToGround: true,
+      }),
+    }));
+    return { entity, positions, color };
+  }
+
+  private removeTrail(trail: TrailEntry): void {
+    for (const slot of trail.segments) this.source.entities.remove(slot.entity);
+    if (trail.predictive) this.source.entities.remove(trail.predictive.entity);
+    trail.segments.length = 0;
+    trail.predictive = null;
   }
 }

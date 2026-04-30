@@ -15,6 +15,7 @@
 import {
   Cartesian3,
   Cartographic,
+  JulianDate,
   Math as CesiumMath,
   type Viewer,
   type Entity,
@@ -30,6 +31,17 @@ export interface FollowTarget {
   lon: number;
   score: number;
 }
+
+/** Recency bonus: entities updated within this window get the full bonus. */
+const RECENCY_FULL_MS = 5 * 60 * 1000;
+/** Recency bonus magnitude (added to score for very fresh entities). */
+const RECENCY_BONUS = 1.5;
+/** Visited-recently penalty: how long a visit suppresses re-selection. */
+const VISITED_PENALTY_MS = 4 * 60 * 1000;
+/** Maximum penalty subtracted from score for a freshly-visited target. */
+const VISITED_PENALTY = 2;
+/** Severity-proxy weight (multiplied into base layer weight). */
+const SEVERITY_WEIGHT = 1;
 
 export interface AutoFollowOptions {
   cycleIntervalMs?: number;   // default: 12000 (12s)
@@ -95,7 +107,7 @@ function entityToLatLon(entity: Entity): { lat: number; lon: number } | null {
   const pos = entity.position;
   if (!pos) return null;
   try {
-    const cart = pos.getValue(new Date() as unknown as import('cesium').JulianDate);
+    const cart = pos.getValue(JulianDate.fromDate(new Date()));
     if (!cart) return null;
     const carto = Cartographic.fromCartesian(cart);
     return {
@@ -105,6 +117,57 @@ function entityToLatLon(entity: Entity): { lat: number; lon: number } | null {
   } catch {
     return null;
   }
+}
+
+/**
+ * Extract a per-entity severity proxy. Reads `severity` from the entity's
+ * PropertyBag if present (entities that opted in), otherwise falls back to
+ * billboard scale (which is itself derived from magnitude/alert-level for
+ * earthquake/GDACS/conflict layers). Returns a multiplier in roughly [0.5, 3].
+ */
+function entitySeverityProxy(entity: Entity, julian: JulianDate): number {
+  try {
+    const bag = entity.properties?.getValue(julian) as { severity?: unknown } | undefined;
+    const explicit = bag?.severity;
+    if (typeof explicit === 'number' && Number.isFinite(explicit) && explicit > 0) {
+      return Math.max(0.5, Math.min(3, explicit));
+    }
+  } catch { /* fall through to billboard proxy */ }
+  const scale: unknown = entity.billboard?.scale?.getValue(julian);
+  if (typeof scale === 'number' && Number.isFinite(scale) && scale > 0) {
+    return Math.max(0.5, Math.min(3, scale * 2));
+  }
+  return 1;
+}
+
+/**
+ * Score bonus for fresh entities. Full bonus inside RECENCY_FULL_MS,
+ * tapering linearly to zero by 4× that window.
+ */
+function recencyBonus(tsMs: number | null, nowMs: number): number {
+  if (tsMs === null) return 0;
+  const ageMs = nowMs - tsMs;
+  if (ageMs <= RECENCY_FULL_MS) return RECENCY_BONUS;
+  if (ageMs >= RECENCY_FULL_MS * 4) return 0;
+  return RECENCY_BONUS * (1 - (ageMs - RECENCY_FULL_MS) / (RECENCY_FULL_MS * 3));
+}
+
+/**
+ * Extract entity timestamp (last-updated) in ms epoch from PropertyBag.
+ * Returns null if no timestamp is set.
+ */
+function entityTimestampMs(entity: Entity, julian: JulianDate): number | null {
+  try {
+    const bag = entity.properties?.getValue(julian) as { timestamp?: Date | string | number } | undefined;
+    const ts = bag?.timestamp;
+    if (ts instanceof Date) return ts.getTime();
+    if (typeof ts === 'number' && Number.isFinite(ts)) return ts;
+    if (typeof ts === 'string') {
+      const parsed = Date.parse(ts);
+      return Number.isFinite(parsed) ? parsed : null;
+    }
+  } catch { /* none */ }
+  return null;
 }
 
 export class AutoFollowEngine {
@@ -117,6 +180,8 @@ export class AutoFollowEngine {
   private opts: Required<AutoFollowOptions>;
   private onTargetChange: ((target: FollowTarget | null, index: number, total: number) => void) | null = null;
   private dataSources: () => Map<string, CustomDataSource>;
+  /** Map of entity-id → ms epoch of last visit (for diversification penalty). */
+  private visitedAt = new Map<string, number>();
 
   constructor(
     viewer: Viewer,
@@ -188,41 +253,91 @@ export class AutoFollowEngine {
     this.advanceToNext();
   }
 
+  /**
+   * Refresh targets relative to a specific playback time. Used by 4D
+   * AI Director mode so the camera follows what was important at the
+   * point in time being played back, not just wall-clock NOW.
+   *
+   * Today this delegates to the standard refresh — temporal scoring
+   * (weighting entities by how close their timestamp is to playbackMs)
+   * lands once entity timestamp metadata is uniformly available across
+   * data sources. The hook exists so the playback engine can call it
+   * without further plumbing.
+   */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  refreshAtTime(_playbackMs: number): void {
+    this.refreshTargets();
+    if (this.targets.length > 0 && this._active) {
+      this.flyToCurrentTarget();
+    }
+  }
+
   private refreshTargets(): void {
     const scored: FollowTarget[] = [];
     const sources = this.dataSources();
+    const julian = JulianDate.fromDate(new Date());
+    const nowMs = Date.now();
+
+    this.pruneVisitLog(nowMs);
 
     for (const [layerName, source] of sources) {
       if (!source.show) continue;
-      const baseWeight = LAYER_WEIGHTS[layerName] ?? 1;
-      const modeMulti = MODE_MULTIPLIERS[this.mode]?.[layerName] ?? 1;
-      const weight = baseWeight * modeMulti;
-
-      if (weight < 0.5) continue; // Skip nearly-zero-weight layers
+      const weight = (LAYER_WEIGHTS[layerName] ?? 1) * (MODE_MULTIPLIERS[this.mode]?.[layerName] ?? 1);
+      if (weight < 0.5) continue;
 
       const entities = source.entities.values;
-      // Sample up to 10 entities per layer to keep target list manageable
       const step = Math.max(1, Math.floor(entities.length / 10));
       for (let i = 0; i < entities.length; i += step) {
         const entity = entities[i]!;
-        const loc = entityToLatLon(entity);
-        if (!loc) continue;
-
-        scored.push({
-          id: entity.id,
-          layer: layerName,
-          name: (entity.description?.getValue(new Date() as unknown as import('cesium').JulianDate) as string)
-            ?? entity.name
-            ?? layerName,
-          lat: loc.lat,
-          lon: loc.lon,
-          score: weight + simpleHash(entity.id) * 0.5, // Deterministic jitter to vary cycle order
-        });
+        const target = this.scoreEntity(entity, layerName, weight, julian, nowMs);
+        if (target) scored.push(target);
       }
     }
 
     scored.sort((a, b) => b.score - a.score);
-    this.targets = scored.slice(0, 30); // Top 30
+    this.targets = scored.slice(0, 30);
+  }
+
+  private pruneVisitLog(nowMs: number): void {
+    const visitTtlMs = 8 * 60 * 60 * 1000;
+    for (const [id, visitedMs] of this.visitedAt) {
+      if (nowMs - visitedMs > visitTtlMs) this.visitedAt.delete(id);
+    }
+  }
+
+  private scoreEntity(
+    entity: Entity,
+    layerName: string,
+    weight: number,
+    julian: JulianDate,
+    nowMs: number,
+  ): FollowTarget | null {
+    const loc = entityToLatLon(entity);
+    if (!loc) return null;
+
+    const severity = entitySeverityProxy(entity, julian);
+    let score = weight * (1 + (severity - 1) * SEVERITY_WEIGHT);
+    score += recencyBonus(entityTimestampMs(entity, julian), nowMs);
+    score -= this.visitedPenalty(entity.id, nowMs);
+    score += simpleHash(entity.id) * 0.25;
+
+    return {
+      id: entity.id,
+      layer: layerName,
+      name: (entity.description?.getValue(julian) as string) ?? entity.name ?? layerName,
+      lat: loc.lat,
+      lon: loc.lon,
+      score,
+    };
+  }
+
+  private visitedPenalty(id: string, nowMs: number): number {
+    const visitedMs = this.visitedAt.get(id);
+    if (visitedMs === undefined) return 0;
+    const sinceVisit = nowMs - visitedMs;
+    if (sinceVisit >= VISITED_PENALTY_MS) return 0;
+    const factor = 1 - sinceVisit / VISITED_PENALTY_MS;
+    return VISITED_PENALTY * factor;
   }
 
   private advanceToNext(): void {
@@ -242,6 +357,7 @@ export class AutoFollowEngine {
       destination: Cartesian3.fromDegrees(target.lon, target.lat, this.opts.altitudeMeters),
       duration: this.opts.flyDurationSec,
     });
+    this.visitedAt.set(target.id, Date.now());
     this.onTargetChange?.(target, this.currentIndex, this.targets.length);
   }
 
@@ -255,5 +371,6 @@ export class AutoFollowEngine {
   destroy(): void {
     this.stop();
     this.onTargetChange = null;
+    this.visitedAt.clear();
   }
 }

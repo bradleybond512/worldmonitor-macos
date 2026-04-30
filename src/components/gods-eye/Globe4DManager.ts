@@ -23,6 +23,14 @@ import { GlobePlayback } from '@/components/gods-eye/GlobePlayback';
 import type { PlaybackMode } from '@/components/gods-eye/GlobePlayback';
 import { GlobeTrails } from '@/components/gods-eye/GlobeTrails';
 import { GlobePillars } from '@/components/gods-eye/GlobePillars';
+import { GlobeDegradation } from '@/components/gods-eye/GlobeDegradation';
+import { GlobePredictions } from '@/components/gods-eye/GlobePredictions';
+import { GlobeBranching } from '@/components/gods-eye/GlobeBranching';
+import type {
+  AftershockForecast,
+  BranchingForecast,
+  ForecastCone,
+} from '@/services/forecast-engine';
 
 export type { PlaybackMode } from '@/components/gods-eye/GlobePlayback';
 
@@ -67,6 +75,9 @@ export class Globe4DManager {
   private playback: GlobePlayback | null = null;
   private trails: GlobeTrails | null = null;
   private pillars: GlobePillars | null = null;
+  private degradation: GlobeDegradation | null = null;
+  private predictions: GlobePredictions | null = null;
+  private branching: GlobeBranching | null = null;
   private hudRefreshId: ReturnType<typeof setInterval> | null = null;
 
   constructor(deps: Globe4DManagerDeps) {
@@ -84,10 +95,10 @@ export class Globe4DManager {
     this.mountVisualOverlays();
     this.startHudCounterRefresh();
 
-    // Drive swimlane NOW line from time-machine state, and surface time
-    // updates to future degradation consumers via a single hook.
+    // Drive swimlane NOW line + degradation pipeline from time-machine state.
     this.unsubTimeChange = this.deps.timeMachine?.onTimeChange((ms) => {
       this.swimlane?.updateNow(ms);
+      this.degradation?.applyDegradation(ms);
     }) ?? null;
 
     this.broadcast();
@@ -130,6 +141,17 @@ export class Globe4DManager {
   togglePlayback(): void {
     this.playback?.toggle();
   }
+
+  /** Collapse / expand the swimlane. No-op if 4D is off. */
+  toggleSwimlaneCollapse(): void {
+    this.swimlane?.toggleCollapse();
+  }
+
+  /** Step swimlane zoom one preset finer (1h ← 6h ← 24h ← 7d ← 30d). */
+  swimlaneZoomIn(): void { this.swimlane?.zoomIn(); }
+
+  /** Step swimlane zoom one preset coarser. */
+  swimlaneZoomOut(): void { this.swimlane?.zoomOut(); }
 
   getState(): Readonly<Globe4DState> { return this.state; }
 
@@ -221,6 +243,15 @@ export class Globe4DManager {
     this.trails.mount();
     this.pillars = new GlobePillars(viewer, dataManager);
     this.pillars.mount();
+    this.degradation = new GlobeDegradation(viewer, dataManager);
+    // Apply once on enable so any forecast entities visible at NOW are
+    // immediately degraded; subsequent updates ride the time-change hook.
+    const initialMs = this.deps.timeMachine?.getCurrentMs() ?? Date.now();
+    this.degradation.applyDegradation(initialMs);
+    this.predictions = new GlobePredictions(viewer);
+    this.predictions.mount();
+    this.branching = new GlobeBranching(viewer);
+    this.branching.mount();
   }
 
   private unmountVisualOverlays(): void {
@@ -228,6 +259,30 @@ export class Globe4DManager {
     this.trails = null;
     this.pillars?.destroy();
     this.pillars = null;
+    this.degradation?.destroy();
+    this.degradation = null;
+    this.predictions?.destroy();
+    this.predictions = null;
+    this.branching?.destroy();
+    this.branching = null;
+  }
+
+  /** Imperative Tier 2 overlay API. Wired into entity click/hover by
+   * GodsEyeView in a follow-up; today the API surface is here so callers
+   * can invoke it with a known-good shape. */
+  showPredictionCone(cone: ForecastCone): void { this.predictions?.showCone(cone); }
+  showAftershockForecast(forecast: AftershockForecast): void {
+    this.predictions?.showAftershock(forecast);
+  }
+  showBranchingForecast(forecast: BranchingForecast): void {
+    this.branching?.showBranches(forecast);
+  }
+  clearTier2(): void {
+    this.predictions?.clear();
+    this.branching?.clear();
+  }
+  hasActiveTier2(): boolean {
+    return (this.predictions?.hasActive() ?? false) || (this.branching?.hasActive() ?? false);
   }
 
   private startHudCounterRefresh(): void {
@@ -238,7 +293,7 @@ export class Globe4DManager {
 
   private tickHudCounters(): void {
     const trailCount = this.trails?.activeTrailCount ?? 0;
-    const forecastCount = this.pillars?.activePillarCount ?? 0;
+    const forecastCount = this.degradation?.forecastEntityCount ?? this.pillars?.activePillarCount ?? 0;
     if (this.state.trailCount !== trailCount || this.state.forecastCount !== forecastCount) {
       this.state = { ...this.state, trailCount, forecastCount };
       this.broadcast();

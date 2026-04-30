@@ -70,6 +70,11 @@ export interface SynthesisReport {
 
 const CACHE_KEY = 'wm-threat-synthesis-v1';
 const CACHE_TTL_MS = 20 * 60 * 1000; // 20 minutes
+const BASELINE_KEY = 'wm-threat-synthesis-baseline-v1';
+const BASELINE_HALFLIFE_MS = 24 * 60 * 60 * 1000; // 1 day rolling decay
+const TEMPORAL_WINDOW_MS = 6 * 60 * 60 * 1000; // 6h theater grouping
+const SPATIAL_MAX_KM = 500; // 500km theater radius
+const EARTH_RADIUS_KM = 6371;
 
 const DOMAIN_LABELS: Record<SituationDomain, string> = {
   military: 'Military',
@@ -116,48 +121,81 @@ function confidenceToSeverity(confidence: number): HazardSignal['severity'] {
 
 // ── Region Grouping ──────────────────────────────────────────────────────────
 
-/** Group situations into region buckets by country overlap */
-function groupByRegion(situations: Situation[]): Map<string, Situation[]> {
-  const regionMap = new Map<string, Situation[]>();
-  for (const sit of situations) {
-    if (sit.phase === 'resolved') continue;
-    const key = sit.geo.countries.length > 0
-      ? [...sit.geo.countries].sort((a, b) => a.localeCompare(b)).join(',')
-      : sit.geo.label ?? 'global';
-    const bucket = regionMap.get(key);
-    if (bucket) {
-      bucket.push(sit);
-    } else {
-      regionMap.set(key, [sit]);
-    }
-  }
-  return regionMap;
+function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const toRad = Math.PI / 180;
+  const dφ = (lat2 - lat1) * toRad;
+  const dλ = (lon2 - lon1) * toRad;
+  const a = Math.sin(dφ / 2) ** 2
+    + Math.cos(lat1 * toRad) * Math.cos(lat2 * toRad) * Math.sin(dλ / 2) ** 2;
+  return 2 * EARTH_RADIUS_KM * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-/** Merge region buckets that share any country code */
-function mergeOverlappingRegions(regionMap: Map<string, Situation[]>): Situation[][] {
-  const mergedGroups: Situation[][] = [];
-  const processed = new Set<string>();
+/**
+ * Two situations are in the same theater when they share a country code
+ * (topological neighborhood) OR are within SPATIAL_MAX_KM of each other AND
+ * their last-updated timestamps are within TEMPORAL_WINDOW_MS. The temporal
+ * window prevents stale archive items from dragging a fresh incident into a
+ * giant catch-all cluster.
+ */
+function shareTheater(a: Situation, b: Situation): boolean {
+  const countriesShared = a.geo.countries.some(c => b.geo.countries.includes(c));
+  if (countriesShared) return true;
 
-  for (const [key, sits] of regionMap) {
-    if (processed.has(key)) continue;
-    processed.add(key);
-    const merged = [...sits];
-    const countries = new Set(sits.flatMap(s => s.geo.countries));
+  const dt = Math.abs((a.lastUpdated ?? a.firstSeen) - (b.lastUpdated ?? b.firstSeen));
+  if (dt > TEMPORAL_WINDOW_MS) return false;
 
-    for (const [otherKey, otherSits] of regionMap) {
-      if (processed.has(otherKey)) continue;
-      const otherCountries = otherSits.flatMap(s => s.geo.countries);
-      if (otherCountries.some(c => countries.has(c))) {
-        merged.push(...otherSits);
-        for (const c of otherCountries) countries.add(c);
-        processed.add(otherKey);
-      }
-    }
-
-    mergedGroups.push(merged);
+  if (
+    typeof a.geo.lat !== 'number' || typeof a.geo.lon !== 'number'
+    || typeof b.geo.lat !== 'number' || typeof b.geo.lon !== 'number'
+  ) {
+    return false;
   }
-  return mergedGroups;
+  return haversineKm(a.geo.lat, a.geo.lon, b.geo.lat, b.geo.lon) <= SPATIAL_MAX_KM;
+}
+
+/**
+ * Union-find groups of situations that are co-located in space-time. The
+ * resulting groups subsume the previous country-set merge and additionally
+ * surface clusters in regions where situations don't carry country tags
+ * (e.g. open-ocean cyclones, cyber threats with global IP ranges).
+ */
+function mergeByProximityAndTime(situations: Situation[]): Situation[][] {
+  const active = situations.filter(s => s.phase !== 'resolved');
+  const parent = active.map((_, i) => i);
+  const find = (i: number): number => {
+    let root = i;
+    while (parent[root] !== root) root = parent[root]!;
+    while (parent[i] !== root) {
+      const next = parent[i]!;
+      parent[i] = root;
+      i = next;
+    }
+    return root;
+  };
+  const union = (i: number, j: number): void => {
+    const ri = find(i);
+    const rj = find(j);
+    if (ri !== rj) parent[ri] = rj;
+  };
+
+  for (let i = 0; i < active.length; i++) {
+    for (let j = i + 1; j < active.length; j++) {
+      const a = active[i];
+      const b = active[j];
+      if (!a || !b) continue;
+      if (shareTheater(a, b)) union(i, j);
+    }
+  }
+
+  const groupsByRoot = new Map<number, Situation[]>();
+  for (const [i, sit] of active.entries()) {
+    if (!sit) continue;
+    const root = find(i);
+    const bucket = groupsByRoot.get(root);
+    if (bucket) bucket.push(sit);
+    else groupsByRoot.set(root, [sit]);
+  }
+  return [...groupsByRoot.values()];
 }
 
 /** Build the signal-by-domain summary map for a group of situations */
@@ -209,26 +247,94 @@ function buildCluster(
 // ── Cluster Builder ───────────────────────────────────────────────────────────
 
 /**
- * Group situations by geographic proximity into cross-domain clusters.
- * Only clusters with 2+ distinct domains are interesting for synthesis.
+ * Group situations into cross-domain clusters by space-time proximity (or
+ * country overlap). Only clusters with 2+ distinct domains are interesting
+ * for synthesis. The baseline tracker is consulted to amplify confidence
+ * for clusters that exceed their region's typical signal volume — a crude
+ * counterfactual: "is this region noisier than usual?".
  */
 function buildCrossDomainClusters(
   situations: Situation[],
   compoundThreats: CompoundThreat[],
 ): CrossDomainCluster[] {
-  const regionMap = groupByRegion(situations);
-  const mergedGroups = mergeOverlappingRegions(regionMap);
+  const groups = mergeByProximityAndTime(situations);
+  const baseline = loadBaseline();
 
   const clusters: CrossDomainCluster[] = [];
-  for (const group of mergedGroups) {
+  for (const group of groups) {
     const cluster = buildCluster(group, compoundThreats);
-    if (cluster) clusters.push(cluster);
+    if (!cluster) continue;
+    const ratio = baselineAnomalyRatio(baseline, cluster.region, group.length);
+    if (ratio > 1) {
+      cluster.confidence = Math.min(1, cluster.confidence * Math.min(1.5, ratio));
+      cluster.escalationRisk = confidenceToRisk(cluster.confidence, cluster.domains.length);
+    }
+    clusters.push(cluster);
   }
+  recordBaselineSnapshot(baseline, groups);
+  saveBaseline(baseline);
 
   return clusters.sort((a, b) => {
     const riskOrder: EscalationRisk[] = ['critical', 'high', 'moderate', 'low'];
     return riskOrder.indexOf(a.escalationRisk) - riskOrder.indexOf(b.escalationRisk);
   });
+}
+
+// ── Baseline (counterfactual signal-density tracker) ─────────────────────────
+
+interface BaselineEntry {
+  rollingCount: number;
+  lastUpdated: number;
+}
+type BaselineMap = Record<string, BaselineEntry>;
+
+function loadBaseline(): BaselineMap {
+  try {
+    const raw = localStorage.getItem(BASELINE_KEY);
+    if (!raw) return {};
+    return JSON.parse(raw) as BaselineMap;
+  } catch {
+    return {};
+  }
+}
+
+function saveBaseline(map: BaselineMap): void {
+  try {
+    localStorage.setItem(BASELINE_KEY, JSON.stringify(map));
+  } catch { /* quota or private mode */ }
+}
+
+function regionKey(label: string): string {
+  return label.trim().toLowerCase().replace(/\s+/g, '-').slice(0, 40);
+}
+
+function baselineAnomalyRatio(map: BaselineMap, region: string, count: number): number {
+  const entry = map[regionKey(region)];
+  if (!entry || entry.rollingCount <= 0.5) return 1;
+  const decay = Math.exp(-(Date.now() - entry.lastUpdated) / BASELINE_HALFLIFE_MS);
+  const decayed = entry.rollingCount * decay;
+  return decayed > 0 ? count / decayed : 1;
+}
+
+function recordBaselineSnapshot(map: BaselineMap, groups: Situation[][]): void {
+  const now = Date.now();
+  for (const group of groups) {
+    const first = group[0];
+    if (!first) continue;
+    const region = first.geo.label ?? first.geo.countries.join(',') ?? 'global';
+    const key = regionKey(region);
+    const prev = map[key];
+    if (prev) {
+      const decay = Math.exp(-(now - prev.lastUpdated) / BASELINE_HALFLIFE_MS);
+      // Exponential moving average with α = 0.3 on the decayed prior.
+      map[key] = {
+        rollingCount: prev.rollingCount * decay * 0.7 + group.length * 0.3,
+        lastUpdated: now,
+      };
+    } else {
+      map[key] = { rollingCount: group.length, lastUpdated: now };
+    }
+  }
 }
 
 function hazardCategoryToDomain(category: string): SituationDomain {
