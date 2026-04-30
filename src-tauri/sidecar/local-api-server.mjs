@@ -5597,15 +5597,52 @@ async function dispatch(requestUrl, req, routes, context) {
       const r = await fetchWithTimeout('https://opensky-network.org/api/states/all', { headers }, 12000);
       if (!r.ok) throw new Error(`OpenSky HTTP ${r.status}`);
       const data = await r.json();
-      const MILITARY_SQUAWKS = new Set(['7700', '7600', '7500']);
-      const MILITARY_ICAO_PREFIXES = ['ae', 'a9', '43', '47', '48', '4b', '4c'];
+      // ICAO hex ranges from dump1090 / readsb mil_range table.
+      // 7500/7600/7700 are universal emergency squawks (hijack/radio/emergency),
+      // NOT military markers — removed.
+      const MILITARY_HEX_RANGES = [
+        [0xadf7c8, 0xafffff], // United States military
+        [0x010070, 0x01008f], // Egypt military
+        [0x0a4000, 0x0a4fff], // Algeria military
+        [0x33ff00, 0x33ffff], // Italy military
+        [0x350000, 0x37ffff], // Spain military
+        [0x3a8000, 0x3affff], // France military
+        [0x3b0000, 0x3bffff], // France military
+        [0x3ea000, 0x3ebfff], // Germany military
+        [0x3f4000, 0x3fbfff], // Germany military
+        [0x400000, 0x40003f], // UK military (HQ Air Cmd)
+        [0x43c000, 0x43cfff], // UK military
+        [0x444000, 0x446fff], // Austria military
+        [0x44f000, 0x44ffff], // Belgium military
+        [0x457000, 0x457fff], // Bulgaria military
+        [0x45f400, 0x45f4ff], // Denmark military
+        [0x468000, 0x4683ff], // Greece military
+        [0x473c00, 0x473c0f], // Hungary military
+        [0x478100, 0x4781ff], // Iceland military
+        [0x480000, 0x480fff], // Netherlands military
+        [0x48d800, 0x48d87f], // Poland military
+        [0x497c00, 0x497cff], // Portugal military
+        [0x498420, 0x49842f], // Czech military
+        [0x4b7000, 0x4b7fff], // Switzerland military
+        [0x4b8200, 0x4b82ff], // Turkey military
+        [0x506f00, 0x506fff], // Slovenia military
+        [0x70c070, 0x70c07f], // Pakistan military
+        [0xe40000, 0xe41fff], // misc military allocation
+      ];
+      const isMilitaryHex = (icao24) => {
+        if (!icao24 || typeof icao24 !== 'string') return false;
+        const hex = Number.parseInt(icao24, 16);
+        if (!Number.isFinite(hex)) return false;
+        for (const [start, end] of MILITARY_HEX_RANGES) {
+          if (hex >= start && hex <= end) return true;
+        }
+        return false;
+      };
       const military = (data.states ?? []).filter(state => {
         if (state[8] === true) return false;
         if (state[6] == null || state[5] == null) return false;
         const icao24 = (state[0] ?? '').toLowerCase();
-        const squawk = state[14] ?? '';
-        if (MILITARY_SQUAWKS.has(squawk)) return true;
-        return MILITARY_ICAO_PREFIXES.some(prefix => icao24.startsWith(prefix));
+        return isMilitaryHex(icao24);
       }).map(state => ({
         icao24: state[0],
         callsign: (state[1] ?? '').trim(),
