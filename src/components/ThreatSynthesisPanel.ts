@@ -12,6 +12,9 @@ import { h, replaceChildren } from '@/utils/dom-utils';
 import {
   synthesizeThreats,
   getCachedSynthesis,
+  getBaselineCycles,
+  isBaselineWarm,
+  BASELINE_WARMUP_THRESHOLD,
   type SynthesisReport,
   type CrossDomainCluster,
   type EscalationRisk,
@@ -118,6 +121,10 @@ export class ThreatSynthesisPanel extends Panel {
 
     const wrapper = h('div', { style: 'overflow-y:auto;max-height:100%;padding:0' });
 
+    if (!isBaselineWarm()) {
+      wrapper.append(this.buildWarmupBanner());
+    }
+
     // Risk gauge
     wrapper.append(this.buildRiskGauge(report.escalationRisk, report.aiPowered));
 
@@ -157,6 +164,21 @@ export class ThreatSynthesisPanel extends Panel {
     wrapper.append(btnRow);
 
     replaceChildren(this.content, wrapper);
+  }
+
+  private buildWarmupBanner(): HTMLElement {
+    const cycles = getBaselineCycles();
+    const remaining = Math.max(0, BASELINE_WARMUP_THRESHOLD - cycles);
+    const banner = h('div', {
+      style: 'padding:6px 12px;border-bottom:1px solid rgba(255,200,80,0.2);background:rgba(255,200,80,0.06);display:flex;align-items:center;gap:6px;font-size:10.5px',
+    });
+    const dot = h('span', {
+      style: 'width:7px;height:7px;border-radius:50%;background:#ffc850;box-shadow:0 0 6px rgba(255,200,80,0.7);animation:wm-pulse 1.4s ease-in-out infinite',
+    });
+    const text = h('span', { style: 'opacity:0.85' },
+      `Baseline calibrating… ${cycles}/${BASELINE_WARMUP_THRESHOLD} cycles. Anomaly ratios are unreliable for ${remaining} more cycle${remaining === 1 ? '' : 's'}.`);
+    banner.append(dot, text);
+    return banner;
   }
 
   private buildRiskGauge(risk: EscalationRisk, aiPowered: boolean): HTMLElement {
