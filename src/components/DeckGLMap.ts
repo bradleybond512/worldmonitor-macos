@@ -40,6 +40,7 @@ import { forecastOverlay, riskToColor, formatRegionLabel, type ForecastRegion } 
 import type { AirportDelayAlert } from '@/services/aviation';
 import type { ScoredFAACamera } from '@/services/faa-cameras';
 import type { DiseaseIntelData, CovidCountry, EpidemicEvent, WhoDonAlert } from '@/services/disease-intel';
+import { resolveOutbreakCoords } from '@/services/disease-intel';
 import type { IranEvent } from '@/services/conflict';
 import type { GpsJamHex } from '@/services/gps-interference';
 import type { DisplacementFlow } from '@/services/displacement';
@@ -199,24 +200,6 @@ const CLADE_COLORS: Record<string, [number, number, number, number]> = {
   EG: [100, 220, 160, 180],   // EG.5 lineage — green
 };
 
-// Match an outbreak country name to a lat/lon from the disease.sh country list.
-// Pass 1: exact case-insensitive match. Pass 2: either name starts with the other
-// (handles "Democratic Republic of the Congo" ↔ "Congo (Kinshasa)" etc.).
-function resolveCountryCoords(
-  name: string,
-  countries: CovidCountry[]
-): [number, number] | null {
-  const needle = name.toLowerCase().trim();
-  // Pass 1 — exact
-  let match = countries.find(c => c.country.toLowerCase() === needle);
-  // Pass 2 — prefix fold: either string is a prefix of the other
-  match ??= countries.find(c => {
-    const hay = c.country.toLowerCase();
-    return hay.startsWith(needle.slice(0, 5)) || needle.startsWith(hay.slice(0, 5));
-  });
-  if (!match || match.lat === 0 && match.lon === 0) return null;
-  return [match.lat, match.lon];
-}
 
 function getDominantCladeColorForIso2(data: DiseaseIntelData, iso2: string): [number, number, number, number] {
   const country = data.covidCountries.find(c => c.iso2 === iso2);
@@ -1947,8 +1930,8 @@ export class DeckGLMap {
 
     const pins = items
       .map(item => {
-        const countryName = item.country;
-        const coords = resolveCountryCoords(countryName, countries);
+        const iso3 = 'iso3' in item ? (item as EpidemicEvent).iso3 : undefined;
+        const coords = resolveOutbreakCoords(item.country, countries, iso3);
         if (!coords) return null;
         const isAlert = 'status' in item ? (item as EpidemicEvent).status === 'alert' : false;
         return { lat: coords[0], lon: coords[1], isAlert };
