@@ -2,6 +2,7 @@
 @import './panels.css';
 @import './macos-native.css';
 @import './gods-eye.css';
+@import './gods-eye-4d.css';
 
 /* ============================================================
    Theme Colors — overridden by [data-theme="light"] below

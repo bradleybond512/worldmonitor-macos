@@ -9,6 +9,7 @@ import { CesiumGlobe } from '@/components/CesiumGlobe';
 import { GlobeDataManager } from '@/components/GlobeDataManager';
 import { GlobeHUD } from '@/components/GlobeHUD';
 import { GlobeTimeMachine } from '@/components/GlobeTimeMachine';
+import { Globe4DManager } from '@/components/gods-eye/Globe4DManager';
 import { AutoFollowEngine } from '@/components/gods-eye/AutoFollowEngine';
 import { GlobePulse } from '@/components/gods-eye/GlobePulse';
 import { GlobeArcs } from '@/components/gods-eye/GlobeArcs';
@@ -62,6 +63,7 @@ export class GodsEyeView {
   private dataManager: GlobeDataManager | null = null;
   private hud: GlobeHUD | null = null;
   private timeMachine: GlobeTimeMachine | null = null;
+  private fourD: Globe4DManager | null = null;
   private autoFollow: AutoFollowEngine | null = null;
   private reactorBeacons: GlobeReactorBeacons | null = null;
   private globePulse: GlobePulse | null = null;
@@ -230,6 +232,22 @@ export class GodsEyeView {
     this.hud.setOnArcsToggle((enabled) => this.globeArcs?.setEnabled(enabled));
     this.hud.setOnHeatmapToggle((enabled) => this.globeHeatmap?.setEnabled(enabled));
 
+    // 4D mode orchestrator (toggled via the `T` key). Visual sub-components
+    // — swimlane, trails, pillars, predictions — land in follow-up PRs per
+    // docs/superpowers/plans/2026-04-13-gods-eye-4d.md. The HUD badge
+    // confirms when 4D is engaged.
+    this.fourD = new Globe4DManager({
+      hud: this.hud,
+      timeMachine: this.timeMachine,
+      dataManager: this.dataManager,
+    });
+    this.fourD.onChange((state) => {
+      this.hud?.updateState({
+        fourDActive: state.active,
+        fourDPlaybackMode: state.playbackMode,
+      });
+    });
+
     // Satellite overlay
     if (viewer) {
       this.globeSatellites = new GlobeSatellites(viewer);
@@ -314,6 +332,9 @@ export class GodsEyeView {
 
     this.timeMachine?.destroy();
     this.timeMachine = null;
+
+    this.fourD?.destroy();
+    this.fourD = null;
 
     this.reactorBeacons?.destroy();
     this.reactorBeacons = null;
@@ -502,6 +523,16 @@ export class GodsEyeView {
         // L toggles day/night terminator
         if (ke.key === 'l' || ke.key === 'L') {
           this.hud?.toggleTerminator();
+          return;
+        }
+
+        // T toggles God's Eye 4D mode (ambient temporal layer).
+        // Visual sub-components (swimlane, trails, pillars, predictions) land
+        // in follow-up PRs; this PR ships the toggle + HUD badge so the
+        // wiring is stable across those PRs.
+        if (ke.key === 't' || ke.key === 'T') {
+          if (ke.metaKey || ke.ctrlKey || ke.altKey) return; // avoid stealing browser Cmd+T
+          this.fourD?.toggle();
           return;
         }
 

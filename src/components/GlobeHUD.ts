@@ -17,6 +17,10 @@ export interface HUDState {
   disasters?: number;
   nearestHotspot?: { name: string; distanceKm: number } | null;
   tickerItems?: string[];
+  /** Whether God's Eye 4D mode is currently active. Toggled via the `T` key. */
+  fourDActive?: boolean;
+  /** Currently selected 4D playback mode. */
+  fourDPlaybackMode?: 'documentary' | 'director' | 'heartbeat';
 }
 
 function sunAltitudeDeg(lat: number, lon: number, date: Date): number {
@@ -59,6 +63,12 @@ function threatFromHotspots(count: number): { label: string; cls: string } {
 function formatCoord(deg: number, pos: string, neg: string): string {
   const dir = deg >= 0 ? pos : neg;
   return `${Math.abs(deg).toFixed(2)}\u00B0${dir}`;
+}
+
+function fourDBadgeLabel(mode: 'documentary' | 'director' | 'heartbeat' | undefined): string {
+  if (mode === 'director') return '4D \u00B7 AI';
+  if (mode === 'heartbeat') return '4D \u00B7 PULSE';
+  return '4D \u00B7 DOC';
 }
 
 const THEATER_HINTS = [
@@ -113,6 +123,7 @@ export class GlobeHUD {
   private coordsEl: HTMLElement | null = null;
   private clockEl: HTMLElement | null = null;
   private modeBadgeEl: HTMLElement | null = null;
+  private fourDBadgeEl: HTMLElement | null = null;
   private autoFollowCard: HTMLElement | null = null;
   private autoFollowTarget: HTMLElement | null = null;
   private autoFollowCounter: HTMLElement | null = null;
@@ -152,6 +163,10 @@ export class GlobeHUD {
     card.append(this.clockEl);
     this.modeBadgeEl = this.el('div', 'ge-mode-badge ge-mode-badge-peace', 'PEACE');
     card.append(this.modeBadgeEl);
+    // 4D mode badge — hidden by default, shown when Globe4DManager is active.
+    this.fourDBadgeEl = this.el('div', 'ge-hud-4d-badge', '4D');
+    this.fourDBadgeEl.style.display = 'none';
+    card.append(this.fourDBadgeEl);
     const threatLabel = this.el('div', 'ge-hud-micro-label', 'THREAT ASSESSMENT');
     card.append(threatLabel);
     this.threatEl = this.el('div', 'ge-hud-threat-value ge-threat-nominal', 'NOMINAL');
@@ -630,6 +645,12 @@ export class GlobeHUD {
     if (state.tickerItems !== undefined && this.tickerTrackEl) {
       const items = state.tickerItems.length ? state.tickerItems : ['Awaiting feeds…'];
       this.tickerTrackEl.textContent = items.join('   •   ') + '   •   ' + items.join('   •   ');
+    }
+    if (state.fourDActive !== undefined && this.fourDBadgeEl) {
+      this.fourDBadgeEl.style.display = state.fourDActive ? 'inline-flex' : 'none';
+      if (state.fourDActive) {
+        this.fourDBadgeEl.textContent = fourDBadgeLabel(state.fourDPlaybackMode);
+      }
     }
   }
 
