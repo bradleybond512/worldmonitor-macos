@@ -17,9 +17,12 @@ import type { GlobeDataManager } from '@/components/GlobeDataManager';
 import type { GlobeTimeMachine } from '@/components/GlobeTimeMachine';
 import type { GlobeHUD } from '@/components/GlobeHUD';
 import type { AutoFollowEngine } from '@/components/gods-eye/AutoFollowEngine';
+import type { Viewer } from 'cesium';
 import { GlobeSwimlane } from '@/components/gods-eye/GlobeSwimlane';
 import { GlobePlayback } from '@/components/gods-eye/GlobePlayback';
 import type { PlaybackMode } from '@/components/gods-eye/GlobePlayback';
+import { GlobeTrails } from '@/components/gods-eye/GlobeTrails';
+import { GlobePillars } from '@/components/gods-eye/GlobePillars';
 
 export type { PlaybackMode } from '@/components/gods-eye/GlobePlayback';
 
@@ -39,9 +42,13 @@ export interface Globe4DManagerDeps {
   timeMachine?: GlobeTimeMachine | null;
   dataManager?: GlobeDataManager | null;
   autoFollow?: AutoFollowEngine | null;
+  /** Cesium viewer needed for trails + pillars (Cesium-rendered overlays). */
+  viewer?: Viewer | null;
   /** DOM node the swimlane mounts into. Usually the God's Eye container. */
   overlayContainer?: HTMLElement | null;
 }
+
+const HUD_REFRESH_MS = 1000;
 
 const SWIMLANE_REFRESH_MS = 1500;
 
@@ -58,6 +65,9 @@ export class Globe4DManager {
   private swimlane: GlobeSwimlane | null = null;
   private swimlaneRefreshId: ReturnType<typeof setInterval> | null = null;
   private playback: GlobePlayback | null = null;
+  private trails: GlobeTrails | null = null;
+  private pillars: GlobePillars | null = null;
+  private hudRefreshId: ReturnType<typeof setInterval> | null = null;
 
   constructor(deps: Globe4DManagerDeps) {
     this.deps = deps;
@@ -71,9 +81,11 @@ export class Globe4DManager {
 
     this.mountSwimlane();
     this.mountPlayback();
+    this.mountVisualOverlays();
+    this.startHudCounterRefresh();
 
     // Drive swimlane NOW line from time-machine state, and surface time
-    // updates to future degradation/trail consumers via a single hook.
+    // updates to future degradation consumers via a single hook.
     this.unsubTimeChange = this.deps.timeMachine?.onTimeChange((ms) => {
       this.swimlane?.updateNow(ms);
     }) ?? null;
@@ -92,6 +104,8 @@ export class Globe4DManager {
       this.unsubTimeChange = null;
     }
 
+    this.stopHudCounterRefresh();
+    this.unmountVisualOverlays();
     this.unmountPlayback();
     this.unmountSwimlane();
 
@@ -197,6 +211,46 @@ export class Globe4DManager {
   private unmountPlayback(): void {
     this.playback?.destroy();
     this.playback = null;
+  }
+
+  private mountVisualOverlays(): void {
+    const viewer = this.deps.viewer;
+    const dataManager = this.deps.dataManager;
+    if (!viewer || !dataManager) return;
+    this.trails = new GlobeTrails(viewer, dataManager);
+    this.trails.mount();
+    this.pillars = new GlobePillars(viewer, dataManager);
+    this.pillars.mount();
+  }
+
+  private unmountVisualOverlays(): void {
+    this.trails?.destroy();
+    this.trails = null;
+    this.pillars?.destroy();
+    this.pillars = null;
+  }
+
+  private startHudCounterRefresh(): void {
+    if (!this.deps.hud) return;
+    this.tickHudCounters();
+    this.hudRefreshId = setInterval(() => this.tickHudCounters(), HUD_REFRESH_MS);
+  }
+
+  private tickHudCounters(): void {
+    const trailCount = this.trails?.activeTrailCount ?? 0;
+    const forecastCount = this.pillars?.activePillarCount ?? 0;
+    if (this.state.trailCount !== trailCount || this.state.forecastCount !== forecastCount) {
+      this.state = { ...this.state, trailCount, forecastCount };
+      this.broadcast();
+    }
+  }
+
+  private stopHudCounterRefresh(): void {
+    if (this.hudRefreshId) {
+      clearInterval(this.hudRefreshId);
+      this.hudRefreshId = null;
+    }
+    this.state = { ...this.state, trailCount: 0, forecastCount: 0 };
   }
 
   private broadcast(): void {
