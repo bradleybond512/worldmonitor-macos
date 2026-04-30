@@ -240,6 +240,7 @@ export class GodsEyeView {
       hud: this.hud,
       timeMachine: this.timeMachine,
       dataManager: this.dataManager,
+      overlayContainer: this.container,
     });
     this.fourD.onChange((state) => {
       this.hud?.updateState({
