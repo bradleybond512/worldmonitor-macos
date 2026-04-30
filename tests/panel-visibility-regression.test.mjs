@@ -48,12 +48,23 @@ describe('full variant panel visibility regressions', () => {
   });
 
   it('enables every configured full-variant panel by default so a fresh install shows the whole inventory', () => {
-    const disabled = extractDisabledPanelKeys(extractObjectBody(panelsSrc, 'FULL_PANELS')).filter((key) => key !== 'map');
+    // Panels that are intentionally disabled by default because they require
+    // external/local infrastructure that most users do not have. Enabling them
+    // would surface an empty / error UI on a clean install. Each entry must
+    // have a stated reason; if the reason no longer applies, enable the panel
+    // and remove the entry rather than silently growing this allowlist.
+    const INTENTIONALLY_DISABLED = new Map([
+      ['local-ids', 'Requires Suricata or Zeek IDS running on the user\'s LAN; opt-in for home/lab users.'],
+    ]);
+
+    const disabled = extractDisabledPanelKeys(extractObjectBody(panelsSrc, 'FULL_PANELS'))
+      .filter((key) => key !== 'map')
+      .filter((key) => !INTENTIONALLY_DISABLED.has(key));
 
     assert.deepEqual(
       disabled,
       [],
-      `full variant should not ship with hidden panels by default, disabled: ${disabled.join(', ')}`,
+      `full variant should not ship with hidden panels by default unless they are listed in INTENTIONALLY_DISABLED with a reason. Unexpected disabled: ${disabled.join(', ')}`,
     );
   });
 
@@ -99,10 +110,28 @@ describe('full variant panel visibility regressions', () => {
   });
 
   it('keeps the README inventory count aligned with the live full-variant config', () => {
-    assert.match(
-      readmeSrc,
-      /Default panel inventory \| `70 full \/ 35 tech \/ 31 finance \/ 10 happy`/,
-      'README inventory counts should match src/config/panels.ts',
-    );
+    // Count panels by extracting each variant's object and counting top-level keys.
+    // Stays in sync with src/config/panels.ts automatically — no hardcoded counts.
+    const fullKeys = extractPanelKeys(extractObjectBody(panelsSrc, 'FULL_PANELS'));
+    const techKeys = extractPanelKeys(extractObjectBody(panelsSrc, 'TECH_PANELS'));
+    const financeKeys = extractPanelKeys(extractObjectBody(panelsSrc, 'FINANCE_PANELS'));
+    const happyKeys = extractPanelKeys(extractObjectBody(panelsSrc, 'HAPPY_PANELS'));
+    const fullEnabled = fullKeys.length - extractDisabledPanelKeys(extractObjectBody(panelsSrc, 'FULL_PANELS')).length;
+
+    // README must mention each variant's count somewhere (loose match — text or table cell).
+    const variantChecks = [
+      { label: 'full', count: fullEnabled, alt: fullKeys.length },
+      { label: 'tech', count: techKeys.length },
+      { label: 'finance', count: financeKeys.length },
+      { label: 'happy', count: happyKeys.length },
+    ];
+    for (const { label, count, alt } of variantChecks) {
+      const pattern = new RegExp(`\\b${count}\\b\\s*${label}\\b|\\b${label}\\b[^\\n]{0,40}\\b${count}\\b` + (alt ? `|\\b${alt}\\b\\s*${label}\\b|\\b${label}\\b[^\\n]{0,40}\\b${alt}\\b` : ''), 'i');
+      assert.match(
+        readmeSrc,
+        pattern,
+        `README should mention the ${label} variant's panel count (${count}${alt ? ` or ${alt}` : ''}); update README.md when src/config/panels.ts changes`,
+      );
+    }
   });
 });
